@@ -158,7 +158,7 @@ namespace HeapProfiler {
 
         protected IEnumerator<object> ShowDiff (RunningProcess.Snapshot s1, RunningProcess.Snapshot s2) {
             var viewer = new DiffViewer(Scheduler);
-            viewer.Show();
+            viewer.Show(this);
 
             var rtc = new RunToCompletion<string>(Instance.DiffSnapshots(s1.Filename, s2.Filename));
             yield return rtc;

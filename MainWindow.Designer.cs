@@ -43,8 +43,8 @@
             // 
             this.SelectExecutable.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.SelectExecutable.Font = new System.Drawing.Font("Tahoma", 7.8F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.SelectExecutable.Location = new System.Drawing.Point(335, 16);
-            this.SelectExecutable.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.SelectExecutable.Location = new System.Drawing.Point(406, 16);
+            this.SelectExecutable.Margin = new System.Windows.Forms.Padding(2);
             this.SelectExecutable.Name = "SelectExecutable";
             this.SelectExecutable.Size = new System.Drawing.Size(30, 20);
             this.SelectExecutable.TabIndex = 1;
@@ -62,10 +62,10 @@
             this.GroupExecutable.Controls.Add(this.ExecutablePath);
             this.GroupExecutable.Controls.Add(this.LaunchProcess);
             this.GroupExecutable.Location = new System.Drawing.Point(8, 8);
-            this.GroupExecutable.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.GroupExecutable.Margin = new System.Windows.Forms.Padding(2);
             this.GroupExecutable.Name = "GroupExecutable";
-            this.GroupExecutable.Padding = new System.Windows.Forms.Padding(2, 2, 2, 2);
-            this.GroupExecutable.Size = new System.Drawing.Size(448, 58);
+            this.GroupExecutable.Padding = new System.Windows.Forms.Padding(2);
+            this.GroupExecutable.Size = new System.Drawing.Size(519, 58);
             this.GroupExecutable.TabIndex = 0;
             this.GroupExecutable.TabStop = false;
             this.GroupExecutable.Text = "Executable";
@@ -86,9 +86,9 @@
             this.ExecutablePath.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
                         | System.Windows.Forms.AnchorStyles.Right)));
             this.ExecutablePath.Location = new System.Drawing.Point(4, 17);
-            this.ExecutablePath.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.ExecutablePath.Margin = new System.Windows.Forms.Padding(2);
             this.ExecutablePath.Name = "ExecutablePath";
-            this.ExecutablePath.Size = new System.Drawing.Size(327, 20);
+            this.ExecutablePath.Size = new System.Drawing.Size(398, 20);
             this.ExecutablePath.TabIndex = 0;
             this.ExecutablePath.TextChanged += new System.EventHandler(this.ExecutablePath_TextChanged);
             this.ExecutablePath.DragDrop += new System.Windows.Forms.DragEventHandler(this.ExecutablePath_DragDrop);
@@ -98,8 +98,8 @@
             // 
             this.LaunchProcess.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.LaunchProcess.Enabled = false;
-            this.LaunchProcess.Location = new System.Drawing.Point(368, 16);
-            this.LaunchProcess.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.LaunchProcess.Location = new System.Drawing.Point(439, 16);
+            this.LaunchProcess.Margin = new System.Windows.Forms.Padding(2);
             this.LaunchProcess.Name = "LaunchProcess";
             this.LaunchProcess.Size = new System.Drawing.Size(75, 20);
             this.LaunchProcess.TabIndex = 2;
@@ -117,10 +117,10 @@
             this.GroupSnapshots.Controls.Add(this.CaptureSnapshot);
             this.GroupSnapshots.Controls.Add(this.SnapshotList);
             this.GroupSnapshots.Location = new System.Drawing.Point(8, 71);
-            this.GroupSnapshots.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.GroupSnapshots.Margin = new System.Windows.Forms.Padding(2);
             this.GroupSnapshots.Name = "GroupSnapshots";
-            this.GroupSnapshots.Padding = new System.Windows.Forms.Padding(2, 2, 2, 2);
-            this.GroupSnapshots.Size = new System.Drawing.Size(448, 239);
+            this.GroupSnapshots.Padding = new System.Windows.Forms.Padding(2);
+            this.GroupSnapshots.Size = new System.Drawing.Size(519, 257);
             this.GroupSnapshots.TabIndex = 1;
             this.GroupSnapshots.TabStop = false;
             this.GroupSnapshots.Text = "Snapshots";
@@ -129,10 +129,10 @@
             // 
             this.SaveSelection.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.SaveSelection.Enabled = false;
-            this.SaveSelection.Location = new System.Drawing.Point(361, 67);
-            this.SaveSelection.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.SaveSelection.Location = new System.Drawing.Point(415, 67);
+            this.SaveSelection.Margin = new System.Windows.Forms.Padding(2);
             this.SaveSelection.Name = "SaveSelection";
-            this.SaveSelection.Size = new System.Drawing.Size(82, 20);
+            this.SaveSelection.Size = new System.Drawing.Size(100, 20);
             this.SaveSelection.TabIndex = 3;
             this.SaveSelection.Text = "&Save Selection";
             this.SaveSelection.UseVisualStyleBackColor = true;
@@ -141,10 +141,10 @@
             // 
             this.DiffSelection.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.DiffSelection.Enabled = false;
-            this.DiffSelection.Location = new System.Drawing.Point(361, 42);
-            this.DiffSelection.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.DiffSelection.Location = new System.Drawing.Point(415, 42);
+            this.DiffSelection.Margin = new System.Windows.Forms.Padding(2);
             this.DiffSelection.Name = "DiffSelection";
-            this.DiffSelection.Size = new System.Drawing.Size(82, 20);
+            this.DiffSelection.Size = new System.Drawing.Size(100, 20);
             this.DiffSelection.TabIndex = 2;
             this.DiffSelection.Text = "&Diff Selection";
             this.DiffSelection.UseVisualStyleBackColor = true;
@@ -155,10 +155,10 @@
             this.CaptureSnapshot.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.CaptureSnapshot.Enabled = false;
             this.CaptureSnapshot.Font = new System.Drawing.Font("Microsoft Sans Serif", 7.8F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.CaptureSnapshot.Location = new System.Drawing.Point(361, 17);
-            this.CaptureSnapshot.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.CaptureSnapshot.Location = new System.Drawing.Point(415, 17);
+            this.CaptureSnapshot.Margin = new System.Windows.Forms.Padding(2);
             this.CaptureSnapshot.Name = "CaptureSnapshot";
-            this.CaptureSnapshot.Size = new System.Drawing.Size(82, 20);
+            this.CaptureSnapshot.Size = new System.Drawing.Size(100, 20);
             this.CaptureSnapshot.TabIndex = 1;
             this.CaptureSnapshot.Text = "&Capture Now";
             this.CaptureSnapshot.UseVisualStyleBackColor = true;
@@ -173,10 +173,10 @@
             this.SnapshotList.IntegralHeight = false;
             this.SnapshotList.ItemHeight = 17;
             this.SnapshotList.Location = new System.Drawing.Point(4, 17);
-            this.SnapshotList.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.SnapshotList.Margin = new System.Windows.Forms.Padding(2);
             this.SnapshotList.Name = "SnapshotList";
             this.SnapshotList.SelectionMode = System.Windows.Forms.SelectionMode.MultiExtended;
-            this.SnapshotList.Size = new System.Drawing.Size(353, 218);
+            this.SnapshotList.Size = new System.Drawing.Size(407, 236);
             this.SnapshotList.TabIndex = 0;
             this.SnapshotList.SelectedIndexChanged += new System.EventHandler(this.SnapshotList_SelectedIndexChanged);
             // 
@@ -184,10 +184,10 @@
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(463, 319);
+            this.ClientSize = new System.Drawing.Size(534, 337);
             this.Controls.Add(this.GroupSnapshots);
             this.Controls.Add(this.GroupExecutable);
-            this.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.Margin = new System.Windows.Forms.Padding(2);
             this.Name = "MainWindow";
             this.Text = "Heap Profiler";
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.MainWindow_FormClosing);
