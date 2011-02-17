@@ -33,7 +33,7 @@ namespace HeapProfiler {
             public string Filename;
 
             public override string ToString () {
-                return String.Format("#{0} - {1}", Index, When.ToShortTimeString());
+                return String.Format("#{0} - {1}", Index, When.ToLongTimeString());
             }
         }
 
@@ -56,62 +56,6 @@ namespace HeapProfiler {
             ));
         }
 
-        protected static SignalFuture WaitForExit (Process process) {
-            var exited = new SignalFuture();
-
-            process.Exited += (s, e) =>
-                exited.Complete();
-
-            if (process.HasExited) 
-            try {
-                exited.Complete();
-            } catch {
-            }
-
-            return exited;
-        }
-
-        protected Future<Process> StartProcess (ProcessStartInfo psi) {
-            return Future.RunInThread(
-                () => {
-                    var p = Process.Start(psi);
-                    p.EnableRaisingEvents = true;
-                    return p;
-                }
-            );
-        }
-
-        protected IEnumerator<object> RunProcess (ProcessStartInfo psi) {
-            psi.UseShellExecute = false;
-            psi.CreateNoWindow = true;
-            psi.RedirectStandardOutput = true;
-            psi.RedirectStandardError = true;
-            psi.WindowStyle = ProcessWindowStyle.Hidden;
-
-            var fProcess = StartProcess(psi);
-            yield return fProcess;
-
-            using (var process = fProcess.Result) {
-                yield return WaitForExit(process);
-
-                var stdout = process.StandardOutput.ReadToEnd().Trim();
-                var stderr = process.StandardError.ReadToEnd().Trim();
-
-                if (stdout.Length > 0)
-                    Console.WriteLine("{0} stdout:\n{1}", Path.GetFileNameWithoutExtension(psi.FileName), stdout);
-                if (stderr.Length > 0)
-                    Console.WriteLine("{0} stderr:\n{1}", Path.GetFileNameWithoutExtension(psi.FileName), stderr);
-
-                if (stderr.Contains("_NT_SYMBOL_PATH variable is not defined") && !Program.ShownSymbolPathWarning) {
-                    Program.ShownSymbolPathWarning = true;
-                    MessageBox.Show("Please define the _NT_SYMBOL_PATH variable to get correct stack traces.", "Warning");
-                }
-
-                if (process.ExitCode != 0)
-                    throw new Exception(String.Format("Process exited with code {0}", process.ExitCode));
-            }
-        }
-
         protected void OnStatusChanged () {
             if (StatusChanged != null)
                 StatusChanged(this, EventArgs.Empty);
@@ -125,23 +69,23 @@ namespace HeapProfiler {
         protected IEnumerator<object> MainTask () {
             var shortName = Path.GetFileName(Path.GetFullPath(StartInfo.FileName));
 
-            yield return RunProcess(new ProcessStartInfo(
+            yield return Program.RunProcess(new ProcessStartInfo(
                 Settings.GflagsPath, String.Format(
                     "-i {0} +ust", shortName
                 )
             ));
 
-            var f = StartProcess(StartInfo);
+            var f = Program.StartProcess(StartInfo);
             yield return f;
 
             using (Process = f.Result) {
                 OnStatusChanged();
-                yield return WaitForExit(Process);
+                yield return Program.WaitForProcessExit(Process);
             }
 
             Process = null;
 
-            yield return RunProcess(new ProcessStartInfo(
+            yield return Program.RunProcess(new ProcessStartInfo(
                 Settings.GflagsPath, String.Format(
                     "-i {0} -ust", shortName
                 )
@@ -203,7 +147,7 @@ namespace HeapProfiler {
                 )
             );
 
-            yield return RunProcess(psi);
+            yield return Program.RunProcess(psi);
 
             Snapshots.Add(new Snapshot {
                 Index = Snapshots.Count + 1,
@@ -213,27 +157,18 @@ namespace HeapProfiler {
             OnSnapshotsChanged();
         }
 
-        public IFuture DiffSnapshots (string file1, string file2) {
+        public IEnumerator<object> DiffSnapshots (string file1, string file2) {
             var filename = Path.GetTempFileName();
 
-            var f = Scheduler.Start(
-                DiffSnapshotsTask(file1, file2, filename), TaskExecutionPolicy.RunAsBackgroundTask
-            );
-
-            Futures.Add(f);
-            return f;
-        }
-
-        protected IEnumerator<object> DiffSnapshotsTask (string file1, string file2, string targetFilename) {
             var psi = new ProcessStartInfo(
                 Settings.UmdhPath, String.Format(
-                    "-d \"{0}\" \"{1}\" -f:\"{2}\"", file1, file2, targetFilename
+                    "-d \"{0}\" \"{1}\" -f:\"{2}\"", file1, file2, filename
                 )
             );
 
-            yield return RunProcess(psi);
+            yield return Program.RunProcess(psi);
 
-            Process.Start("notepad.exe", targetFilename);
+            yield return new Result(filename);
         }
     }
 }

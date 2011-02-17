@@ -21,12 +21,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Windows.Forms;
 using Squared.Task;
+using System.Diagnostics;
+using System.IO;
 
 namespace HeapProfiler {
     static class Program {
         public static TaskScheduler Scheduler;
-
-        public static bool ShownSymbolPathWarning = false;
 
         /// <summary>
         /// The main entry point for the application.
@@ -39,13 +39,98 @@ namespace HeapProfiler {
             using (Scheduler = new TaskScheduler(JobQueue.WindowsMessageBased)) {
                 Scheduler.ErrorHandler = OnTaskError;
 
-                Application.Run(new MainWindow(Scheduler));
+                using (var f = Scheduler.Start(MainTask(), TaskExecutionPolicy.RunAsBackgroundTask)) {
+                    f.RegisterOnComplete((_) => {
+                        if (_.Failed)
+                            Application.Exit();
+                    }); 
+
+                    Application.Run();
+                }
             }
         }
 
         static bool OnTaskError (Exception error) {
             MessageBox.Show(error.ToString(), "Unhandled exception in background task");
             return true;
+        }
+
+        public static IEnumerator<object> MainTask () {
+            if (!Settings.DebuggingToolsInstalled) {
+                var defaultPath = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+                    @"Microsoft SDKs\Windows\v7.1\Redist\Debugging Tools for Windows\dbg_x86.msi"
+                );
+                if (!File.Exists(defaultPath))
+                    defaultPath = defaultPath.Replace(" (x86)", "");
+
+                if (File.Exists(defaultPath)) {
+                    var result = MessageBox.Show("Debugging Tools for Windows from SDK 7.1 is not installed. Would you like to install it now?", "Error", MessageBoxButtons.YesNo);
+                    if (result == DialogResult.No)
+                        Application.Exit();
+
+                    yield return RunProcess(new ProcessStartInfo(
+                        "msiexec.exe", String.Format("/package \"{0}\"", defaultPath)
+                    ));
+                } else {
+                    MessageBox.Show("Debugging Tools for Windows from SDK 7.1 is not installed.", "Error");
+                    Application.Exit();
+                }
+            }
+
+            using (var window = new MainWindow(Scheduler))
+                yield return window.Show();
+        }
+
+        public static SignalFuture WaitForProcessExit (Process process) {
+            var exited = new SignalFuture();
+
+            process.Exited += (s, e) =>
+                exited.Complete();
+
+            if (process.HasExited)
+                try {
+                    exited.Complete();
+                } catch {
+                }
+
+            return exited;
+        }
+
+        public static Future<Process> StartProcess (ProcessStartInfo psi) {
+            return Future.RunInThread(
+                () => {
+                    var p = Process.Start(psi);
+                    p.EnableRaisingEvents = true;
+                    return p;
+                }
+            );
+        }
+
+        public static IEnumerator<object> RunProcess (ProcessStartInfo psi) {
+            psi.UseShellExecute = false;
+            psi.CreateNoWindow = true;
+            psi.RedirectStandardOutput = true;
+            psi.RedirectStandardError = true;
+            psi.WindowStyle = ProcessWindowStyle.Hidden;
+
+            var fProcess = StartProcess(psi);
+            yield return fProcess;
+
+            using (var process = fProcess.Result) {
+                yield return WaitForProcessExit(process);
+
+                var stdout = process.StandardOutput.ReadToEnd().Trim();
+                var stderr = process.StandardError.ReadToEnd().Trim();
+
+                if (stdout.Length > 0)
+                    Console.WriteLine("{0} stdout:\n{1}", Path.GetFileNameWithoutExtension(psi.FileName), stdout);
+                if (stderr.Length > 0)
+                    Console.WriteLine("{0} stderr:\n{1}", Path.GetFileNameWithoutExtension(psi.FileName), stderr);
+
+                if (process.ExitCode != 0)
+                    throw new Exception(String.Format("Process exited with code {0}", process.ExitCode));
+            }
         }
     }
 }

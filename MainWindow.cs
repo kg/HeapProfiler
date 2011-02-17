@@ -143,17 +143,33 @@ namespace HeapProfiler {
         }
 
         private void DiffSelection_Click (object sender, EventArgs e) {
-            var file1 = SnapshotList.SelectedItems[0] as string;
-            var file2 = SnapshotList.SelectedItems[1] as string;
+            var s1 = (RunningProcess.Snapshot)SnapshotList.SelectedItems[0];
+            var s2 = (RunningProcess.Snapshot)SnapshotList.SelectedItems[1];
 
             DiffSelection.Enabled = false;
             UseWaitCursor = true;
 
-            Instance.DiffSnapshots(file1, file2)
+            Start(ShowDiff(s1, s2))
                 .RegisterOnComplete((_) => {
                     DiffSelection.Enabled = true;
                     UseWaitCursor = false;
                 });
+        }
+
+        protected IEnumerator<object> ShowDiff (RunningProcess.Snapshot s1, RunningProcess.Snapshot s2) {
+            var viewer = new DiffViewer(Scheduler);
+            viewer.Show();
+
+            var rtc = new RunToCompletion<string>(Instance.DiffSnapshots(s1.Filename, s2.Filename));
+            yield return rtc;
+
+            viewer.LoadingPanel.Text = "Loading diff...";
+
+            yield return viewer.LoadDiff(rtc.Result);
+        }
+
+        private void MainWindow_FormClosed (object sender, FormClosedEventArgs e) {
+            Application.Exit();
         }
     }
 }

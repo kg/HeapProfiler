@@ -33,6 +33,16 @@ namespace HeapProfiler {
             string product, string component, char* buf, ref int length
         );
 
+        public static bool DebuggingToolsInstalled {
+            get {
+                try {
+                    return GetMsiProperty("{D09605BE-5587-4B0C-86C8-69B5092CB80F}", "InstallSource") != null;
+                } catch {
+                    return false;
+                }
+            }
+        }
+
         public static string GflagsPath {
             get {
                 return GetMsiComponentPath(
