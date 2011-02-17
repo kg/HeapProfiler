@@ -39,6 +39,7 @@ namespace HeapProfiler {
             public string ModuleName;
             public string SymbolType;
             public string SymbolPath;
+            public int References = 0;
 
             public override string ToString () {
                 return ModuleName;
@@ -209,8 +210,11 @@ namespace HeapProfiler {
                                 if (!Modules.ContainsKey(moduleName)) {
                                     Modules[moduleName] = new ModuleInfo {
                                         ModuleName = moduleName,
-                                        SymbolType = "Unknown"
+                                        SymbolType = "Unknown",
+                                        References = 1
                                     };
+                                } else {
+                                    Modules[moduleName].References += 1;
                                 }
 
                                 var frame = new TracebackFrame {
@@ -243,6 +247,11 @@ namespace HeapProfiler {
                         break;
                     line = null;
                 }
+            }
+
+            foreach (var key in Modules.Keys.ToArray()) {
+                if (Modules[key].References == 0)
+                    Modules.Remove(key);
             }
 
             RefreshModules();
