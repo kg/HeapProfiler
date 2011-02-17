@@ -45,7 +45,7 @@ namespace HeapProfiler {
             }
         }
 
-        public struct DeltaInfo {
+        public class DeltaInfo {
             public bool Added;
             public int BytesDelta, OldBytes, NewBytes, NewCount;
             public int? CountDelta, OldCount;
@@ -53,11 +53,10 @@ namespace HeapProfiler {
 
             public override string ToString () {
                 return String.Format(
-                    "{0} {1} byte(s) ({2} - {3})\r\n{4}",
+                    "{0} {1} byte(s) ({2} - {3})",
                     Added ? "+" : "-",
-                    BytesDelta, NewBytes, OldBytes,
-                    Traceback
-                );
+                    BytesDelta, NewBytes, OldBytes
+                ) + Environment.NewLine + Traceback.ToString();
             }
         }
 
@@ -67,7 +66,14 @@ namespace HeapProfiler {
             public HashSet<string> Modules;
 
             public override string ToString () {
-                return TraceId;
+                var sb = new StringBuilder();
+                foreach (var frame in Frames) {
+                    if (sb.Length > 0)
+                        sb.AppendLine();
+
+                    sb.AppendFormat("{0}!{1}+{2}", frame.Module, frame.Function, frame.Offset2.GetValueOrDefault(frame.Offset));
+                }
+                return sb.ToString();
             }
         }
 
@@ -99,11 +105,16 @@ namespace HeapProfiler {
         public List<DeltaInfo> Deltas = new List<DeltaInfo>();
         public Dictionary<string, TracebackInfo> Tracebacks = new Dictionary<string, TracebackInfo>();
 
+        protected StringFormat DeltaListFormat;
         protected bool Updating = false;
 
         public DiffViewer (TaskScheduler scheduler)
             : base (scheduler) {
             InitializeComponent();
+
+            DeltaListFormat = new StringFormat();
+            DeltaListFormat.Trimming = StringTrimming.None;
+            DeltaListFormat.FormatFlags = StringFormatFlags.NoWrap | StringFormatFlags.FitBlackBox;
         }
 
         public IEnumerator<object> LoadDiff (string filename) {
@@ -339,6 +350,44 @@ namespace HeapProfiler {
             Updating = false;
 
             RefreshDeltas();
+        }
+
+        private void DeltaList_MeasureItem (object sender, MeasureItemEventArgs e) {
+            if (e.Index < 0)
+                return;
+
+            var item = DeltaList.Items[e.Index] as DeltaInfo;
+            if (item == null)
+                return;
+
+            using (var g = e.Graphics) {
+                var size = g.MeasureString(item.ToString(), DeltaList.Font, DeltaList.Width, DeltaListFormat);
+                e.ItemWidth = (int)size.Width;
+                e.ItemHeight = Math.Min(255, (int)size.Height);
+            }
+        }
+
+        private void DeltaList_DrawItem (object sender, DrawItemEventArgs e) {
+            if (e.Index < 0)
+                return;
+
+            e.DrawBackground();
+            e.DrawFocusRectangle();
+
+            var item = DeltaList.Items[e.Index] as DeltaInfo;
+            if (item == null)
+                return;
+
+            using (var brush = new SolidBrush(
+                (e.State & DrawItemState.Selected) == DrawItemState.Selected ? SystemColors.HighlightText : SystemColors.WindowText
+            )) {
+                var bounds = new RectangleF(
+                    e.Bounds.Left, e.Bounds.Top, e.Bounds.Width, e.Bounds.Height
+                );
+                e.Graphics.DrawString(
+                    item.ToString(), DeltaList.Font, brush, bounds, DeltaListFormat
+                );
+            }
         }
     }
 }

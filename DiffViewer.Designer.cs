@@ -149,6 +149,7 @@
             // DeltaList
             // 
             this.DeltaList.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.DeltaList.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawVariable;
             this.DeltaList.Font = new System.Drawing.Font("Consolas", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.DeltaList.FormattingEnabled = true;
             this.DeltaList.IntegralHeight = false;
@@ -157,6 +158,8 @@
             this.DeltaList.Name = "DeltaList";
             this.DeltaList.Size = new System.Drawing.Size(319, 312);
             this.DeltaList.TabIndex = 0;
+            this.DeltaList.DrawItem += new System.Windows.Forms.DrawItemEventHandler(this.DeltaList_DrawItem);
+            this.DeltaList.MeasureItem += new System.Windows.Forms.MeasureItemEventHandler(this.DeltaList_MeasureItem);
             // 
             // DiffViewer
             // 
