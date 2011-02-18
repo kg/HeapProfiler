@@ -46,6 +46,8 @@ namespace HeapProfiler {
         protected readonly List<VisibleItem> VisibleItems = new List<VisibleItem>();
         protected int CollapsedSize;
 
+        protected ScrollBar ScrollBar = null;
+
         protected int _SelectedIndex = -1;
         protected int _ScrollOffset = 0;
 
@@ -58,6 +60,27 @@ namespace HeapProfiler {
 
             BackColor = SystemColors.Window;
             ForeColor = SystemColors.WindowText;
+
+            ScrollBar = new VScrollBar {
+                SmallChange = 1,
+                LargeChange = 8
+            };
+
+            ScrollBar.Scroll += new ScrollEventHandler(ScrollBar_Scroll);
+            OnResize(EventArgs.Empty);
+
+            Controls.Add(ScrollBar);
+        }
+
+        void ScrollBar_Scroll (object sender, ScrollEventArgs e) {
+            ScrollOffset = e.NewValue;
+        }
+
+        protected override void OnResize (EventArgs e) {
+            var preferredSize = ScrollBar.GetPreferredSize(ClientSize);
+            ScrollBar.SetBounds(ClientSize.Width - preferredSize.Width, 0, preferredSize.Width, ClientSize.Height);
+
+            base.OnResize(e);
         }
 
         protected override void OnPaint (PaintEventArgs e) {
@@ -74,7 +97,7 @@ namespace HeapProfiler {
                 Trimming = StringTrimming.None
             };
 
-            CollapsedSize = (int)Math.Ceiling(g.MeasureString("AaBbYyZz", Font).Height * 3);
+            CollapsedSize = (int)Math.Ceiling(g.MeasureString("AaBbYyZz\r\nAaBbYyZz\r\nAaBbYyZz", Font).Height);
 
             VisibleItems.Clear();
 
@@ -113,6 +136,12 @@ namespace HeapProfiler {
 
             }
 
+            int scrollMax = Math.Max(1, Items.Count - 1) + ScrollBar.LargeChange - 1;
+            if (ScrollBar.Maximum != scrollMax)
+                ScrollBar.Maximum = scrollMax;
+            if (ScrollBar.Value != ScrollOffset)
+                ScrollBar.Value = ScrollOffset;
+
             base.OnPaint(e);
         }
 
@@ -140,6 +169,12 @@ namespace HeapProfiler {
             }
 
             base.OnMouseMove(e);
+        }
+
+        protected override void OnMouseWheel (MouseEventArgs e) {
+            ScrollOffset -= (e.Delta / SystemInformation.MouseWheelScrollDelta) * SystemInformation.MouseWheelScrollLines;
+
+            base.OnMouseWheel(e);
         }
 
         protected override void OnDoubleClick (EventArgs e) {
@@ -179,11 +214,16 @@ namespace HeapProfiler {
                 return _ScrollOffset;
             }
             set {
-                if ((value < 0) || (value >= Items.Count))
-                    throw new ArgumentOutOfRangeException("value", "0 <= ScrollOffset < Count");
+                if (value >= Items.Count)
+                    value = Items.Count - 1;
+                if (value < 0)
+                    value = 0;
 
                 if (value != _ScrollOffset) {
                     _ScrollOffset = value;
+                    if (ScrollBar.Value != value)
+                        ScrollBar.Value = value;
+
                     Invalidate();
                 }
             }
