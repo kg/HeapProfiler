@@ -152,7 +152,6 @@ namespace HeapProfiler {
                     Match m;
                     if (ModuleRegex.TryMatch(line, out m)) {
                         var moduleName = String.Intern(m.Groups["module"].Value);
-                        Console.WriteLine(moduleName);
 
                         var info = new ModuleInfo {
                             ModuleName = moduleName,
@@ -270,6 +269,7 @@ namespace HeapProfiler {
             if (Updating)
                 return;
 
+            UseWaitCursor = true;
             Updating = true;
 
             ModuleList.BeginUpdate();
@@ -280,6 +280,7 @@ namespace HeapProfiler {
                 ModuleList.SetItemChecked(i, true);
             ModuleList.EndUpdate();
 
+            UseWaitCursor = false;
             Updating = false;
         }
 
@@ -287,6 +288,7 @@ namespace HeapProfiler {
             if (Updating)
                 return;
 
+            UseWaitCursor = true;
             Updating = true;
 
             DeltaList.BeginUpdate();
@@ -305,6 +307,7 @@ namespace HeapProfiler {
             }
             DeltaList.EndUpdate();
 
+            UseWaitCursor = false;
             Updating = false;
         }
 
@@ -370,9 +373,8 @@ namespace HeapProfiler {
                 return;
 
             using (var g = e.Graphics) {
-                var size = g.MeasureString(item.ToString(), DeltaList.Font, DeltaList.Width, DeltaListFormat);
-                e.ItemWidth = (int)size.Width;
-                e.ItemHeight = Math.Min(255, (int)size.Height);
+                e.ItemHeight = Math.Min(255, (int)g.MeasureString("AaBbYyZz", DeltaList.Font).Height * (item.Traceback.Frames.Length + 1));
+                e.ItemWidth = DeltaList.Width;
             }
         }
 

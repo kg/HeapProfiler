@@ -56,26 +56,52 @@ namespace HeapProfiler {
         }
 
         public static IEnumerator<object> MainTask () {
-            if (!Settings.DebuggingToolsInstalled) {
+            while (!Settings.DebuggingToolsInstalled) {
+                bool isSdkInstalled = false;
+                bool areRedistsInstalled = false;
+
                 var defaultPath = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+                    @"Microsoft SDKs\Windows\v7.1"
+                );
+                if (!Directory.Exists(defaultPath))
+                    defaultPath = defaultPath.Replace(" (x86)", "");
+
+                isSdkInstalled = Directory.Exists(defaultPath);
+
+                defaultPath = Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
                     @"Microsoft SDKs\Windows\v7.1\Redist\Debugging Tools for Windows\dbg_x86.msi"
                 );
                 if (!File.Exists(defaultPath))
                     defaultPath = defaultPath.Replace(" (x86)", "");
 
-                if (File.Exists(defaultPath)) {
-                    var result = MessageBox.Show("Debugging Tools for Windows from SDK 7.1 is not installed. Would you like to install it now?", "Error", MessageBoxButtons.YesNo);
-                    if (result == DialogResult.No)
+                areRedistsInstalled = File.Exists(defaultPath);
+
+                if (areRedistsInstalled) {
+                    var result = MessageBox.Show("The x86 Debugging Tools for Windows from SDK 7.1 are not installed. Would you like to install them now?", "Error", MessageBoxButtons.YesNo);
+                    if (result == DialogResult.No) {
                         Application.Exit();
+                        yield break;
+                    }
 
                     yield return RunProcess(new ProcessStartInfo(
                         "msiexec.exe", String.Format("/package \"{0}\"", defaultPath)
                     ));
-                } else {
-                    MessageBox.Show("Debugging Tools for Windows from SDK 7.1 is not installed.", "Error");
+                } else if (isSdkInstalled) {
+                    var result = MessageBox.Show("The x86 Debugging Tools for Windows from SDK 7.1 are not installed, and you did not install the redistributables when you installed the SDK. Please either install the debugging tools or the redistributables.", "Error");
                     Application.Exit();
+                    yield break;
+                } else {
+                    var result = MessageBox.Show("Windows SDK 7.1 is not installed. Would you like to download the SDK?", "Error", MessageBoxButtons.YesNo);
+                    if (result == DialogResult.Yes)
+                        Process.Start("http://www.microsoft.com/downloads/en/details.aspx?FamilyID=6b6c21d2-2006-4afa-9702-529fa782d63b&displaylang=en");
+
+                    Application.Exit();
+                    yield break;
                 }
+
+                yield return new Sleep(1.0);
             }
 
             using (var window = new MainWindow(Scheduler))

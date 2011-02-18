@@ -35,8 +35,14 @@
             this.DiffSelection = new System.Windows.Forms.Button();
             this.CaptureSnapshot = new System.Windows.Forms.Button();
             this.SnapshotList = new System.Windows.Forms.ListBox();
+            this.menuStrip1 = new System.Windows.Forms.MenuStrip();
+            this.fileToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.exitToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.optionsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.SymbolPathMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.GroupExecutable.SuspendLayout();
             this.GroupSnapshots.SuspendLayout();
+            this.menuStrip1.SuspendLayout();
             this.SuspendLayout();
             // 
             // SelectExecutable
@@ -61,7 +67,7 @@
             this.GroupExecutable.Controls.Add(this.SelectExecutable);
             this.GroupExecutable.Controls.Add(this.ExecutablePath);
             this.GroupExecutable.Controls.Add(this.LaunchProcess);
-            this.GroupExecutable.Location = new System.Drawing.Point(8, 8);
+            this.GroupExecutable.Location = new System.Drawing.Point(8, 32);
             this.GroupExecutable.Margin = new System.Windows.Forms.Padding(2);
             this.GroupExecutable.Name = "GroupExecutable";
             this.GroupExecutable.Padding = new System.Windows.Forms.Padding(2);
@@ -116,7 +122,7 @@
             this.GroupSnapshots.Controls.Add(this.DiffSelection);
             this.GroupSnapshots.Controls.Add(this.CaptureSnapshot);
             this.GroupSnapshots.Controls.Add(this.SnapshotList);
-            this.GroupSnapshots.Location = new System.Drawing.Point(8, 71);
+            this.GroupSnapshots.Location = new System.Drawing.Point(8, 94);
             this.GroupSnapshots.Margin = new System.Windows.Forms.Padding(2);
             this.GroupSnapshots.Name = "GroupSnapshots";
             this.GroupSnapshots.Padding = new System.Windows.Forms.Padding(2);
@@ -180,22 +186,70 @@
             this.SnapshotList.TabIndex = 0;
             this.SnapshotList.SelectedIndexChanged += new System.EventHandler(this.SnapshotList_SelectedIndexChanged);
             // 
+            // menuStrip1
+            // 
+            this.menuStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.fileToolStripMenuItem,
+            this.optionsToolStripMenuItem});
+            this.menuStrip1.Location = new System.Drawing.Point(0, 0);
+            this.menuStrip1.Name = "menuStrip1";
+            this.menuStrip1.Size = new System.Drawing.Size(534, 24);
+            this.menuStrip1.TabIndex = 2;
+            this.menuStrip1.Text = "menuStrip1";
+            // 
+            // fileToolStripMenuItem
+            // 
+            this.fileToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.exitToolStripMenuItem});
+            this.fileToolStripMenuItem.Name = "fileToolStripMenuItem";
+            this.fileToolStripMenuItem.Size = new System.Drawing.Size(37, 20);
+            this.fileToolStripMenuItem.Text = "&File";
+            // 
+            // exitToolStripMenuItem
+            // 
+            this.exitToolStripMenuItem.Name = "exitToolStripMenuItem";
+            this.exitToolStripMenuItem.Size = new System.Drawing.Size(92, 22);
+            this.exitToolStripMenuItem.Text = "E&xit";
+            this.exitToolStripMenuItem.Click += new System.EventHandler(this.ExitMenu_Click);
+            // 
+            // optionsToolStripMenuItem
+            // 
+            this.optionsToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.SymbolPathMenu});
+            this.optionsToolStripMenuItem.Name = "optionsToolStripMenuItem";
+            this.optionsToolStripMenuItem.Size = new System.Drawing.Size(61, 20);
+            this.optionsToolStripMenuItem.Text = "&Options";
+            // 
+            // SymbolPathMenu
+            // 
+            this.SymbolPathMenu.Enabled = false;
+            this.SymbolPathMenu.Name = "SymbolPathMenu";
+            this.SymbolPathMenu.Size = new System.Drawing.Size(152, 22);
+            this.SymbolPathMenu.Text = "&Symbol Path...";
+            this.SymbolPathMenu.Click += new System.EventHandler(this.SymbolPathMenu_Click);
+            // 
             // MainWindow
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(534, 337);
+            this.ClientSize = new System.Drawing.Size(534, 359);
             this.Controls.Add(this.GroupSnapshots);
             this.Controls.Add(this.GroupExecutable);
+            this.Controls.Add(this.menuStrip1);
+            this.MainMenuStrip = this.menuStrip1;
             this.Margin = new System.Windows.Forms.Padding(2);
             this.Name = "MainWindow";
+            this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "Heap Profiler";
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.MainWindow_FormClosing);
             this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.MainWindow_FormClosed);
             this.GroupExecutable.ResumeLayout(false);
             this.GroupExecutable.PerformLayout();
             this.GroupSnapshots.ResumeLayout(false);
+            this.menuStrip1.ResumeLayout(false);
+            this.menuStrip1.PerformLayout();
             this.ResumeLayout(false);
+            this.PerformLayout();
 
         }
 
@@ -212,6 +266,11 @@
         private System.Windows.Forms.Button DiffSelection;
         private System.Windows.Forms.Button CaptureSnapshot;
         private System.Windows.Forms.Button SaveSelection;
+        private System.Windows.Forms.MenuStrip menuStrip1;
+        private System.Windows.Forms.ToolStripMenuItem fileToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem exitToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem optionsToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem SymbolPathMenu;
     }
 }
 
