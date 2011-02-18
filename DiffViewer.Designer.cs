@@ -32,7 +32,7 @@
             this.SelectNoModules = new System.Windows.Forms.ToolStripButton();
             this.InvertModuleSelection = new System.Windows.Forms.ToolStripButton();
             this.ModuleList = new System.Windows.Forms.CheckedListBox();
-            this.DeltaList = new System.Windows.Forms.ListBox();
+            this.DeltaList = new DeltaList();
             this.LoadingPanel.SuspendLayout();
             this.MainSplit.Panel1.SuspendLayout();
             this.MainSplit.Panel2.SuspendLayout();
@@ -149,17 +149,11 @@
             // DeltaList
             // 
             this.DeltaList.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.DeltaList.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawVariable;
             this.DeltaList.Font = new System.Drawing.Font("Consolas", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.DeltaList.FormattingEnabled = true;
-            this.DeltaList.IntegralHeight = false;
-            this.DeltaList.ItemHeight = 18;
             this.DeltaList.Location = new System.Drawing.Point(0, 0);
             this.DeltaList.Name = "DeltaList";
             this.DeltaList.Size = new System.Drawing.Size(319, 312);
             this.DeltaList.TabIndex = 0;
-            this.DeltaList.DrawItem += new System.Windows.Forms.DrawItemEventHandler(this.DeltaList_DrawItem);
-            this.DeltaList.MeasureItem += new System.Windows.Forms.MeasureItemEventHandler(this.DeltaList_MeasureItem);
             // 
             // DiffViewer
             // 
@@ -190,7 +184,7 @@
         public System.Windows.Forms.GroupBox LoadingPanel;
         private System.Windows.Forms.SplitContainer MainSplit;
         private System.Windows.Forms.CheckedListBox ModuleList;
-        private System.Windows.Forms.ListBox DeltaList;
+        private DeltaList DeltaList;
         private System.Windows.Forms.ToolStrip ModuleSelectionToolbar;
         private System.Windows.Forms.ToolStripButton SelectAllModules;
         private System.Windows.Forms.ToolStripButton SelectNoModules;

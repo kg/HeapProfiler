@@ -72,7 +72,10 @@ namespace HeapProfiler {
                     if (sb.Length > 0)
                         sb.AppendLine();
 
-                    sb.AppendFormat("{0}!{1}+{2}", frame.Module, frame.Function, frame.Offset2.GetValueOrDefault(frame.Offset));
+                    if (frame.Offset2.HasValue)
+                        sb.AppendFormat("{0}!{1}@{2:x8}", frame.Module, frame.Function, frame.Offset2.Value);
+                    else
+                        sb.AppendFormat("{0}!{1}+{2:x8}", frame.Module, frame.Function, frame.Offset);
                 }
                 return sb.ToString();
             }
@@ -133,7 +136,7 @@ namespace HeapProfiler {
                 int i = 0;
                 while (true) {
                     i += 1;
-                    if ((i % 5 == 0) && (LoadingProgress.Style == ProgressBarStyle.Continuous)) {
+                    if ((i % 15 == 0) && (LoadingProgress.Style == ProgressBarStyle.Continuous)) {
                         int v = (int)fda.BaseStream.Position;
                         // Setting the progress higher and then lower bypasses the slow animation baked into
                         //  the windows theme engine's progress bar implementation
@@ -291,7 +294,6 @@ namespace HeapProfiler {
             UseWaitCursor = true;
             Updating = true;
 
-            DeltaList.BeginUpdate();
             DeltaList.Items.Clear();
             foreach (var delta in Deltas) {
                 bool filteredOut = true;
@@ -305,7 +307,7 @@ namespace HeapProfiler {
                 if (!filteredOut)
                     DeltaList.Items.Add(delta);
             }
-            DeltaList.EndUpdate();
+            DeltaList.Invalidate();
 
             UseWaitCursor = false;
             Updating = false;
@@ -362,43 +364,6 @@ namespace HeapProfiler {
             Updating = false;
 
             RefreshDeltas();
-        }
-
-        private void DeltaList_MeasureItem (object sender, MeasureItemEventArgs e) {
-            if (e.Index < 0)
-                return;
-
-            var item = DeltaList.Items[e.Index] as DeltaInfo;
-            if (item == null)
-                return;
-
-            using (var g = e.Graphics) {
-                e.ItemHeight = Math.Min(255, (int)g.MeasureString("AaBbYyZz", DeltaList.Font).Height * (item.Traceback.Frames.Length + 1));
-                e.ItemWidth = DeltaList.Width;
-            }
-        }
-
-        private void DeltaList_DrawItem (object sender, DrawItemEventArgs e) {
-            if (e.Index < 0)
-                return;
-
-            e.DrawBackground();
-            e.DrawFocusRectangle();
-
-            var item = DeltaList.Items[e.Index] as DeltaInfo;
-            if (item == null)
-                return;
-
-            using (var brush = new SolidBrush(
-                (e.State & DrawItemState.Selected) == DrawItemState.Selected ? SystemColors.HighlightText : SystemColors.WindowText
-            )) {
-                var bounds = new RectangleF(
-                    e.Bounds.Left, e.Bounds.Top, e.Bounds.Width, e.Bounds.Height
-                );
-                e.Graphics.DrawString(
-                    item.ToString(), DeltaList.Font, brush, bounds, DeltaListFormat
-                );
-            }
         }
     }
 }
