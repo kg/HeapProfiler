@@ -326,6 +326,8 @@ namespace HeapProfiler {
 
             SetBusy(true);
 
+            int max = -int.MaxValue;
+
             ListItems.Clear();
             foreach (var delta in Deltas) {
                 if (FunctionFilter != null) {
@@ -341,13 +343,19 @@ namespace HeapProfiler {
                         break;
                 }
 
-                if (!filteredOut)
+                if (!filteredOut) {
                     ListItems.Add(delta);
+                    max = Math.Max(max, delta.BytesDelta);
+                }
             }
 
             StatusLabel.Text = String.Format("Showing {0} out of {1} item(s)", ListItems.Count, Deltas.Count);
-            DeltaList.Items = ListItems;
+
+            DeltaHistogram.Items = DeltaList.Items = ListItems;
+            DeltaHistogram.Maximum = max;
+
             DeltaList.Invalidate();
+            DeltaHistogram.Invalidate();
 
             SetBusy(false);
         }
@@ -444,6 +452,16 @@ namespace HeapProfiler {
                 DeltaList.FunctionFilter = FunctionFilter = newFilter;
                 RefreshDeltas();
             }
+        }
+
+        private void ViewListMenu_Click (object sender, EventArgs e) {
+            DeltaHistogram.Visible = ViewHistogramMenu.Checked = false;
+            DeltaList.Visible = ViewListMenu.Checked = true;
+        }
+
+        private void ViewHistogramMenu_Click (object sender, EventArgs e) {
+            DeltaList.Visible = ViewListMenu.Checked = false;
+            DeltaHistogram.Visible = ViewHistogramMenu.Checked = true;
         }
     }
 }

@@ -216,22 +216,18 @@ namespace HeapProfiler {
             if (_ScrollOffset < 0)
                 _ScrollOffset = 0;
 
-            var sf = new StringFormat {
-                Alignment = StringAlignment.Near,
-                LineAlignment = StringAlignment.Near,
-                FormatFlags = StringFormatFlags.FitBlackBox | StringFormatFlags.NoWrap | 
-                    StringFormatFlags.DisplayFormatControl | StringFormatFlags.MeasureTrailingSpaces,
-                HotkeyPrefix = System.Drawing.Text.HotkeyPrefix.None,
-                Trimming = StringTrimming.None
-            };
-
-            var lineHeight = e.Graphics.MeasureString("AaBbYyZz", Font, width, sf).Height;
-            CollapsedSize = (int)Math.Ceiling(lineHeight * 3);
-
             VisibleItems.Clear();
 
             ItemData data;
 
+            using (var sf = new StringFormat {
+                Alignment = StringAlignment.Near,
+                LineAlignment = StringAlignment.Near,
+                FormatFlags = StringFormatFlags.FitBlackBox | StringFormatFlags.NoWrap |
+                    StringFormatFlags.DisplayFormatControl | StringFormatFlags.MeasureTrailingSpaces,
+                HotkeyPrefix = System.Drawing.Text.HotkeyPrefix.None,
+                Trimming = StringTrimming.None
+            })
             using (var functionHighlightBrush = new SolidBrush(Color.PaleGoldenrod))
             using (var shadeBrush = new SolidBrush(Color.FromArgb(31, 0, 0, 0)))
             using (var elideBackgroundBrush = new SolidBrush(Color.FromArgb(192, SystemColors.Window)))
@@ -240,6 +236,9 @@ namespace HeapProfiler {
             using (var textBrush = new SolidBrush(ForeColor))
             using (var highlightBrush = new SolidBrush(SystemColors.Highlight))
             using (var highlightTextBrush = new SolidBrush(SystemColors.HighlightText)) {
+                var lineHeight = e.Graphics.MeasureString("AaBbYyZz", Font, width, sf).Height;
+                CollapsedSize = (int)Math.Ceiling(lineHeight * 3);
+
                 int y = 0;
                 for (int i = _ScrollOffset; (i < Items.Count) && (y < ClientSize.Height); i++) {
                     var y1 = y;

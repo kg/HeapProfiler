@@ -33,6 +33,7 @@
             this.SelectNoModules = new System.Windows.Forms.ToolStripButton();
             this.InvertModuleSelection = new System.Windows.Forms.ToolStripButton();
             this.ModuleList = new System.Windows.Forms.CheckedListBox();
+            this.DeltaHistogram = new HeapProfiler.DeltaHistogram();
             this.FilterPanel = new System.Windows.Forms.Panel();
             this.FindIcon = new System.Windows.Forms.PictureBox();
             this.TracebackFilter = new System.Windows.Forms.TextBox();
@@ -100,6 +101,7 @@
             // 
             // MainSplit.Panel2
             // 
+            this.MainSplit.Panel2.Controls.Add(this.DeltaHistogram);
             this.MainSplit.Panel2.Controls.Add(this.FilterPanel);
             this.MainSplit.Panel2.Controls.Add(this.DeltaList);
             this.MainSplit.Size = new System.Drawing.Size(484, 260);
@@ -169,6 +171,21 @@
             this.ModuleList.TabIndex = 2;
             this.ToolTips.SetToolTip(this.ModuleList, "Filter Tracebacks By Module");
             this.ModuleList.ItemCheck += new System.Windows.Forms.ItemCheckEventHandler(this.ModuleList_ItemCheck);
+            // 
+            // DeltaHistogram
+            // 
+            this.DeltaHistogram.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)
+                        | System.Windows.Forms.AnchorStyles.Left)
+                        | System.Windows.Forms.AnchorStyles.Right)));
+            this.DeltaHistogram.BackColor = System.Drawing.SystemColors.Window;
+            this.DeltaHistogram.ForeColor = System.Drawing.SystemColors.WindowText;
+            this.DeltaHistogram.Location = new System.Drawing.Point(0, 31);
+            this.DeltaHistogram.Name = "DeltaHistogram";
+            this.DeltaHistogram.ScrollOffset = 0;
+            this.DeltaHistogram.SelectedIndex = 0;
+            this.DeltaHistogram.Size = new System.Drawing.Size(319, 229);
+            this.DeltaHistogram.TabIndex = 2;
+            this.DeltaHistogram.Visible = false;
             // 
             // FilterPanel
             // 
@@ -277,15 +294,16 @@
             this.ViewListMenu.Checked = true;
             this.ViewListMenu.CheckState = System.Windows.Forms.CheckState.Checked;
             this.ViewListMenu.Name = "ViewListMenu";
-            this.ViewListMenu.Size = new System.Drawing.Size(149, 22);
+            this.ViewListMenu.Size = new System.Drawing.Size(152, 22);
             this.ViewListMenu.Text = "Traceback &List";
+            this.ViewListMenu.Click += new System.EventHandler(this.ViewListMenu_Click);
             // 
             // ViewHistogramMenu
             // 
-            this.ViewHistogramMenu.Enabled = false;
             this.ViewHistogramMenu.Name = "ViewHistogramMenu";
-            this.ViewHistogramMenu.Size = new System.Drawing.Size(149, 22);
+            this.ViewHistogramMenu.Size = new System.Drawing.Size(152, 22);
             this.ViewHistogramMenu.Text = "&Histogram";
+            this.ViewHistogramMenu.Click += new System.EventHandler(this.ViewHistogramMenu_Click);
             // 
             // StatusBar
             // 
@@ -300,7 +318,7 @@
             // StatusLabel
             // 
             this.StatusLabel.Name = "StatusLabel";
-            this.StatusLabel.Size = new System.Drawing.Size(438, 17);
+            this.StatusLabel.Size = new System.Drawing.Size(469, 17);
             this.StatusLabel.Spring = true;
             this.StatusLabel.Text = "No Results";
             this.StatusLabel.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -364,5 +382,6 @@
         private System.Windows.Forms.ToolTip ToolTips;
         private System.Windows.Forms.StatusStrip StatusBar;
         private System.Windows.Forms.ToolStripStatusLabel StatusLabel;
+        private DeltaHistogram DeltaHistogram;
     }
 }
