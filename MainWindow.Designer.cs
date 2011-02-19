@@ -47,6 +47,7 @@
             this.exitToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.optionsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.SymbolPathMenu = new System.Windows.Forms.ToolStripMenuItem();
+            this.AutoCapture = new System.Windows.Forms.CheckBox();
             this.GroupExecutable.SuspendLayout();
             this.GroupSnapshots.SuspendLayout();
             this.MainMenu.SuspendLayout();
@@ -187,6 +188,7 @@
             this.GroupSnapshots.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)
                         | System.Windows.Forms.AnchorStyles.Left)
                         | System.Windows.Forms.AnchorStyles.Right)));
+            this.GroupSnapshots.Controls.Add(this.AutoCapture);
             this.GroupSnapshots.Controls.Add(this.SaveSelection);
             this.GroupSnapshots.Controls.Add(this.DiffSelection);
             this.GroupSnapshots.Controls.Add(this.CaptureSnapshot);
@@ -204,7 +206,7 @@
             // 
             this.SaveSelection.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.SaveSelection.Enabled = false;
-            this.SaveSelection.Location = new System.Drawing.Point(415, 69);
+            this.SaveSelection.Location = new System.Drawing.Point(415, 97);
             this.SaveSelection.Margin = new System.Windows.Forms.Padding(2);
             this.SaveSelection.Name = "SaveSelection";
             this.SaveSelection.Size = new System.Drawing.Size(100, 22);
@@ -216,7 +218,7 @@
             // 
             this.DiffSelection.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.DiffSelection.Enabled = false;
-            this.DiffSelection.Location = new System.Drawing.Point(415, 43);
+            this.DiffSelection.Location = new System.Drawing.Point(415, 71);
             this.DiffSelection.Margin = new System.Windows.Forms.Padding(2);
             this.DiffSelection.Name = "DiffSelection";
             this.DiffSelection.Size = new System.Drawing.Size(100, 22);
@@ -311,6 +313,19 @@
             this.SymbolPathMenu.Text = "&Symbol Path...";
             this.SymbolPathMenu.Click += new System.EventHandler(this.SymbolPathMenu_Click);
             // 
+            // AutoCapture
+            // 
+            this.AutoCapture.Appearance = System.Windows.Forms.Appearance.Button;
+            this.AutoCapture.Enabled = false;
+            this.AutoCapture.Location = new System.Drawing.Point(415, 44);
+            this.AutoCapture.Name = "AutoCapture";
+            this.AutoCapture.Size = new System.Drawing.Size(100, 22);
+            this.AutoCapture.TabIndex = 4;
+            this.AutoCapture.Text = "&Auto Capture";
+            this.AutoCapture.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.AutoCapture.UseVisualStyleBackColor = true;
+            this.AutoCapture.CheckedChanged += new System.EventHandler(this.AutoCapture_CheckedChanged);
+            // 
             // MainWindow
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -361,6 +376,7 @@
         private System.Windows.Forms.Label label2;
         private System.Windows.Forms.TextBox Arguments;
         private System.Windows.Forms.Label label1;
+        private System.Windows.Forms.CheckBox AutoCapture;
     }
 }
 

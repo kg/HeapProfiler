@@ -31,6 +31,8 @@ namespace HeapProfiler {
     public partial class MainWindow : TaskForm {
         public RunningProcess Instance = null;
 
+        protected IFuture AutoCaptureFuture = null;
+
         public MainWindow (TaskScheduler scheduler) 
             : base(scheduler) {
             InitializeComponent();
@@ -112,16 +114,27 @@ namespace HeapProfiler {
             );
 
             bool running = (Instance != null) && (Instance.Running);
-            CaptureSnapshot.Enabled = running;
+            AutoCapture.Enabled = CaptureSnapshot.Enabled = running;
+
+            if (!running)
+                AutoCapture.Checked = false;
 
             RefreshLaunchEnabled();
         }
 
         private void RefreshSnapshots () {
             SnapshotList.BeginUpdate();
-            SnapshotList.Items.Clear();
-            foreach (var snapshot in Instance.Snapshots)
-                SnapshotList.Items.Add(snapshot);
+
+            while (SnapshotList.Items.Count > Instance.Snapshots.Count)
+                SnapshotList.Items.RemoveAt(SnapshotList.Items.Count - 1);
+
+            for (int i = 0; i < Instance.Snapshots.Count; i++) {
+                if (i >= SnapshotList.Items.Count)
+                    SnapshotList.Items.Add(Instance.Snapshots[i]);
+                else
+                    SnapshotList.Items[i] = Instance.Snapshots[i];
+            }
+
             SnapshotList.EndUpdate();
 
             DiffSelection.Enabled = false;
@@ -129,11 +142,11 @@ namespace HeapProfiler {
         }
 
         private void CaptureSnapshot_Click (object sender, EventArgs e) {
-            CaptureSnapshot.Enabled = false;
+            AutoCapture.Enabled = CaptureSnapshot.Enabled = false;
             UseWaitCursor = true;
             Instance.CaptureSnapshot()
                 .RegisterOnComplete((_) => {
-                    CaptureSnapshot.Enabled = true;
+                    AutoCapture.Enabled = CaptureSnapshot.Enabled = true;
                     UseWaitCursor = false;
                 });
         }
@@ -235,6 +248,29 @@ namespace HeapProfiler {
         private void WorkingDirectory_DragOver (object sender, DragEventArgs e) {
             if (e.Data.GetDataPresent(DataFormats.FileDrop))
                 e.Effect = DragDropEffects.Link;
+        }
+
+        private void AutoCapture_CheckedChanged (object sender, EventArgs e) {
+            CaptureSnapshot.Enabled = !AutoCapture.Checked && AutoCapture.Enabled;
+
+            if (AutoCapture.Checked) {
+                AutoCaptureFuture = Start(AutoCaptureTask());
+            } else if (AutoCaptureFuture != null) {
+                AutoCaptureFuture.Dispose();
+                AutoCaptureFuture = null;
+            }
+        }
+
+        protected IEnumerator<object> AutoCaptureTask () {
+            var sleep = new Sleep(5.0);
+
+            while (AutoCapture.Checked && Instance.Running) {
+                UseWaitCursor = true;
+                yield return Instance.CaptureSnapshot();
+                UseWaitCursor = false;
+
+                yield return sleep;
+            }
         }
     }
 }
