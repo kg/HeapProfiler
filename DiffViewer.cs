@@ -34,76 +34,6 @@ using System.Globalization;
 
 namespace HeapProfiler {
     public partial class DiffViewer : TaskForm {
-        public class ModuleInfo {
-            public bool Filtered = false;
-            public string ModuleName;
-            public string SymbolType;
-            public string SymbolPath;
-            public int References = 0;
-
-            public override string ToString () {
-                return ModuleName;
-            }
-        }
-
-        public class DeltaInfo {
-            public bool Added;
-            public int BytesDelta, OldBytes, NewBytes, NewCount;
-            public int? CountDelta, OldCount;
-            public TracebackInfo Traceback;
-
-            public string ToString (bool includeTraceback) {
-                var result = String.Format(
-                    "{0} {1} byte(s) ({2} - {3})",
-                    Added ? "+" : "-",
-                    BytesDelta, NewBytes, OldBytes
-                );
-
-                if (includeTraceback)
-                    result += Environment.NewLine + Traceback.ToString();
-
-                return result;
-            }
-
-            public override string ToString () {
-                return ToString(true);
-            }
-        }
-
-        public class TracebackInfo {
-            public string TraceId;
-            public TracebackFrame[] Frames;
-            public HashSet<string> Functions;
-            public HashSet<string> Modules;
-
-            public override string ToString () {
-                var sb = new StringBuilder();
-
-                foreach (var frame in Frames) {
-                    if (sb.Length > 0)
-                        sb.AppendLine();
-
-                    sb.Append(frame.ToString());
-                }
-
-                return sb.ToString();
-            }
-        }
-
-        public struct TracebackFrame {
-            public string Module;
-            public string Function;
-            public UInt32 Offset;
-            public UInt32? Offset2;
-
-            public override string ToString () {
-                if (Offset2.HasValue)
-                    return String.Format("{0}!{1}@{2:x8}", Module, Function, Offset2.Value);
-                else
-                    return String.Format("{0}!{1}+{2:x8}", Module, Function, Offset);
-            }
-        }
-
         public static Regex ModuleRegex = new Regex(
             @"DBGHELP: (?'module'.*?)( - )(?'symboltype'[^\n\r]*)", 
             RegexOptions.Compiled | RegexOptions.ExplicitCapture
@@ -163,7 +93,7 @@ namespace HeapProfiler {
                 int i = 0;
                 while (true) {
                     i += 1;
-                    if ((i % 15 == 0) && (LoadingProgress.Style == ProgressBarStyle.Continuous)) {
+                    if ((i % 30 == 0) && (LoadingProgress.Style == ProgressBarStyle.Continuous)) {
                         int v = (int)fda.BaseStream.Position;
                         // Setting the progress higher and then lower bypasses the slow animation baked into
                         //  the windows theme engine's progress bar implementation

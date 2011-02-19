@@ -27,82 +27,11 @@ using System.Windows.Forms;
 using Squared.Task;
 using Squared.Util;
 
-using TItem = HeapProfiler.DiffViewer.DeltaInfo;
+using TItem = HeapProfiler.DeltaInfo;
 using System.Globalization;
 
 namespace HeapProfiler {
     public partial class DeltaHistogram : UserControl {
-        protected struct ScratchRegion : IDisposable {
-            public readonly Graphics Graphics;
-            public readonly Bitmap Bitmap;
-
-            public readonly Graphics DestinationGraphics;
-            public readonly Rectangle DestinationRegion;
-
-            bool Cancelled;
-
-            public ScratchRegion (DeltaHistogram histogram, Graphics graphics, Rectangle region) {
-                var minWidth = (int)Math.Ceiling(region.Width / 16.0f) * 16;
-                var minHeight = (int)Math.Ceiling(region.Height / 16.0f) * 16;
-
-                var needNewBitmap =
-                    (histogram._ScratchBuffer == null) || (histogram._ScratchBuffer.Width < minWidth) ||
-                    (histogram._ScratchBuffer.Height < minHeight);
-
-                if (needNewBitmap && histogram._ScratchBuffer != null)
-                    histogram._ScratchBuffer.Dispose();
-                if (needNewBitmap && histogram._ScratchGraphics != null)
-                    histogram._ScratchGraphics.Dispose();
-
-                if (needNewBitmap) {
-                    Bitmap = histogram._ScratchBuffer = new Bitmap(
-                        minWidth, minHeight, graphics
-                    );
-                    Graphics = histogram._ScratchGraphics = Graphics.FromImage(Bitmap);
-                } else {
-                    Bitmap = histogram._ScratchBuffer;
-                    Graphics = histogram._ScratchGraphics;
-                }
-
-                Graphics.ResetTransform();
-                Graphics.TranslateTransform(-region.X, -region.Y, System.Drawing.Drawing2D.MatrixOrder.Prepend);
-                Graphics.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceOver;
-                Graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
-                Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
-
-                DestinationGraphics = graphics;
-                DestinationRegion = region;
-
-                Cancelled = false;
-            }
-
-            public void Cancel () {
-                Cancelled = true;
-            }
-
-            public void Dispose () {
-                if (Cancelled)
-                    return;
-
-                var oldCompositing = DestinationGraphics.CompositingMode;
-                DestinationGraphics.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceCopy;
-                var oldInterpolation = DestinationGraphics.InterpolationMode;
-                DestinationGraphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
-                var oldSmoothing = DestinationGraphics.SmoothingMode;
-                DestinationGraphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
-
-                DestinationGraphics.DrawImageUnscaledAndClipped(
-                    Bitmap, DestinationRegion
-                );
-
-                DestinationGraphics.CompositingMode = oldCompositing;
-                DestinationGraphics.InterpolationMode = oldInterpolation;
-                DestinationGraphics.SmoothingMode = oldSmoothing;
-
-                Cancelled = true;
-            }
-        }
-
         public struct ItemData {
         }
 
@@ -118,13 +47,11 @@ namespace HeapProfiler {
         protected readonly List<VisibleItem> VisibleItems = new List<VisibleItem>();
         protected bool ShouldAutoscroll = false;
 
+        protected ScratchBuffer Scratch = new ScratchBuffer();
         protected ScrollBar ScrollBar = null;
 
         protected int _SelectedIndex = -1;
         protected int _ScrollOffset = 0;
-
-        protected Bitmap _ScratchBuffer = null;
-        protected Graphics _ScratchGraphics = null;
 
         public DeltaHistogram () {
             SetStyle(
@@ -150,36 +77,9 @@ namespace HeapProfiler {
         }
 
         protected override void Dispose (bool disposing) {
-            DisposeGraphics();
+            Scratch.Dispose();
 
             base.Dispose(disposing);
-        }
-
-        void DisposeGraphics () {
-            if (_ScratchGraphics != null) {
-                _ScratchGraphics.Dispose();
-                _ScratchGraphics = null;
-            }
-
-            if (_ScratchBuffer != null) {
-                _ScratchBuffer.Dispose();
-                _ScratchBuffer = null;
-            }
-        }
-
-        protected ScratchRegion GetScratch (Graphics graphics, Rectangle region) {
-            return new ScratchRegion(
-                this, graphics, region
-            );
-        }
-
-        protected ScratchRegion GetScratch (Graphics graphics, RectangleF region) {
-            return new ScratchRegion(
-                this, graphics, new Rectangle(
-                    (int)Math.Floor(region.X), (int)Math.Floor(region.Y),
-                    (int)Math.Ceiling(region.Width), (int)Math.Ceiling(region.Height)
-                )
-            );
         }
 
         void ScrollBar_Scroll (object sender, ScrollEventArgs e) {
@@ -264,7 +164,7 @@ namespace HeapProfiler {
                     Maximum.ToString(), Font, ClientSize.Width, sf
                 ).Width);
 
-                using (var scratch = GetScratch(e.Graphics, new Rectangle(0, 0, marginWidth, height))) {
+                using (var scratch = Scratch.Get(e.Graphics, new Rectangle(0, 0, marginWidth, height))) {
                     var g = scratch.Graphics;
                     g.Clear(BackColor);
 
@@ -298,7 +198,7 @@ namespace HeapProfiler {
                     var rgn = new Rectangle(x, 0, itemWidth, height);
 
                     using (var itemBrush = new SolidBrush(SelectItemColor(ref item)))
-                    using (var scratch = GetScratch(e.Graphics, rgn)) {
+                    using (var scratch = Scratch.Get(e.Graphics, rgn)) {
                         var g = scratch.Graphics;
 
                         g.ResetClip();
@@ -311,10 +211,10 @@ namespace HeapProfiler {
                         var value = GraphLog(item.BytesDelta);
                         if (item.Added) {
                             y2 = centerY;
-                            y1 = y2 - (value / (float)max) * (height / 2.0f);
+                            y1 = y2 - (value / (float)max) * ((height / 2.0f) - 1);
                         } else {
                             y1 = centerY;
-                            y2 = y1 + (value / (float)max) * (height / 2.0f);
+                            y2 = y1 + (value / (float)max) * ((height / 2.0f) - 1);
                         }
 
                         var barRectangle = new RectangleF(
