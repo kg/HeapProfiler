@@ -46,6 +46,8 @@
             this.ViewListMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.ViewHistogramMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.ToolTips = new System.Windows.Forms.ToolTip(this.components);
+            this.StatusBar = new System.Windows.Forms.StatusStrip();
+            this.StatusLabel = new System.Windows.Forms.ToolStripStatusLabel();
             this.LoadingPanel.SuspendLayout();
             this.MainSplit.Panel1.SuspendLayout();
             this.MainSplit.Panel2.SuspendLayout();
@@ -54,6 +56,7 @@
             this.FilterPanel.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.FindIcon)).BeginInit();
             this.MainMenu.SuspendLayout();
+            this.StatusBar.SuspendLayout();
             this.SuspendLayout();
             // 
             // LoadingPanel
@@ -83,8 +86,10 @@
             // 
             // MainSplit
             // 
-            this.MainSplit.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.MainSplit.Location = new System.Drawing.Point(0, 24);
+            this.MainSplit.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)
+                        | System.Windows.Forms.AnchorStyles.Left)
+                        | System.Windows.Forms.AnchorStyles.Right)));
+            this.MainSplit.Location = new System.Drawing.Point(0, 27);
             this.MainSplit.Name = "MainSplit";
             // 
             // MainSplit.Panel1
@@ -97,7 +102,7 @@
             // 
             this.MainSplit.Panel2.Controls.Add(this.FilterPanel);
             this.MainSplit.Panel2.Controls.Add(this.DeltaList);
-            this.MainSplit.Size = new System.Drawing.Size(484, 288);
+            this.MainSplit.Size = new System.Drawing.Size(484, 260);
             this.MainSplit.SplitterDistance = 161;
             this.MainSplit.TabIndex = 1;
             this.MainSplit.Visible = false;
@@ -160,7 +165,7 @@
             this.ModuleList.IntegralHeight = false;
             this.ModuleList.Location = new System.Drawing.Point(0, 28);
             this.ModuleList.Name = "ModuleList";
-            this.ModuleList.Size = new System.Drawing.Size(161, 260);
+            this.ModuleList.Size = new System.Drawing.Size(161, 232);
             this.ModuleList.TabIndex = 2;
             this.ToolTips.SetToolTip(this.ModuleList, "Filter Tracebacks By Module");
             this.ModuleList.ItemCheck += new System.Windows.Forms.ItemCheckEventHandler(this.ModuleList_ItemCheck);
@@ -214,7 +219,7 @@
             this.DeltaList.Name = "DeltaList";
             this.DeltaList.ScrollOffset = 0;
             this.DeltaList.SelectedIndex = 0;
-            this.DeltaList.Size = new System.Drawing.Size(319, 257);
+            this.DeltaList.Size = new System.Drawing.Size(319, 229);
             this.DeltaList.TabIndex = 0;
             // 
             // MainMenu
@@ -282,11 +287,30 @@
             this.ViewHistogramMenu.Size = new System.Drawing.Size(149, 22);
             this.ViewHistogramMenu.Text = "&Histogram";
             // 
+            // StatusBar
+            // 
+            this.StatusBar.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.StatusLabel});
+            this.StatusBar.Location = new System.Drawing.Point(0, 290);
+            this.StatusBar.Name = "StatusBar";
+            this.StatusBar.Size = new System.Drawing.Size(484, 22);
+            this.StatusBar.TabIndex = 3;
+            this.StatusBar.Text = "statusStrip1";
+            // 
+            // StatusLabel
+            // 
+            this.StatusLabel.Name = "StatusLabel";
+            this.StatusLabel.Size = new System.Drawing.Size(438, 17);
+            this.StatusLabel.Spring = true;
+            this.StatusLabel.Text = "No Results";
+            this.StatusLabel.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
             // DiffViewer
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(484, 312);
+            this.Controls.Add(this.StatusBar);
             this.Controls.Add(this.MainSplit);
             this.Controls.Add(this.LoadingPanel);
             this.Controls.Add(this.MainMenu);
@@ -308,6 +332,8 @@
             ((System.ComponentModel.ISupportInitialize)(this.FindIcon)).EndInit();
             this.MainMenu.ResumeLayout(false);
             this.MainMenu.PerformLayout();
+            this.StatusBar.ResumeLayout(false);
+            this.StatusBar.PerformLayout();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -336,5 +362,7 @@
         private System.Windows.Forms.PictureBox FindIcon;
         private System.Windows.Forms.TextBox TracebackFilter;
         private System.Windows.Forms.ToolTip ToolTips;
+        private System.Windows.Forms.StatusStrip StatusBar;
+        private System.Windows.Forms.ToolStripStatusLabel StatusLabel;
     }
 }

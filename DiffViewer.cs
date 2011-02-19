@@ -52,12 +52,21 @@ namespace HeapProfiler {
             public int? CountDelta, OldCount;
             public TracebackInfo Traceback;
 
-            public override string ToString () {
-                return String.Format(
+            public string ToString (bool includeTraceback) {
+                var result = String.Format(
                     "{0} {1} byte(s) ({2} - {3})",
                     Added ? "+" : "-",
                     BytesDelta, NewBytes, OldBytes
-                ) + Environment.NewLine + Traceback.ToString();
+                );
+
+                if (includeTraceback)
+                    result += Environment.NewLine + Traceback.ToString();
+
+                return result;
+            }
+
+            public override string ToString () {
+                return ToString(true);
             }
         }
 
@@ -69,15 +78,14 @@ namespace HeapProfiler {
 
             public override string ToString () {
                 var sb = new StringBuilder();
+
                 foreach (var frame in Frames) {
                     if (sb.Length > 0)
                         sb.AppendLine();
 
-                    if (frame.Offset2.HasValue)
-                        sb.AppendFormat("{0}!{1}@{2:x8}", frame.Module, frame.Function, frame.Offset2.Value);
-                    else
-                        sb.AppendFormat("{0}!{1}+{2:x8}", frame.Module, frame.Function, frame.Offset);
+                    sb.Append(frame.ToString());
                 }
+
                 return sb.ToString();
             }
         }
@@ -87,6 +95,13 @@ namespace HeapProfiler {
             public string Function;
             public UInt32 Offset;
             public UInt32? Offset2;
+
+            public override string ToString () {
+                if (Offset2.HasValue)
+                    return String.Format("{0}!{1}@{2:x8}", Module, Function, Offset2.Value);
+                else
+                    return String.Format("{0}!{1}+{2:x8}", Module, Function, Offset);
+            }
         }
 
         public static Regex ModuleRegex = new Regex(
@@ -110,6 +125,7 @@ namespace HeapProfiler {
         public HashSet<string> FunctionNames = new HashSet<string>();
         public List<DeltaInfo> Deltas = new List<DeltaInfo>();
         public Dictionary<string, TracebackInfo> Tracebacks = new Dictionary<string, TracebackInfo>();
+        public List<DeltaInfo> ListItems = new List<DeltaInfo>();
 
         protected string Filename;
         protected string FunctionFilter = null;
@@ -123,6 +139,10 @@ namespace HeapProfiler {
             DeltaListFormat = new StringFormat();
             DeltaListFormat.Trimming = StringTrimming.None;
             DeltaListFormat.FormatFlags = StringFormatFlags.NoWrap | StringFormatFlags.FitBlackBox;
+        }
+
+        protected void SetBusy (bool busy) {
+            UseWaitCursor = Updating = busy;
         }
 
         public IEnumerator<object> LoadDiff (string filename) {
@@ -287,8 +307,7 @@ namespace HeapProfiler {
             if (Updating)
                 return;
 
-            UseWaitCursor = true;
-            Updating = true;
+            SetBusy(true);
 
             ModuleList.BeginUpdate();
             ModuleList.Items.Clear();
@@ -298,27 +317,23 @@ namespace HeapProfiler {
                 ModuleList.SetItemChecked(i, true);
             ModuleList.EndUpdate();
 
-            UseWaitCursor = false;
-            Updating = false;
+            SetBusy(false);
         }
 
         public void RefreshDeltas () {
             if (Updating)
                 return;
 
-            UseWaitCursor = true;
-            Updating = true;
+            SetBusy(true);
 
-            DeltaList.Items.Clear();
+            ListItems.Clear();
             foreach (var delta in Deltas) {
-                bool filteredOut = true;
-
                 if (FunctionFilter != null) {
-                    bool match = delta.Traceback.Functions.Contains(FunctionFilter);
-                    if (!match)
+                    if (!delta.Traceback.Functions.Contains(FunctionFilter))
                         continue;
                 }
 
+                bool filteredOut = true;
                 foreach (var module in delta.Traceback.Modules) {
                     filteredOut &= Modules[module].Filtered;
 
@@ -327,12 +342,14 @@ namespace HeapProfiler {
                 }
 
                 if (!filteredOut)
-                    DeltaList.Items.Add(delta);
+                    ListItems.Add(delta);
             }
+
+            StatusLabel.Text = String.Format("Showing {0} out of {1} item(s)", ListItems.Count, Deltas.Count);
+            DeltaList.Items = ListItems;
             DeltaList.Invalidate();
 
-            UseWaitCursor = false;
-            Updating = false;
+            SetBusy(false);
         }
 
         private void DiffViewer_Shown (object sender, EventArgs e) {
@@ -350,40 +367,40 @@ namespace HeapProfiler {
         }
 
         private void SelectAllModules_Click (object sender, EventArgs e) {
-            Updating = true;
+            SetBusy(true);
             ModuleList.BeginUpdate();
 
             for (int i = 0; i < ModuleList.Items.Count; i++)
                 ModuleList.SetItemChecked(i, true);
 
             ModuleList.EndUpdate();
-            Updating = false;
+            SetBusy(false);
 
             RefreshDeltas();
         }
 
         private void SelectNoModules_Click (object sender, EventArgs e) {
-            Updating = true;
+            SetBusy(true);
             ModuleList.BeginUpdate();
 
             for (int i = 0; i < ModuleList.Items.Count; i++)
                 ModuleList.SetItemChecked(i, false);
 
             ModuleList.EndUpdate();
-            Updating = false;
+            SetBusy(false);
 
             RefreshDeltas();
         }
 
         private void InvertModuleSelection_Click (object sender, EventArgs e) {
-            Updating = true;
+            SetBusy(true);
             ModuleList.BeginUpdate();
 
             for (int i = 0; i < ModuleList.Items.Count; i++)
                 ModuleList.SetItemChecked(i, !ModuleList.GetItemChecked(i));
 
             ModuleList.EndUpdate();
-            Updating = false;
+            SetBusy(false);
 
             RefreshDeltas();
         }
@@ -424,7 +441,7 @@ namespace HeapProfiler {
                 TracebackFilter.BackColor = newColor;
 
             if (newFilter != FunctionFilter) {
-                FunctionFilter = newFilter;
+                DeltaList.FunctionFilter = FunctionFilter = newFilter;
                 RefreshDeltas();
             }
         }

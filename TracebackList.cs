@@ -38,6 +38,8 @@ namespace HeapProfiler {
             public readonly Graphics DestinationGraphics;
             public readonly Rectangle DestinationRegion;
 
+            bool Cancelled;
+
             public ScratchRegion (DeltaList list, Graphics graphics, Rectangle region) {
                 var minWidth = (int)Math.Ceiling(region.Width / 16.0f) * 16;
                 var minHeight = (int)Math.Ceiling(region.Height / 16.0f) * 16;
@@ -69,9 +71,18 @@ namespace HeapProfiler {
 
                 DestinationGraphics = graphics;
                 DestinationRegion = region;
+
+                Cancelled = false;
+            }
+
+            public void Cancel () {
+                Cancelled = true;
             }
 
             public void Dispose () {
+                if (Cancelled)
+                    return;
+
                 var oldCompositing = DestinationGraphics.CompositingMode;
                 DestinationGraphics.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceCopy;
                 var oldInterpolation = DestinationGraphics.InterpolationMode;
@@ -86,6 +97,8 @@ namespace HeapProfiler {
                 DestinationGraphics.CompositingMode = oldCompositing;
                 DestinationGraphics.InterpolationMode = oldInterpolation;
                 DestinationGraphics.SmoothingMode = oldSmoothing;
+
+                Cancelled = true;
             }
         }
 
@@ -98,9 +111,11 @@ namespace HeapProfiler {
             public int Index;
         }
 
-        public readonly List<TItem> Items = new List<TItem>();
+        public IList<TItem> Items = new List<TItem>();
 
-        protected readonly LRUCache<TItem, ItemData> Data = new LRUCache<TItem, ItemData>(128, new ReferenceComparer<TItem>());
+        public string FunctionFilter = null;
+
+        protected readonly LRUCache<TItem, ItemData> Data = new LRUCache<TItem, ItemData>(256, new ReferenceComparer<TItem>());
         protected readonly List<VisibleItem> VisibleItems = new List<VisibleItem>();
         protected int CollapsedSize;
         protected bool ShouldAutoscroll = false;
@@ -116,7 +131,8 @@ namespace HeapProfiler {
         public DeltaList () {
             SetStyle(
                 ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint |
-                ControlStyles.Opaque | ControlStyles.ResizeRedraw,
+                ControlStyles.Opaque | ControlStyles.ResizeRedraw |
+                ControlStyles.Selectable,
                 true
             );
 
@@ -183,8 +199,10 @@ namespace HeapProfiler {
         }
 
         protected override void OnPaint (PaintEventArgs e) {
+            char[] functionEndChars = new char[] { '@', '+' };
             bool retrying = false, selectedItemVisible = false;
             int minVisibleIndex = int.MaxValue,  maxVisibleIndex = int.MinValue;
+            var width = ClientSize.Width - ScrollBar.Width;
 
         retryFromHere:
 
@@ -201,54 +219,127 @@ namespace HeapProfiler {
             var sf = new StringFormat {
                 Alignment = StringAlignment.Near,
                 LineAlignment = StringAlignment.Near,
-                FormatFlags = StringFormatFlags.FitBlackBox | StringFormatFlags.NoWrap | StringFormatFlags.DisplayFormatControl | StringFormatFlags.MeasureTrailingSpaces,
+                FormatFlags = StringFormatFlags.FitBlackBox | StringFormatFlags.NoWrap | 
+                    StringFormatFlags.DisplayFormatControl | StringFormatFlags.MeasureTrailingSpaces,
                 HotkeyPrefix = System.Drawing.Text.HotkeyPrefix.None,
                 Trimming = StringTrimming.None
             };
 
-            var lineHeight = (int)Math.Floor(e.Graphics.MeasureString("AaBbYyZz", Font, ClientSize.Width, sf).Height);
-            CollapsedSize = (int)Math.Ceiling(e.Graphics.MeasureString("AaBbYyZz\r\nAaBbYyZz\r\nAaBbYyZz", Font, ClientSize.Width, sf).Height);
+            var lineHeight = e.Graphics.MeasureString("AaBbYyZz", Font, width, sf).Height;
+            CollapsedSize = (int)Math.Ceiling(lineHeight * 3);
 
             VisibleItems.Clear();
 
             ItemData data;
 
+            using (var functionHighlightBrush = new SolidBrush(Color.PaleGoldenrod))
             using (var shadeBrush = new SolidBrush(Color.FromArgb(31, 0, 0, 0)))
+            using (var elideBackgroundBrush = new SolidBrush(Color.FromArgb(192, SystemColors.Window)))
+            using (var elideTextBrush = new SolidBrush(Color.FromArgb(220, SystemColors.WindowText)))
             using (var backgroundBrush = new SolidBrush(BackColor))
             using (var textBrush = new SolidBrush(ForeColor))
             using (var highlightBrush = new SolidBrush(SystemColors.Highlight))
             using (var highlightTextBrush = new SolidBrush(SystemColors.HighlightText)) {
                 int y = 0;
                 for (int i = _ScrollOffset; (i < Items.Count) && (y < ClientSize.Height); i++) {
+                    var y1 = y;
                     var selected = (i == SelectedIndex);
 
                     var item = Items[i];
                     GetItemData(i, out data);
 
                     var text = item.ToString();
-                    var size = e.Graphics.MeasureString(text, Font, ClientSize.Width, sf);
-
-                    if (!data.Expanded)
-                        size.Height = (float)Math.Min(size.Height, CollapsedSize);
-
-                    var rgn = new RectangleF(0, y, ClientSize.Width, (float)Math.Ceiling(size.Height));
+                    var rgn = new Rectangle(
+                        0, y, width, 
+                        data.Expanded ? 
+                            (int)Math.Ceiling(lineHeight * (item.Traceback.Frames.Length + 1)) :
+                            CollapsedSize
+                    );
 
                     using (var scratch = GetScratch(e.Graphics, rgn)) {
                         var g = scratch.Graphics;
 
-                        g.FillRectangle(selected ? highlightBrush : backgroundBrush, rgn);
+                        g.ResetClip();
+                        g.Clear(selected ? highlightBrush.Color : backgroundBrush.Color);
                         g.FillRectangle(shadeBrush, 0, rgn.Y, rgn.Width, lineHeight - 1);
-                        g.DrawString(text, Font, selected ? highlightTextBrush : textBrush, rgn, sf);
+
+                        var brush = selected ? highlightTextBrush : textBrush;
+
+                        text = item.ToString(false);
+                        var y2 = 0.0f;
+
+                        g.DrawString(text, Font, brush, 0.0f, y + y2, sf);
+                        y2 += g.MeasureString(text, Font, width, sf).Height;
+
+                        int f = 0;
+                        foreach (var frame in item.Traceback.Frames) {
+                            text = frame.ToString();
+
+                            var layoutRect = new RectangleF(
+                                0.0f, y + y2, width, lineHeight
+                            );
+                            Region[] fillRegions = null;
+
+                            if (FunctionFilter == frame.Function) {
+                                var startIndex = text.IndexOf('!') + 1;
+                                var endIndex = text.LastIndexOfAny(functionEndChars);
+                                sf.SetMeasurableCharacterRanges(new[] { 
+                                    new CharacterRange(startIndex, endIndex - startIndex)
+                                });
+
+                                fillRegions = g.MeasureCharacterRanges(
+                                    text, Font, layoutRect, sf
+                                );
+
+                                foreach (var fillRegion in fillRegions) {
+                                    g.FillRegion(functionHighlightBrush, fillRegion);
+                                    g.ExcludeClip(fillRegion);
+                                }
+                            }
+
+                            g.DrawString(text, Font, brush, layoutRect, sf);
+                            if (fillRegions != null) {
+                                bool first = true;
+                                foreach (var fillRegion in fillRegions) {
+                                    g.SetClip(fillRegion, first ?
+                                        System.Drawing.Drawing2D.CombineMode.Replace :
+                                        System.Drawing.Drawing2D.CombineMode.Union
+                                    );
+                                    first = false;
+                                }
+                                g.DrawString(text, Font, textBrush, layoutRect, sf);
+                                g.ResetClip();
+                            }
+
+                            y2 += g.MeasureString(text, Font, width, sf).Height;
+
+                            f += 1;
+                            if ((f == 2) && !data.Expanded) {
+                                sf.Alignment = StringAlignment.Far;
+
+                                var elideString = String.Format(
+                                    "(+{0} frame(s))", item.Traceback.Frames.Length - 2
+                                );
+                                sf.SetMeasurableCharacterRanges(new[] { new CharacterRange(0, elideString.Length) });
+
+                                var regions = g.MeasureCharacterRanges(elideString, Font, layoutRect, sf);
+                                foreach (var region in regions)
+                                    g.FillRegion(elideBackgroundBrush, region);
+
+                                g.DrawString(elideString, Font, elideTextBrush, layoutRect, sf);
+
+                                sf.Alignment = StringAlignment.Near;
+
+                                break;
+                            }
+                        }
+
+                        y += (int)Math.Ceiling(y2);
                     }
 
                     VisibleItems.Add(new VisibleItem {
-                        Y1 = (int)Math.Floor(rgn.Top),
-                        Y2 = (int)Math.Ceiling(rgn.Bottom),
-                        Index = i
+                        Y1 = y1, Y2 = y, Index = i
                     });
-
-                    var y1 = y;
-                    y += (int)size.Height;
 
                     if ((y1 >= 0) && (y < ClientSize.Height)) {
                         minVisibleIndex = Math.Min(minVisibleIndex, i);
@@ -257,8 +348,8 @@ namespace HeapProfiler {
                     }
                 }
 
-                e.Graphics.FillRectangle(backgroundBrush, new Rectangle(0, y, ClientSize.Width, ClientSize.Height - y));
-
+                if (y < ClientSize.Height)
+                    e.Graphics.FillRectangle(backgroundBrush, new Rectangle(0, y, ClientSize.Width, ClientSize.Height - y));
             }
 
             if (!selectedItemVisible && !retrying && ShouldAutoscroll) {
