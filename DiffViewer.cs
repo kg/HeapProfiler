@@ -379,7 +379,7 @@ namespace HeapProfiler {
                 TracebackFilter.BackColor = newColor;
 
             if (newFilter != FunctionFilter) {
-                DeltaList.FunctionFilter = FunctionFilter = newFilter;
+                DeltaHistogram.FunctionFilter = DeltaList.FunctionFilter = FunctionFilter = newFilter;
                 RefreshDeltas();
             }
         }

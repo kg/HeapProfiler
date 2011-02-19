@@ -227,14 +227,19 @@ namespace HeapProfiler {
             base.OnPaint(e);
         }
 
+        protected int? IndexFromPoint (Point pt) {
+            foreach (var vi in VisibleItems)
+                if ((pt.Y >= vi.Y1) && (pt.Y <= vi.Y2))
+                    return vi.Index;
+
+            return null;
+        }
+
         protected override void OnMouseDown (MouseEventArgs e) {
             if (e.Button == MouseButtons.Left) {
-                foreach (var vi in VisibleItems) {
-                    if ((e.Y >= vi.Y1) && (e.Y <= vi.Y2)) {
-                        SelectedIndex = vi.Index;
-                        break;
-                    }
-                }
+                var index = IndexFromPoint(e.Location);
+                if (index.HasValue)
+                    SelectedIndex = index.Value;
             }
 
             base.OnMouseDown(e);
@@ -242,12 +247,9 @@ namespace HeapProfiler {
 
         protected override void OnMouseMove (MouseEventArgs e) {
             if (e.Button == MouseButtons.Left) {
-                foreach (var vi in VisibleItems) {
-                    if ((e.Y >= vi.Y1) && (e.Y <= vi.Y2)) {
-                        SelectedIndex = vi.Index;
-                        break;
-                    }
-                }
+                var index = IndexFromPoint(e.Location);
+                if (index.HasValue)
+                    SelectedIndex = index.Value;
             }
 
             base.OnMouseMove(e);

@@ -36,7 +36,7 @@ namespace HeapProfiler {
     }
 
     public class DeltaInfo {
-        public struct RenderParams {
+        public struct RenderParams : IDisposable {
             public bool IsSelected, IsExpanded;
             public Rectangle Region;
             public Color BackgroundColor;
@@ -47,6 +47,19 @@ namespace HeapProfiler {
             public Font Font;
             public string FunctionFilter;
             public float LineHeight;
+
+            public void Dispose () {
+                BackgroundBrush.Dispose();
+                TextBrush.Dispose();
+                ShadeBrush.Dispose();
+                if (FunctionHighlightBrush != null)
+                    FunctionHighlightBrush.Dispose();
+                if (ElideBackgroundBrush != null)
+                    ElideBackgroundBrush.Dispose();
+                if (ElideTextBrush != null)
+                    ElideTextBrush.Dispose();
+                StringFormat.Dispose();
+            }
         }
 
         public bool Added;

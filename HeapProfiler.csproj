@@ -48,6 +48,12 @@
     <Compile Include="DeltaHistogram.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="DeltaTooltip.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="DeltaTooltip.Designer.cs">
+      <DependentUpon>DeltaTooltip.cs</DependentUpon>
+    </Compile>
     <Compile Include="DiffViewer.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -70,6 +76,9 @@
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="Util.cs" />
+    <EmbeddedResource Include="DeltaTooltip.resx">
+      <DependentUpon>DeltaTooltip.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="DiffViewer.resx">
       <DependentUpon>DiffViewer.cs</DependentUpon>
     </EmbeddedResource>

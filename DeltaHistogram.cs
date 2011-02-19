@@ -43,13 +43,17 @@ namespace HeapProfiler {
         public IList<TItem> Items = new List<TItem>();
         public int Maximum = 1024;
 
+        public string FunctionFilter = null;
+
         protected readonly LRUCache<TItem, ItemData> Data = new LRUCache<TItem, ItemData>(256, new ReferenceComparer<TItem>());
         protected readonly List<VisibleItem> VisibleItems = new List<VisibleItem>();
         protected bool ShouldAutoscroll = false;
 
+        protected DeltaTooltip Tooltip = null;
         protected ScratchBuffer Scratch = new ScratchBuffer();
         protected ScrollBar ScrollBar = null;
 
+        protected int _HoverIndex = -1;
         protected int _SelectedIndex = -1;
         protected int _ScrollOffset = 0;
 
@@ -89,6 +93,8 @@ namespace HeapProfiler {
         protected override void OnResize (EventArgs e) {
             var preferredSize = ScrollBar.GetPreferredSize(ClientSize);
             ScrollBar.SetBounds(0, ClientSize.Height - preferredSize.Height, ClientSize.Width, preferredSize.Height);
+
+            HideTooltip();
 
             base.OnResize(e);
         }
@@ -145,21 +151,14 @@ namespace HeapProfiler {
 
             ItemData data;
 
-            using (var sf = new StringFormat {
-                Alignment = StringAlignment.Center,
-                LineAlignment = StringAlignment.Center,
-                FormatFlags = StringFormatFlags.FitBlackBox | StringFormatFlags.NoWrap |
-                    StringFormatFlags.DisplayFormatControl | StringFormatFlags.MeasureTrailingSpaces,
-                HotkeyPrefix = System.Drawing.Text.HotkeyPrefix.None,
-                Trimming = StringTrimming.None
-            })
+            using (var sf = GetStringFormat())
             using (var gridLineFont = new Font(Font.FontFamily, Font.Size * 0.85f, Font.Style))
             using (var outlinePen = new Pen(Color.Black))
+            using (var activeOutlinePen = new Pen(SystemColors.HighlightText))
             using (var gridPen = new Pen(Color.FromArgb(96, 0, 0, 0)))
             using (var backgroundBrush = new SolidBrush(BackColor))
             using (var textBrush = new SolidBrush(ForeColor))
-            using (var highlightBrush = new SolidBrush(SystemColors.Highlight))
-            using (var highlightTextBrush = new SolidBrush(SystemColors.HighlightText)) {
+            using (var highlightBrush = new SolidBrush(SystemColors.Highlight)) {
                 var marginWidth = (int)Math.Ceiling(e.Graphics.MeasureString(
                     Maximum.ToString(), Font, ClientSize.Width, sf
                 ).Width);
@@ -225,19 +224,29 @@ namespace HeapProfiler {
 
                         g.DrawLine(gridPen, rgn.X, centerY, rgn.Right, centerY); 
 
-                        g.FillRectangle(itemBrush, barRectangle);
+                        g.FillRectangle(
+                            (_HoverIndex == i) ? highlightBrush : itemBrush, 
+                            barRectangle
+                        );
 
                         g.DrawRectangle(
-                            outlinePen, barRectangle.X - 0.5f, barRectangle.Y - 0.5f,
+                            (_HoverIndex == i) ? activeOutlinePen : outlinePen,
+                            barRectangle.X - 0.5f, barRectangle.Y - 0.5f,
                             barRectangle.Width + 1f, barRectangle.Height + 1f
                         );
 
                         x += itemWidth;
-                    }
 
-                    VisibleItems.Add(new VisibleItem {
-                        Rectangle = rgn, Index = i
-                    });
+                        VisibleItems.Add(new VisibleItem {
+                            Rectangle = new Rectangle(
+                                (int)Math.Floor(barRectangle.X),
+                                (int)Math.Floor(barRectangle.Y),
+                                (int)Math.Ceiling(barRectangle.Width),
+                                (int)Math.Ceiling(barRectangle.Height)
+                            ),
+                            Index = i
+                        });
+                    }
 
                     if ((rgn.X >= 0) && (rgn.Right < ClientSize.Width)) {
                         minVisibleIndex = Math.Min(minVisibleIndex, i);
@@ -283,14 +292,19 @@ namespace HeapProfiler {
             base.OnPaint(e);
         }
 
+        protected int? IndexFromPoint (Point pt) {
+            foreach (var vi in VisibleItems)
+                if (vi.Rectangle.Contains(pt))
+                    return vi.Index;
+
+            return null;
+        }
+
         protected override void OnMouseDown (MouseEventArgs e) {
             if (e.Button == MouseButtons.Left) {
-                foreach (var vi in VisibleItems) {
-                    if (vi.Rectangle.Contains(e.Location)) {
-                        SelectedIndex = vi.Index;
-                        break;
-                    }
-                }
+                var index = IndexFromPoint(e.Location);
+                if (index.HasValue)
+                    SelectedIndex = index.Value;
             }
 
             base.OnMouseDown(e);
@@ -298,15 +312,107 @@ namespace HeapProfiler {
 
         protected override void OnMouseMove (MouseEventArgs e) {
             if (e.Button == MouseButtons.Left) {
-                foreach (var vi in VisibleItems) {
-                    if (vi.Rectangle.Contains(e.Location)) {
-                        SelectedIndex = vi.Index;
-                        break;
-                    }
+                var index = IndexFromPoint(e.Location);
+                if (index.HasValue)
+                    SelectedIndex = index.Value;
+            } else {
+                var newIndex = IndexFromPoint(e.Location).GetValueOrDefault(-1);
+                if (newIndex != _HoverIndex) {
+                    if (newIndex >= 0)
+                        ShowTooltip(newIndex, e.Location);
+                    else
+                        HideTooltip();
                 }
             }
 
             base.OnMouseMove(e);
+        }
+
+        protected override void OnMouseLeave (EventArgs e) {
+            base.OnMouseLeave(e);
+
+            if (Tooltip == null)
+                return;
+
+            if (!Tooltip.ClientRectangle.Contains(Tooltip.PointToClient(Cursor.Position)))
+                HideTooltip();
+        }
+
+        protected StringFormat GetStringFormat () {
+            return new StringFormat {
+                Alignment = StringAlignment.Near,
+                LineAlignment = StringAlignment.Near,
+                FormatFlags = StringFormatFlags.FitBlackBox | StringFormatFlags.NoWrap |
+                    StringFormatFlags.DisplayFormatControl | StringFormatFlags.MeasureTrailingSpaces,
+                HotkeyPrefix = System.Drawing.Text.HotkeyPrefix.None,
+                Trimming = StringTrimming.None
+            };
+        }
+
+        protected void ShowTooltip (int itemIndex, Point location) {
+            if (Tooltip == null)
+                Tooltip = new DeltaTooltip(this);
+
+            var item = Items[itemIndex];
+            var sf = GetStringFormat();
+
+            using (var g = CreateGraphics()) {
+                var width = (int)Math.Ceiling(g.MeasureString(item.ToString(true), Font, 99999, sf).Width);
+                var lineHeight = g.MeasureString("AaBbYyZz", Font, width, sf).Height;
+                var rgn = new Rectangle(
+                    0, 0, width,
+                    (int)Math.Ceiling(lineHeight * (item.Traceback.Frames.Length + 1))
+                );
+
+                var rp = new DeltaInfo.RenderParams {
+                    BackgroundBrush = new SolidBrush(SystemColors.Info),
+                    BackgroundColor = SystemColors.Info,
+                    TextBrush = new SolidBrush(SystemColors.InfoText),
+                    IsExpanded = true,
+                    IsSelected = false,
+                    ElideBackgroundBrush = null,
+                    ElideTextBrush = null,
+                    FunctionHighlightBrush = new SolidBrush(SystemColors.Window),
+                    FunctionFilter = FunctionFilter,
+                    Font = Font,
+                    LineHeight = lineHeight,
+                    Region = rgn,
+                    ShadeBrush = new SolidBrush(Color.FromArgb(31, 0, 0, 0)),
+                    StringFormat = sf
+                };
+
+                Tooltip.Delta = item;
+                Tooltip.RenderParams = rp;
+
+                var screenLocation = PointToScreen(location);
+
+                var screen = Screen.FromControl(this);
+                int x = screenLocation.X + 1, y = screenLocation.Y + 1;
+
+                if ((x + rgn.Width) >= screen.WorkingArea.Right)
+                    x = (screen.WorkingArea.Right - rgn.Width - 1);
+                if ((y + rgn.Height) >= screen.WorkingArea.Bottom)
+                    y = (screen.WorkingArea.Bottom - rgn.Height - 1);
+
+                Tooltip.SetBounds(x, y, rgn.Width, rgn.Height);
+                if (!Tooltip.Visible)
+                    Tooltip.Show(this);
+            }
+
+            if (_HoverIndex != itemIndex) {
+                _HoverIndex = itemIndex;
+                Invalidate();
+            }
+        }
+
+        protected void HideTooltip () {
+            if ((Tooltip != null) && Tooltip.Visible)
+                Tooltip.Hide();
+
+            if (_HoverIndex != -1) {
+                _HoverIndex = -1;
+                Invalidate();
+            }
         }
 
         protected override void OnMouseWheel (MouseEventArgs e) {
@@ -424,6 +530,18 @@ namespace HeapProfiler {
                     Invalidate();
                 }
             }
+        }
+
+        internal void TooltipMouseDown (MouseEventArgs e) {
+            OnMouseDown(e);
+        }
+
+        internal void TooltipMouseMove (MouseEventArgs e) {
+            OnMouseMove(e);
+        }
+
+        internal void TooltipMouseUp (MouseEventArgs e) {
+            OnMouseUp(e);
         }
     }
 }

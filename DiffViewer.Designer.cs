@@ -178,6 +178,7 @@
                         | System.Windows.Forms.AnchorStyles.Left)
                         | System.Windows.Forms.AnchorStyles.Right)));
             this.DeltaHistogram.BackColor = System.Drawing.SystemColors.Window;
+            this.DeltaHistogram.Font = new System.Drawing.Font("Consolas", 11.25F);
             this.DeltaHistogram.ForeColor = System.Drawing.SystemColors.WindowText;
             this.DeltaHistogram.Location = new System.Drawing.Point(0, 31);
             this.DeltaHistogram.Name = "DeltaHistogram";
@@ -294,14 +295,14 @@
             this.ViewListMenu.Checked = true;
             this.ViewListMenu.CheckState = System.Windows.Forms.CheckState.Checked;
             this.ViewListMenu.Name = "ViewListMenu";
-            this.ViewListMenu.Size = new System.Drawing.Size(152, 22);
+            this.ViewListMenu.Size = new System.Drawing.Size(149, 22);
             this.ViewListMenu.Text = "Traceback &List";
             this.ViewListMenu.Click += new System.EventHandler(this.ViewListMenu_Click);
             // 
             // ViewHistogramMenu
             // 
             this.ViewHistogramMenu.Name = "ViewHistogramMenu";
-            this.ViewHistogramMenu.Size = new System.Drawing.Size(152, 22);
+            this.ViewHistogramMenu.Size = new System.Drawing.Size(149, 22);
             this.ViewHistogramMenu.Text = "&Histogram";
             this.ViewHistogramMenu.Click += new System.EventHandler(this.ViewHistogramMenu_Click);
             // 
