@@ -109,6 +109,7 @@ namespace HeapProfiler {
         public List<DeltaInfo> Deltas = new List<DeltaInfo>();
         public Dictionary<string, TracebackInfo> Tracebacks = new Dictionary<string, TracebackInfo>();
 
+        protected string Filename;
         protected StringFormat DeltaListFormat;
         protected bool Updating = false;
 
@@ -122,6 +123,9 @@ namespace HeapProfiler {
         }
 
         public IEnumerator<object> LoadDiff (string filename) {
+            LoadingPanel.Text = "Loading diff...";
+            Text = "Diff Viewer - " + filename;
+
             using (var fda = new FileDataAdapter(filename, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
             using (var input = new AsyncTextReader(fda)) {
                 Future<string> nextLine;
@@ -256,16 +260,14 @@ namespace HeapProfiler {
                     Modules.Remove(key);
             }
 
+            Filename = filename;
             RefreshModules();
             RefreshDeltas();
 
+            MainMenuStrip.Enabled = true;
             LoadingPanel.Visible = false;
             MainSplit.Visible = true;
             UseWaitCursor = false;
-            try {
-                File.Delete(filename);
-            } catch {
-            }
         }
 
         public void RefreshModules () {
@@ -364,6 +366,27 @@ namespace HeapProfiler {
             Updating = false;
 
             RefreshDeltas();
+        }
+
+        private void SaveDiffMenu_Click (object sender, EventArgs e) {
+            using (var dialog = new SaveFileDialog()) {
+                dialog.Title = "Save Diff";
+                dialog.Filter = "Heap Diffs|*.heapdiff";
+                dialog.AddExtension = true;
+                dialog.CheckPathExists = true;
+                dialog.DefaultExt = ".heapdiff";
+
+                if (dialog.ShowDialog(this) != System.Windows.Forms.DialogResult.OK)
+                    return;
+
+                File.Copy(Filename, dialog.FileName, true);
+                Filename = dialog.FileName;
+                Text = "Diff Viewer - " + Filename;
+            }
+        }
+
+        private void CloseMenu_Click (object sender, EventArgs e) {
+            Close();
         }
     }
 }

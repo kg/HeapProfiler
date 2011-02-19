@@ -45,6 +45,7 @@ namespace HeapProfiler {
                 dialog.CheckFileExists = true;
                 dialog.AddExtension = false;
                 dialog.Filter = "Executables|*.exe";
+                dialog.DereferenceLinks = true;
 
                 if (dialog.ShowDialog(this) != System.Windows.Forms.DialogResult.OK)
                     return;
@@ -72,7 +73,12 @@ namespace HeapProfiler {
 
             LaunchProcess.Enabled = false;
 
-            Instance = RunningProcess.Start(Scheduler, ExecutablePath.Text);
+            Instance = RunningProcess.Start(
+                Scheduler, 
+                ExecutablePath.Text,
+                Arguments.Text,
+                WorkingDirectory.Text
+            );
             Instance.StatusChanged += (s, _) => RefreshStatus();
             Instance.SnapshotsChanged += (s, _) => RefreshSnapshots();
 
@@ -162,12 +168,14 @@ namespace HeapProfiler {
                 () => viewer.ShowDialog(this)
             );
 
-            var rtc = new RunToCompletion<string>(Instance.DiffSnapshots(s1.Filename, s2.Filename));
+            var rtc = new RunToCompletion<string>(Instance.DiffSnapshots(
+                s1.Filename, s2.Filename
+            ));
             yield return rtc;
 
-            viewer.LoadingPanel.Text = "Loading diff...";
+            var tempFile = rtc.Result;
 
-            yield return viewer.LoadDiff(rtc.Result);
+            yield return viewer.LoadDiff(tempFile);
         }
 
         private void MainWindow_FormClosed (object sender, FormClosedEventArgs e) {
@@ -180,6 +188,53 @@ namespace HeapProfiler {
 
         private void SymbolPathMenu_Click (object sender, EventArgs e) {
 
+        }
+
+        private void OpenDiffMenu_Click (object sender, EventArgs e) {
+            using (var dialog = new OpenFileDialog()) {
+                dialog.Filter = "Heap Diffs|*.heapdiff";
+                dialog.CheckFileExists = true;
+                dialog.CheckPathExists = true;
+                dialog.Multiselect = false;
+                dialog.ShowReadOnly = false;
+                dialog.Title = "Open Diff";
+
+                if (dialog.ShowDialog(this) != System.Windows.Forms.DialogResult.OK)
+                    return;
+
+                var viewer = new DiffViewer(Scheduler);
+                Scheduler.Start(viewer.LoadDiff(dialog.FileName));
+                viewer.ShowDialog(this);
+            }
+        }
+
+        private void SelectWorkingDirectory_Click (object sender, EventArgs e) {
+            using (var dialog = new FolderBrowserDialog()) {
+                dialog.Description = "Select Working Directory";
+
+                if (Directory.Exists(WorkingDirectory.Text))
+                    dialog.SelectedPath = WorkingDirectory.Text;
+                else if (File.Exists(ExecutablePath.Text))
+                    dialog.SelectedPath = Path.GetDirectoryName(ExecutablePath.Text);
+
+                if (dialog.ShowDialog(this) != System.Windows.Forms.DialogResult.OK)
+                    return;
+
+                WorkingDirectory.Text = dialog.SelectedPath;
+            }
+        }
+
+        private void WorkingDirectory_DragDrop (object sender, DragEventArgs e) {
+            var files = e.Data.GetData(DataFormats.FileDrop) as string[];
+            if (files == null)
+                return;
+
+            WorkingDirectory.Text = Path.GetDirectoryName(files[0]);
+        }
+
+        private void WorkingDirectory_DragOver (object sender, DragEventArgs e) {
+            if (e.Data.GetDataPresent(DataFormats.FileDrop))
+                e.Effect = DragDropEffects.Link;
         }
     }
 }

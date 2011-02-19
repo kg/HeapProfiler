@@ -40,6 +40,7 @@ namespace HeapProfiler {
         public readonly TaskScheduler Scheduler;
         public readonly OwnedFutureSet Futures = new OwnedFutureSet();
         public readonly List<Snapshot> Snapshots = new List<Snapshot>();
+        public readonly List<string> TemporaryFiles = new List<string>();
         public readonly ProcessStartInfo StartInfo;
 
         public event EventHandler StatusChanged;
@@ -94,9 +95,16 @@ namespace HeapProfiler {
             OnStatusChanged();
         }
 
-        public static RunningProcess Start (TaskScheduler scheduler, string executablePath) {
-            var psi = new ProcessStartInfo(executablePath);
+        public static RunningProcess Start (
+            TaskScheduler scheduler, string executablePath, string arguments, string workingDirectory
+        ) {
+            var psi = new ProcessStartInfo(
+                executablePath, arguments
+            );
             psi.UseShellExecute = false;
+
+            if ((workingDirectory != null) && (workingDirectory.Trim().Length > 0))
+                psi.WorkingDirectory = workingDirectory;
 
             return new RunningProcess(scheduler, psi);
         }
@@ -118,6 +126,14 @@ namespace HeapProfiler {
                 }
             }
             Snapshots.Clear();
+
+            foreach (var fn in TemporaryFiles) {
+                try {
+                    File.Delete(fn);
+                } catch {
+                }
+            }
+            TemporaryFiles.Clear();
 
             if (Process != null) {
                 Process.Dispose();
@@ -167,6 +183,8 @@ namespace HeapProfiler {
             );
 
             yield return Program.RunProcess(psi);
+
+            TemporaryFiles.Add(filename);
 
             yield return new Result(filename);
         }

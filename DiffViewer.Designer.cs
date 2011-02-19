@@ -32,12 +32,21 @@
             this.SelectNoModules = new System.Windows.Forms.ToolStripButton();
             this.InvertModuleSelection = new System.Windows.Forms.ToolStripButton();
             this.ModuleList = new System.Windows.Forms.CheckedListBox();
-            this.DeltaList = new DeltaList();
+            this.DeltaList = new HeapProfiler.DeltaList();
+            this.MainMenu = new System.Windows.Forms.MenuStrip();
+            this.fileToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.SaveDiffMenu = new System.Windows.Forms.ToolStripMenuItem();
+            this.toolStripMenuItem1 = new System.Windows.Forms.ToolStripSeparator();
+            this.CloseMenu = new System.Windows.Forms.ToolStripMenuItem();
+            this.viewToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.ViewListMenu = new System.Windows.Forms.ToolStripMenuItem();
+            this.ViewHistogramMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.LoadingPanel.SuspendLayout();
             this.MainSplit.Panel1.SuspendLayout();
             this.MainSplit.Panel2.SuspendLayout();
             this.MainSplit.SuspendLayout();
             this.ModuleSelectionToolbar.SuspendLayout();
+            this.MainMenu.SuspendLayout();
             this.SuspendLayout();
             // 
             // LoadingPanel
@@ -68,18 +77,19 @@
             // MainSplit
             // 
             this.MainSplit.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.MainSplit.Location = new System.Drawing.Point(0, 0);
+            this.MainSplit.Location = new System.Drawing.Point(0, 24);
             this.MainSplit.Name = "MainSplit";
             // 
             // MainSplit.Panel1
             // 
             this.MainSplit.Panel1.Controls.Add(this.ModuleSelectionToolbar);
             this.MainSplit.Panel1.Controls.Add(this.ModuleList);
+            this.MainSplit.Panel1MinSize = 75;
             // 
             // MainSplit.Panel2
             // 
             this.MainSplit.Panel2.Controls.Add(this.DeltaList);
-            this.MainSplit.Size = new System.Drawing.Size(484, 312);
+            this.MainSplit.Size = new System.Drawing.Size(484, 288);
             this.MainSplit.SplitterDistance = 161;
             this.MainSplit.TabIndex = 1;
             this.MainSplit.Visible = false;
@@ -142,18 +152,87 @@
             this.ModuleList.IntegralHeight = false;
             this.ModuleList.Location = new System.Drawing.Point(0, 28);
             this.ModuleList.Name = "ModuleList";
-            this.ModuleList.Size = new System.Drawing.Size(161, 284);
+            this.ModuleList.Size = new System.Drawing.Size(161, 260);
             this.ModuleList.TabIndex = 2;
             this.ModuleList.ItemCheck += new System.Windows.Forms.ItemCheckEventHandler(this.ModuleList_ItemCheck);
             // 
             // DeltaList
             // 
+            this.DeltaList.BackColor = System.Drawing.SystemColors.Window;
             this.DeltaList.Dock = System.Windows.Forms.DockStyle.Fill;
             this.DeltaList.Font = new System.Drawing.Font("Consolas", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.DeltaList.ForeColor = System.Drawing.SystemColors.WindowText;
             this.DeltaList.Location = new System.Drawing.Point(0, 0);
             this.DeltaList.Name = "DeltaList";
-            this.DeltaList.Size = new System.Drawing.Size(319, 312);
+            this.DeltaList.ScrollOffset = 0;
+            this.DeltaList.SelectedIndex = -1;
+            this.DeltaList.Size = new System.Drawing.Size(319, 288);
             this.DeltaList.TabIndex = 0;
+            // 
+            // MainMenu
+            // 
+            this.MainMenu.Enabled = false;
+            this.MainMenu.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.fileToolStripMenuItem,
+            this.viewToolStripMenuItem});
+            this.MainMenu.Location = new System.Drawing.Point(0, 0);
+            this.MainMenu.Name = "MainMenu";
+            this.MainMenu.Size = new System.Drawing.Size(484, 24);
+            this.MainMenu.TabIndex = 2;
+            this.MainMenu.Text = "menuStrip1";
+            // 
+            // fileToolStripMenuItem
+            // 
+            this.fileToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.SaveDiffMenu,
+            this.toolStripMenuItem1,
+            this.CloseMenu});
+            this.fileToolStripMenuItem.Name = "fileToolStripMenuItem";
+            this.fileToolStripMenuItem.Size = new System.Drawing.Size(37, 20);
+            this.fileToolStripMenuItem.Text = "&File";
+            // 
+            // SaveDiffMenu
+            // 
+            this.SaveDiffMenu.Name = "SaveDiffMenu";
+            this.SaveDiffMenu.Size = new System.Drawing.Size(123, 22);
+            this.SaveDiffMenu.Text = "&Save As...";
+            this.SaveDiffMenu.Click += new System.EventHandler(this.SaveDiffMenu_Click);
+            // 
+            // toolStripMenuItem1
+            // 
+            this.toolStripMenuItem1.Name = "toolStripMenuItem1";
+            this.toolStripMenuItem1.Size = new System.Drawing.Size(120, 6);
+            // 
+            // CloseMenu
+            // 
+            this.CloseMenu.Name = "CloseMenu";
+            this.CloseMenu.Size = new System.Drawing.Size(123, 22);
+            this.CloseMenu.Text = "&Close";
+            this.CloseMenu.Click += new System.EventHandler(this.CloseMenu_Click);
+            // 
+            // viewToolStripMenuItem
+            // 
+            this.viewToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.ViewListMenu,
+            this.ViewHistogramMenu});
+            this.viewToolStripMenuItem.Name = "viewToolStripMenuItem";
+            this.viewToolStripMenuItem.Size = new System.Drawing.Size(44, 20);
+            this.viewToolStripMenuItem.Text = "&View";
+            // 
+            // ViewListMenu
+            // 
+            this.ViewListMenu.Checked = true;
+            this.ViewListMenu.CheckState = System.Windows.Forms.CheckState.Checked;
+            this.ViewListMenu.Name = "ViewListMenu";
+            this.ViewListMenu.Size = new System.Drawing.Size(152, 22);
+            this.ViewListMenu.Text = "Traceback &List";
+            // 
+            // ViewHistogramMenu
+            // 
+            this.ViewHistogramMenu.Enabled = false;
+            this.ViewHistogramMenu.Name = "ViewHistogramMenu";
+            this.ViewHistogramMenu.Size = new System.Drawing.Size(152, 22);
+            this.ViewHistogramMenu.Text = "&Histogram";
             // 
             // DiffViewer
             // 
@@ -162,6 +241,8 @@
             this.ClientSize = new System.Drawing.Size(484, 312);
             this.Controls.Add(this.MainSplit);
             this.Controls.Add(this.LoadingPanel);
+            this.Controls.Add(this.MainMenu);
+            this.MainMenuStrip = this.MainMenu;
             this.Name = "DiffViewer";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
             this.Text = "View Diff";
@@ -174,7 +255,10 @@
             this.MainSplit.ResumeLayout(false);
             this.ModuleSelectionToolbar.ResumeLayout(false);
             this.ModuleSelectionToolbar.PerformLayout();
+            this.MainMenu.ResumeLayout(false);
+            this.MainMenu.PerformLayout();
             this.ResumeLayout(false);
+            this.PerformLayout();
 
         }
 
@@ -189,5 +273,13 @@
         private System.Windows.Forms.ToolStripButton SelectAllModules;
         private System.Windows.Forms.ToolStripButton SelectNoModules;
         private System.Windows.Forms.ToolStripButton InvertModuleSelection;
+        private System.Windows.Forms.MenuStrip MainMenu;
+        private System.Windows.Forms.ToolStripMenuItem fileToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem SaveDiffMenu;
+        private System.Windows.Forms.ToolStripSeparator toolStripMenuItem1;
+        private System.Windows.Forms.ToolStripMenuItem CloseMenu;
+        private System.Windows.Forms.ToolStripMenuItem viewToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem ViewListMenu;
+        private System.Windows.Forms.ToolStripMenuItem ViewHistogramMenu;
     }
 }
