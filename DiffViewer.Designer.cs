@@ -23,6 +23,7 @@
         /// the contents of this method with the code editor.
         /// </summary>
         private void InitializeComponent () {
+            this.components = new System.ComponentModel.Container();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(DiffViewer));
             this.LoadingPanel = new System.Windows.Forms.GroupBox();
             this.LoadingProgress = new System.Windows.Forms.ProgressBar();
@@ -32,6 +33,9 @@
             this.SelectNoModules = new System.Windows.Forms.ToolStripButton();
             this.InvertModuleSelection = new System.Windows.Forms.ToolStripButton();
             this.ModuleList = new System.Windows.Forms.CheckedListBox();
+            this.FilterPanel = new System.Windows.Forms.Panel();
+            this.FindIcon = new System.Windows.Forms.PictureBox();
+            this.TracebackFilter = new System.Windows.Forms.TextBox();
             this.DeltaList = new HeapProfiler.DeltaList();
             this.MainMenu = new System.Windows.Forms.MenuStrip();
             this.fileToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -41,11 +45,14 @@
             this.viewToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.ViewListMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.ViewHistogramMenu = new System.Windows.Forms.ToolStripMenuItem();
+            this.ToolTips = new System.Windows.Forms.ToolTip(this.components);
             this.LoadingPanel.SuspendLayout();
             this.MainSplit.Panel1.SuspendLayout();
             this.MainSplit.Panel2.SuspendLayout();
             this.MainSplit.SuspendLayout();
             this.ModuleSelectionToolbar.SuspendLayout();
+            this.FilterPanel.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.FindIcon)).BeginInit();
             this.MainMenu.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -88,6 +95,7 @@
             // 
             // MainSplit.Panel2
             // 
+            this.MainSplit.Panel2.Controls.Add(this.FilterPanel);
             this.MainSplit.Panel2.Controls.Add(this.DeltaList);
             this.MainSplit.Size = new System.Drawing.Size(484, 288);
             this.MainSplit.SplitterDistance = 161;
@@ -154,19 +162,59 @@
             this.ModuleList.Name = "ModuleList";
             this.ModuleList.Size = new System.Drawing.Size(161, 260);
             this.ModuleList.TabIndex = 2;
+            this.ToolTips.SetToolTip(this.ModuleList, "Filter Tracebacks By Module");
             this.ModuleList.ItemCheck += new System.Windows.Forms.ItemCheckEventHandler(this.ModuleList_ItemCheck);
+            // 
+            // FilterPanel
+            // 
+            this.FilterPanel.Controls.Add(this.FindIcon);
+            this.FilterPanel.Controls.Add(this.TracebackFilter);
+            this.FilterPanel.Dock = System.Windows.Forms.DockStyle.Top;
+            this.FilterPanel.Location = new System.Drawing.Point(0, 0);
+            this.FilterPanel.Name = "FilterPanel";
+            this.FilterPanel.Size = new System.Drawing.Size(319, 31);
+            this.FilterPanel.TabIndex = 1;
+            // 
+            // FindIcon
+            // 
+            this.FindIcon.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)
+                        | System.Windows.Forms.AnchorStyles.Left)));
+            this.FindIcon.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("FindIcon.BackgroundImage")));
+            this.FindIcon.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Center;
+            this.FindIcon.Location = new System.Drawing.Point(3, 3);
+            this.FindIcon.Name = "FindIcon";
+            this.FindIcon.Size = new System.Drawing.Size(18, 25);
+            this.FindIcon.TabIndex = 1;
+            this.FindIcon.TabStop = false;
+            // 
+            // TracebackFilter
+            // 
+            this.TracebackFilter.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)
+                        | System.Windows.Forms.AnchorStyles.Left)
+                        | System.Windows.Forms.AnchorStyles.Right)));
+            this.TracebackFilter.AutoCompleteMode = System.Windows.Forms.AutoCompleteMode.SuggestAppend;
+            this.TracebackFilter.AutoCompleteSource = System.Windows.Forms.AutoCompleteSource.CustomSource;
+            this.TracebackFilter.Font = new System.Drawing.Font("Consolas", 11.25F);
+            this.TracebackFilter.Location = new System.Drawing.Point(23, 3);
+            this.TracebackFilter.Name = "TracebackFilter";
+            this.TracebackFilter.Size = new System.Drawing.Size(293, 25);
+            this.TracebackFilter.TabIndex = 0;
+            this.ToolTips.SetToolTip(this.TracebackFilter, "Filter Tracebacks By Function");
+            this.TracebackFilter.TextChanged += new System.EventHandler(this.TracebackFilter_TextChanged);
             // 
             // DeltaList
             // 
+            this.DeltaList.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)
+                        | System.Windows.Forms.AnchorStyles.Left)
+                        | System.Windows.Forms.AnchorStyles.Right)));
             this.DeltaList.BackColor = System.Drawing.SystemColors.Window;
-            this.DeltaList.Dock = System.Windows.Forms.DockStyle.Fill;
             this.DeltaList.Font = new System.Drawing.Font("Consolas", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.DeltaList.ForeColor = System.Drawing.SystemColors.WindowText;
-            this.DeltaList.Location = new System.Drawing.Point(0, 0);
+            this.DeltaList.Location = new System.Drawing.Point(0, 31);
             this.DeltaList.Name = "DeltaList";
             this.DeltaList.ScrollOffset = 0;
-            this.DeltaList.SelectedIndex = -1;
-            this.DeltaList.Size = new System.Drawing.Size(319, 288);
+            this.DeltaList.SelectedIndex = 0;
+            this.DeltaList.Size = new System.Drawing.Size(319, 257);
             this.DeltaList.TabIndex = 0;
             // 
             // MainMenu
@@ -224,14 +272,14 @@
             this.ViewListMenu.Checked = true;
             this.ViewListMenu.CheckState = System.Windows.Forms.CheckState.Checked;
             this.ViewListMenu.Name = "ViewListMenu";
-            this.ViewListMenu.Size = new System.Drawing.Size(152, 22);
+            this.ViewListMenu.Size = new System.Drawing.Size(149, 22);
             this.ViewListMenu.Text = "Traceback &List";
             // 
             // ViewHistogramMenu
             // 
             this.ViewHistogramMenu.Enabled = false;
             this.ViewHistogramMenu.Name = "ViewHistogramMenu";
-            this.ViewHistogramMenu.Size = new System.Drawing.Size(152, 22);
+            this.ViewHistogramMenu.Size = new System.Drawing.Size(149, 22);
             this.ViewHistogramMenu.Text = "&Histogram";
             // 
             // DiffViewer
@@ -255,6 +303,9 @@
             this.MainSplit.ResumeLayout(false);
             this.ModuleSelectionToolbar.ResumeLayout(false);
             this.ModuleSelectionToolbar.PerformLayout();
+            this.FilterPanel.ResumeLayout(false);
+            this.FilterPanel.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.FindIcon)).EndInit();
             this.MainMenu.ResumeLayout(false);
             this.MainMenu.PerformLayout();
             this.ResumeLayout(false);
@@ -281,5 +332,9 @@
         private System.Windows.Forms.ToolStripMenuItem viewToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem ViewListMenu;
         private System.Windows.Forms.ToolStripMenuItem ViewHistogramMenu;
+        private System.Windows.Forms.Panel FilterPanel;
+        private System.Windows.Forms.PictureBox FindIcon;
+        private System.Windows.Forms.TextBox TracebackFilter;
+        private System.Windows.Forms.ToolTip ToolTips;
     }
 }

@@ -64,6 +64,7 @@ namespace HeapProfiler {
         public class TracebackInfo {
             public string TraceId;
             public TracebackFrame[] Frames;
+            public HashSet<string> Functions;
             public HashSet<string> Modules;
 
             public override string ToString () {
@@ -106,10 +107,12 @@ namespace HeapProfiler {
         );
 
         public Dictionary<string, ModuleInfo> Modules = new Dictionary<string, ModuleInfo>();
+        public HashSet<string> FunctionNames = new HashSet<string>();
         public List<DeltaInfo> Deltas = new List<DeltaInfo>();
         public Dictionary<string, TracebackInfo> Tracebacks = new Dictionary<string, TracebackInfo>();
 
         protected string Filename;
+        protected string FunctionFilter = null;
         protected StringFormat DeltaListFormat;
         protected bool Updating = false;
 
@@ -196,6 +199,7 @@ namespace HeapProfiler {
 
                         var frames = new List<TracebackFrame>();
                         var modules = new HashSet<string>();
+                        var functions = new HashSet<string>();
 
                         while (true) {
                             yield return nextLine = input.ReadLine();
@@ -210,8 +214,13 @@ namespace HeapProfiler {
                                     break;
                             } else if (TracebackRegex.TryMatch(line, out m)) {
                                 readingLeadingWhitespace = false;
+
                                 var moduleName = String.Intern(m.Groups["module"].Value);
                                 modules.Add(moduleName);
+
+                                var functionName = String.Intern(m.Groups["function"].Value);
+                                functions.Add(functionName);
+                                FunctionNames.Add(functionName);
 
                                 if (!Modules.ContainsKey(moduleName)) {
                                     Modules[moduleName] = new ModuleInfo {
@@ -225,7 +234,7 @@ namespace HeapProfiler {
 
                                 var frame = new TracebackFrame {
                                     Module = moduleName,
-                                    Function = String.Intern(m.Groups["function"].Value),
+                                    Function = functionName,
                                     Offset = UInt32.Parse(m.Groups["offset"].Value, NumberStyles.HexNumber)
                                 };
                                 if (m.Groups["offset2"].Success)
@@ -242,7 +251,8 @@ namespace HeapProfiler {
                             info.Traceback = Tracebacks[traceId] = new TracebackInfo {
                                 TraceId = traceId,
                                 Frames = frames.ToArray(),
-                                Modules = modules
+                                Modules = modules,
+                                Functions = functions
                             };
                         }
 
@@ -259,6 +269,9 @@ namespace HeapProfiler {
                 if (Modules[key].References == 0)
                     Modules.Remove(key);
             }
+
+            TracebackFilter.AutoCompleteCustomSource.Clear();
+            TracebackFilter.AutoCompleteCustomSource.AddRange(FunctionNames.ToArray());
 
             Filename = filename;
             RefreshModules();
@@ -299,6 +312,13 @@ namespace HeapProfiler {
             DeltaList.Items.Clear();
             foreach (var delta in Deltas) {
                 bool filteredOut = true;
+
+                if (FunctionFilter != null) {
+                    bool match = delta.Traceback.Functions.Contains(FunctionFilter);
+                    if (!match)
+                        continue;
+                }
+
                 foreach (var module in delta.Traceback.Modules) {
                     filteredOut &= Modules[module].Filtered;
 
@@ -387,6 +407,26 @@ namespace HeapProfiler {
 
         private void CloseMenu_Click (object sender, EventArgs e) {
             Close();
+        }
+
+        private void TracebackFilter_TextChanged (object sender, EventArgs e) {
+            string newFilter = null;
+            if (FunctionNames.Contains(TracebackFilter.Text))
+                newFilter = String.Intern(TracebackFilter.Text);
+
+            var newColor =
+                (TracebackFilter.Text.Length > 0) ?
+                    ((newFilter == null) ?
+                        Color.LightPink : Color.LightGoldenrodYellow)
+                    : SystemColors.Window;
+
+            if (newColor != TracebackFilter.BackColor)
+                TracebackFilter.BackColor = newColor;
+
+            if (newFilter != FunctionFilter) {
+                FunctionFilter = newFilter;
+                RefreshDeltas();
+            }
         }
     }
 }

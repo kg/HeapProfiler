@@ -31,6 +31,64 @@ using TItem = HeapProfiler.DiffViewer.DeltaInfo;
 
 namespace HeapProfiler {
     public partial class DeltaList : UserControl {
+        protected struct ScratchRegion : IDisposable {
+            public readonly Graphics Graphics;
+            public readonly Bitmap Bitmap;
+
+            public readonly Graphics DestinationGraphics;
+            public readonly Rectangle DestinationRegion;
+
+            public ScratchRegion (DeltaList list, Graphics graphics, Rectangle region) {
+                var minWidth = (int)Math.Ceiling(region.Width / 16.0f) * 16;
+                var minHeight = (int)Math.Ceiling(region.Height / 16.0f) * 16;
+
+                var needNewBitmap =
+                    (list._ScratchBuffer == null) || (list._ScratchBuffer.Width < minWidth) ||
+                    (list._ScratchBuffer.Height < minHeight);
+
+                if (needNewBitmap && list._ScratchBuffer != null)
+                    list._ScratchBuffer.Dispose();
+                if (needNewBitmap && list._ScratchGraphics != null)
+                    list._ScratchGraphics.Dispose();
+
+                if (needNewBitmap) {
+                    Bitmap = list._ScratchBuffer = new Bitmap(
+                        minWidth, minHeight, graphics
+                    );
+                    Graphics = list._ScratchGraphics = Graphics.FromImage(Bitmap);
+                } else {
+                    Bitmap = list._ScratchBuffer;
+                    Graphics = list._ScratchGraphics;
+                }
+
+                Graphics.ResetTransform();
+                Graphics.TranslateTransform(-region.X, -region.Y, System.Drawing.Drawing2D.MatrixOrder.Prepend);
+                Graphics.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceOver;
+                Graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
+                Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
+
+                DestinationGraphics = graphics;
+                DestinationRegion = region;
+            }
+
+            public void Dispose () {
+                var oldCompositing = DestinationGraphics.CompositingMode;
+                DestinationGraphics.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceCopy;
+                var oldInterpolation = DestinationGraphics.InterpolationMode;
+                DestinationGraphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
+                var oldSmoothing = DestinationGraphics.SmoothingMode;
+                DestinationGraphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
+
+                DestinationGraphics.DrawImageUnscaledAndClipped(
+                    Bitmap, DestinationRegion
+                );
+
+                DestinationGraphics.CompositingMode = oldCompositing;
+                DestinationGraphics.InterpolationMode = oldInterpolation;
+                DestinationGraphics.SmoothingMode = oldSmoothing;
+            }
+        }
+
         public struct ItemData {
             public bool Expanded;
         }
@@ -52,10 +110,13 @@ namespace HeapProfiler {
         protected int _SelectedIndex = -1;
         protected int _ScrollOffset = 0;
 
+        protected Bitmap _ScratchBuffer = null;
+        protected Graphics _ScratchGraphics = null;
+
         public DeltaList () {
             SetStyle(
-                ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | 
-                ControlStyles.Opaque | ControlStyles.ResizeRedraw, 
+                ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint |
+                ControlStyles.Opaque | ControlStyles.ResizeRedraw,
                 true
             );
 
@@ -74,6 +135,39 @@ namespace HeapProfiler {
             Controls.Add(ScrollBar);
         }
 
+        protected override void Dispose (bool disposing) {
+            DisposeGraphics();
+
+            base.Dispose(disposing);
+        }
+
+        void DisposeGraphics () {
+            if (_ScratchGraphics != null) {
+                _ScratchGraphics.Dispose();
+                _ScratchGraphics = null;
+            }
+
+            if (_ScratchBuffer != null) {
+                _ScratchBuffer.Dispose();
+                _ScratchBuffer = null;
+            }
+        }
+
+        protected ScratchRegion GetScratch (Graphics graphics, Rectangle region) {
+            return new ScratchRegion(
+                this, graphics, region
+            );
+        }
+
+        protected ScratchRegion GetScratch (Graphics graphics, RectangleF region) {
+            return new ScratchRegion(
+                this, graphics, new Rectangle(
+                    (int)Math.Floor(region.X), (int)Math.Floor(region.Y),
+                    (int)Math.Ceiling(region.Width), (int)Math.Ceiling(region.Height)
+                )
+            );
+        }
+
         void ScrollBar_Scroll (object sender, ScrollEventArgs e) {
             ScrollOffset = e.NewValue;
         }
@@ -85,9 +179,10 @@ namespace HeapProfiler {
             base.OnResize(e);
         }
 
-        protected override void OnPaint (PaintEventArgs e) {
-            var g = e.Graphics;
+        protected override void OnPaintBackground (PaintEventArgs e) {            
+        }
 
+        protected override void OnPaint (PaintEventArgs e) {
             bool retrying = false, selectedItemVisible = false;
             int minVisibleIndex = int.MaxValue,  maxVisibleIndex = int.MinValue;
 
@@ -111,12 +206,14 @@ namespace HeapProfiler {
                 Trimming = StringTrimming.None
             };
 
-            CollapsedSize = (int)Math.Ceiling(g.MeasureString("AaBbYyZz\r\nAaBbYyZz\r\nAaBbYyZz", Font).Height);
+            var lineHeight = (int)Math.Floor(e.Graphics.MeasureString("AaBbYyZz", Font, ClientSize.Width, sf).Height);
+            CollapsedSize = (int)Math.Ceiling(e.Graphics.MeasureString("AaBbYyZz\r\nAaBbYyZz\r\nAaBbYyZz", Font, ClientSize.Width, sf).Height);
 
             VisibleItems.Clear();
 
             ItemData data;
 
+            using (var shadeBrush = new SolidBrush(Color.FromArgb(31, 0, 0, 0)))
             using (var backgroundBrush = new SolidBrush(BackColor))
             using (var textBrush = new SolidBrush(ForeColor))
             using (var highlightBrush = new SolidBrush(SystemColors.Highlight))
@@ -129,15 +226,20 @@ namespace HeapProfiler {
                     GetItemData(i, out data);
 
                     var text = item.ToString();
-                    var size = g.MeasureString(text, Font, ClientSize.Width, sf);
+                    var size = e.Graphics.MeasureString(text, Font, ClientSize.Width, sf);
 
                     if (!data.Expanded)
                         size.Height = (float)Math.Min(size.Height, CollapsedSize);
 
                     var rgn = new RectangleF(0, y, ClientSize.Width, (float)Math.Ceiling(size.Height));
 
-                    g.FillRectangle(selected ? highlightBrush : backgroundBrush, rgn);
-                    g.DrawString(text, Font, selected ? highlightTextBrush : textBrush, rgn, sf);
+                    using (var scratch = GetScratch(e.Graphics, rgn)) {
+                        var g = scratch.Graphics;
+
+                        g.FillRectangle(selected ? highlightBrush : backgroundBrush, rgn);
+                        g.FillRectangle(shadeBrush, 0, rgn.Y, rgn.Width, lineHeight - 1);
+                        g.DrawString(text, Font, selected ? highlightTextBrush : textBrush, rgn, sf);
+                    }
 
                     VisibleItems.Add(new VisibleItem {
                         Y1 = (int)Math.Floor(rgn.Top),
@@ -155,7 +257,7 @@ namespace HeapProfiler {
                     }
                 }
 
-                g.FillRectangle(backgroundBrush, new Rectangle(0, y, ClientSize.Width, ClientSize.Height - y));
+                e.Graphics.FillRectangle(backgroundBrush, new Rectangle(0, y, ClientSize.Width, ClientSize.Height - y));
 
             }
 
@@ -220,12 +322,18 @@ namespace HeapProfiler {
             base.OnMouseWheel(e);
         }
 
-        protected override void OnDoubleClick (EventArgs e) {
+        public void ToggleExpandedState (int index) {
             ItemData data;
-            GetItemData(SelectedIndex, out data);
+            GetItemData(index, out data);
             data.Expanded = !data.Expanded;
-            SetItemData(SelectedIndex, ref data);
+            SetItemData(index, ref data);
+
+            ShouldAutoscroll = true;
             Invalidate();
+        }
+
+        protected override void OnDoubleClick (EventArgs e) {
+            ToggleExpandedState(SelectedIndex);
         }
 
         protected override void OnPreviewKeyDown (PreviewKeyDownEventArgs e) {
@@ -245,21 +353,16 @@ namespace HeapProfiler {
                 case Keys.PageUp:
                     SelectedIndex -= ScrollBar.LargeChange;
                 break;
-                case Keys.Space: {
-                    ItemData data;
-                    GetItemData(SelectedIndex, out data);
-                    data.Expanded = !data.Expanded;
-                    SetItemData(SelectedIndex, ref data);
-                    Invalidate();
-                } break;
+                case Keys.Space:
+                    ToggleExpandedState(SelectedIndex);
+                break;
                 case Keys.Up:
                     SelectedIndex -= 1;
                 break;
 
                 default:
                     base.OnPreviewKeyDown(e);
-
-                return;
+                break;
             }
         }
 
@@ -292,7 +395,6 @@ namespace HeapProfiler {
                 case Keys.Space:
                 case Keys.Up:
                     return true;
-                break;
             }
 
             return false;
