@@ -54,6 +54,7 @@
     <Compile Include="DiffViewer.Designer.cs">
       <DependentUpon>DiffViewer.cs</DependentUpon>
     </Compile>
+    <Compile Include="HeapProfile.cs" />
     <Compile Include="HSV.cs" />
     <Compile Include="MainWindow.cs">
       <SubType>Form</SubType>
@@ -68,6 +69,7 @@
     <Compile Include="DeltaList.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="Util.cs" />
     <EmbeddedResource Include="DiffViewer.resx">
       <DependentUpon>DiffViewer.cs</DependentUpon>
     </EmbeddedResource>

@@ -27,81 +27,10 @@ using System.Windows.Forms;
 using Squared.Task;
 using Squared.Util;
 
-using TItem = HeapProfiler.DiffViewer.DeltaInfo;
+using TItem = HeapProfiler.DeltaInfo;
 
 namespace HeapProfiler {
     public partial class DeltaList : UserControl {
-        protected struct ScratchRegion : IDisposable {
-            public readonly Graphics Graphics;
-            public readonly Bitmap Bitmap;
-
-            public readonly Graphics DestinationGraphics;
-            public readonly Rectangle DestinationRegion;
-
-            bool Cancelled;
-
-            public ScratchRegion (DeltaList list, Graphics graphics, Rectangle region) {
-                var minWidth = (int)Math.Ceiling(region.Width / 16.0f) * 16;
-                var minHeight = (int)Math.Ceiling(region.Height / 16.0f) * 16;
-
-                var needNewBitmap =
-                    (list._ScratchBuffer == null) || (list._ScratchBuffer.Width < minWidth) ||
-                    (list._ScratchBuffer.Height < minHeight);
-
-                if (needNewBitmap && list._ScratchBuffer != null)
-                    list._ScratchBuffer.Dispose();
-                if (needNewBitmap && list._ScratchGraphics != null)
-                    list._ScratchGraphics.Dispose();
-
-                if (needNewBitmap) {
-                    Bitmap = list._ScratchBuffer = new Bitmap(
-                        minWidth, minHeight, graphics
-                    );
-                    Graphics = list._ScratchGraphics = Graphics.FromImage(Bitmap);
-                } else {
-                    Bitmap = list._ScratchBuffer;
-                    Graphics = list._ScratchGraphics;
-                }
-
-                Graphics.ResetTransform();
-                Graphics.TranslateTransform(-region.X, -region.Y, System.Drawing.Drawing2D.MatrixOrder.Prepend);
-                Graphics.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceOver;
-                Graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
-                Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
-
-                DestinationGraphics = graphics;
-                DestinationRegion = region;
-
-                Cancelled = false;
-            }
-
-            public void Cancel () {
-                Cancelled = true;
-            }
-
-            public void Dispose () {
-                if (Cancelled)
-                    return;
-
-                var oldCompositing = DestinationGraphics.CompositingMode;
-                DestinationGraphics.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceCopy;
-                var oldInterpolation = DestinationGraphics.InterpolationMode;
-                DestinationGraphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
-                var oldSmoothing = DestinationGraphics.SmoothingMode;
-                DestinationGraphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
-
-                DestinationGraphics.DrawImageUnscaledAndClipped(
-                    Bitmap, DestinationRegion
-                );
-
-                DestinationGraphics.CompositingMode = oldCompositing;
-                DestinationGraphics.InterpolationMode = oldInterpolation;
-                DestinationGraphics.SmoothingMode = oldSmoothing;
-
-                Cancelled = true;
-            }
-        }
-
         public struct ItemData {
             public bool Expanded;
         }
@@ -120,13 +49,11 @@ namespace HeapProfiler {
         protected int CollapsedSize;
         protected bool ShouldAutoscroll = false;
 
+        protected ScratchBuffer Scratch = new ScratchBuffer();
         protected ScrollBar ScrollBar = null;
 
         protected int _SelectedIndex = -1;
         protected int _ScrollOffset = 0;
-
-        protected Bitmap _ScratchBuffer = null;
-        protected Graphics _ScratchGraphics = null;
 
         public DeltaList () {
             SetStyle(
@@ -152,36 +79,9 @@ namespace HeapProfiler {
         }
 
         protected override void Dispose (bool disposing) {
-            DisposeGraphics();
+            Scratch.Dispose();
 
             base.Dispose(disposing);
-        }
-
-        void DisposeGraphics () {
-            if (_ScratchGraphics != null) {
-                _ScratchGraphics.Dispose();
-                _ScratchGraphics = null;
-            }
-
-            if (_ScratchBuffer != null) {
-                _ScratchBuffer.Dispose();
-                _ScratchBuffer = null;
-            }
-        }
-
-        protected ScratchRegion GetScratch (Graphics graphics, Rectangle region) {
-            return new ScratchRegion(
-                this, graphics, region
-            );
-        }
-
-        protected ScratchRegion GetScratch (Graphics graphics, RectangleF region) {
-            return new ScratchRegion(
-                this, graphics, new Rectangle(
-                    (int)Math.Floor(region.X), (int)Math.Floor(region.Y),
-                    (int)Math.Ceiling(region.Width), (int)Math.Ceiling(region.Height)
-                )
-            );
         }
 
         void ScrollBar_Scroll (object sender, ScrollEventArgs e) {
@@ -239,6 +139,17 @@ namespace HeapProfiler {
                 var lineHeight = e.Graphics.MeasureString("AaBbYyZz", Font, width, sf).Height;
                 CollapsedSize = (int)Math.Ceiling(lineHeight * 3);
 
+                var renderParams = new DeltaInfo.RenderParams {
+                    Font = Font,
+                    FunctionFilter = FunctionFilter, 
+                    FunctionHighlightBrush = functionHighlightBrush,
+                    ElideBackgroundBrush = elideBackgroundBrush,
+                    ElideTextBrush = elideTextBrush,
+                    LineHeight = lineHeight,
+                    ShadeBrush = shadeBrush,
+                    StringFormat = sf,
+                };
+
                 int y = 0;
                 for (int i = _ScrollOffset; (i < Items.Count) && (y < ClientSize.Height); i++) {
                     var y1 = y;
@@ -247,7 +158,6 @@ namespace HeapProfiler {
                     var item = Items[i];
                     GetItemData(i, out data);
 
-                    var text = item.ToString();
                     var rgn = new Rectangle(
                         0, y, width, 
                         data.Expanded ? 
@@ -255,85 +165,22 @@ namespace HeapProfiler {
                             CollapsedSize
                     );
 
-                    using (var scratch = GetScratch(e.Graphics, rgn)) {
+                    using (var scratch = Scratch.Get(e.Graphics, rgn)) {
                         var g = scratch.Graphics;
 
                         g.ResetClip();
                         g.Clear(selected ? highlightBrush.Color : backgroundBrush.Color);
                         g.FillRectangle(shadeBrush, 0, rgn.Y, rgn.Width, lineHeight - 1);
 
-                        var brush = selected ? highlightTextBrush : textBrush;
+                        renderParams.BackgroundColor = selected ? highlightBrush.Color : backgroundBrush.Color;
+                        renderParams.BackgroundBrush = selected ? highlightBrush : backgroundBrush;
+                        renderParams.TextBrush = selected ? highlightTextBrush : textBrush;
 
-                        text = item.ToString(false);
-                        var y2 = 0.0f;
+                        renderParams.Region = rgn;
+                        renderParams.IsExpanded = data.Expanded;
+                        renderParams.IsSelected = selected;
 
-                        g.DrawString(text, Font, brush, 0.0f, y + y2, sf);
-                        y2 += g.MeasureString(text, Font, width, sf).Height;
-
-                        int f = 0;
-                        foreach (var frame in item.Traceback.Frames) {
-                            text = frame.ToString();
-
-                            var layoutRect = new RectangleF(
-                                0.0f, y + y2, width, lineHeight
-                            );
-                            Region[] fillRegions = null;
-
-                            if (FunctionFilter == frame.Function) {
-                                var startIndex = text.IndexOf('!') + 1;
-                                var endIndex = text.LastIndexOfAny(functionEndChars);
-                                sf.SetMeasurableCharacterRanges(new[] { 
-                                    new CharacterRange(startIndex, endIndex - startIndex)
-                                });
-
-                                fillRegions = g.MeasureCharacterRanges(
-                                    text, Font, layoutRect, sf
-                                );
-
-                                foreach (var fillRegion in fillRegions) {
-                                    g.FillRegion(functionHighlightBrush, fillRegion);
-                                    g.ExcludeClip(fillRegion);
-                                }
-                            }
-
-                            g.DrawString(text, Font, brush, layoutRect, sf);
-                            if (fillRegions != null) {
-                                bool first = true;
-                                foreach (var fillRegion in fillRegions) {
-                                    g.SetClip(fillRegion, first ?
-                                        System.Drawing.Drawing2D.CombineMode.Replace :
-                                        System.Drawing.Drawing2D.CombineMode.Union
-                                    );
-                                    first = false;
-                                }
-                                g.DrawString(text, Font, textBrush, layoutRect, sf);
-                                g.ResetClip();
-                            }
-
-                            y2 += g.MeasureString(text, Font, width, sf).Height;
-
-                            f += 1;
-                            if ((f == 2) && !data.Expanded) {
-                                sf.Alignment = StringAlignment.Far;
-
-                                var elideString = String.Format(
-                                    "(+{0} frame(s))", item.Traceback.Frames.Length - 2
-                                );
-                                sf.SetMeasurableCharacterRanges(new[] { new CharacterRange(0, elideString.Length) });
-
-                                var regions = g.MeasureCharacterRanges(elideString, Font, layoutRect, sf);
-                                foreach (var region in regions)
-                                    g.FillRegion(elideBackgroundBrush, region);
-
-                                g.DrawString(elideString, Font, elideTextBrush, layoutRect, sf);
-
-                                sf.Alignment = StringAlignment.Near;
-
-                                break;
-                            }
-                        }
-
-                        y += (int)Math.Ceiling(y2);
+                        y += (int)Math.Ceiling(item.Render(g, ref renderParams));
                     }
 
                     VisibleItems.Add(new VisibleItem {
@@ -538,18 +385,6 @@ namespace HeapProfiler {
                     Invalidate();
                 }
             }
-        }
-    }
-
-    class ReferenceComparer<T> : IEqualityComparer<T>
-        where T : class {
-
-        public bool Equals (T x, T y) {
-            return (x == y);
-        }
-
-        public int GetHashCode (T obj) {
-            return obj.GetHashCode();
         }
     }
 }
