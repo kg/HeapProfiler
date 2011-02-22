@@ -193,9 +193,13 @@ namespace HeapProfiler {
         public string Function;
         public UInt32 Offset;
         public UInt32? Offset2;
+        public string SourceFile;
+        public int? SourceLine;
 
         public override string ToString () {
-            if (Offset2.HasValue)
+            if ((SourceFile != null) && (SourceLine.HasValue))
+                return String.Format("{0}!{1} line {2}", Module, Function, SourceLine);
+            else if (Offset2.HasValue)
                 return String.Format("{0}!{1}@{2:x8}", Module, Function, Offset2.Value);
             else
                 return String.Format("{0}!{1}+{2:x8}", Module, Function, Offset);

@@ -52,7 +52,7 @@ namespace HeapProfiler {
             RegexOptions.Compiled | RegexOptions.ExplicitCapture
         );
         public static Regex TracebackRegex = new Regex(
-            @"\t(?'module'[^!]+)!(?'function'[^+]+)\+(?'offset'[\dA-Fa-f]+)(\s*:\s*(?'offset2'[\dA-Fa-f]+))?",
+            @"\t(?'module'[^!]+)!(?'function'[^+]+)\+(?'offset'[\dA-Fa-f]+)(\s*:\s*(?'offset2'[\dA-Fa-f]+))?(\s*\(\s*(?'path'[^,]+),\s*(?'line'[0-9]*)\))?",
             RegexOptions.Compiled | RegexOptions.ExplicitCapture
         );
 
@@ -243,6 +243,12 @@ namespace HeapProfiler {
                             };
                             if (m.Groups["offset2"].Success)
                                 frame.Offset2 = UInt32.Parse(m.Groups["offset2"].Value, NumberStyles.HexNumber);
+
+                            if (m.Groups["path"].Success)
+                                frame.SourceFile = m.Groups["path"].Value;
+
+                            if (m.Groups["line"].Success)
+                                frame.SourceLine = int.Parse(m.Groups["line"].Value);
 
                             frames.Add(frame);
                         } else {
