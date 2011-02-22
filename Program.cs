@@ -104,8 +104,21 @@ namespace HeapProfiler {
                 yield return new Sleep(1.0);
             }
 
-            using (var window = new MainWindow(Scheduler))
-                yield return window.Show();
+            var args = Environment.GetCommandLineArgs();
+            if ((args.Length > 1) && File.Exists(args[1])) {
+                using (var viewer = new DiffViewer(Scheduler)) {
+                    Scheduler.Start(viewer.LoadDiff(args[1]), TaskExecutionPolicy.RunAsBackgroundTask);
+
+                    yield return viewer.Show();
+
+                    Application.Exit();
+                }
+            } else {
+                using (var window = new MainWindow(Scheduler))
+                    yield return window.Show();
+
+                Application.Exit();
+            }
         }
 
         public static SignalFuture WaitForProcessExit (Process process) {

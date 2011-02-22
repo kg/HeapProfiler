@@ -24,6 +24,7 @@
         /// </summary>
         private void InitializeComponent () {
             this.components = new System.ComponentModel.Container();
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MainWindow));
             this.ToolTips = new System.Windows.Forms.ToolTip(this.components);
             this.SelectExecutable = new System.Windows.Forms.Button();
             this.SelectWorkingDirectory = new System.Windows.Forms.Button();
@@ -36,6 +37,7 @@
             this.ExecutablePath = new System.Windows.Forms.TextBox();
             this.LaunchProcess = new System.Windows.Forms.Button();
             this.GroupSnapshots = new System.Windows.Forms.GroupBox();
+            this.AutoCapture = new System.Windows.Forms.CheckBox();
             this.SaveSelection = new System.Windows.Forms.Button();
             this.DiffSelection = new System.Windows.Forms.Button();
             this.CaptureSnapshot = new System.Windows.Forms.Button();
@@ -45,9 +47,9 @@
             this.OpenDiffMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripMenuItem1 = new System.Windows.Forms.ToolStripSeparator();
             this.exitToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.optionsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.OptionsMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.SymbolPathMenu = new System.Windows.Forms.ToolStripMenuItem();
-            this.AutoCapture = new System.Windows.Forms.CheckBox();
+            this.AssociateHeapdiffsMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.GroupExecutable.SuspendLayout();
             this.GroupSnapshots.SuspendLayout();
             this.MainMenu.SuspendLayout();
@@ -202,6 +204,19 @@
             this.GroupSnapshots.TabStop = false;
             this.GroupSnapshots.Text = "Snapshots";
             // 
+            // AutoCapture
+            // 
+            this.AutoCapture.Appearance = System.Windows.Forms.Appearance.Button;
+            this.AutoCapture.Enabled = false;
+            this.AutoCapture.Location = new System.Drawing.Point(415, 44);
+            this.AutoCapture.Name = "AutoCapture";
+            this.AutoCapture.Size = new System.Drawing.Size(100, 22);
+            this.AutoCapture.TabIndex = 4;
+            this.AutoCapture.Text = "&Auto Capture";
+            this.AutoCapture.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.AutoCapture.UseVisualStyleBackColor = true;
+            this.AutoCapture.CheckedChanged += new System.EventHandler(this.AutoCapture_CheckedChanged);
+            // 
             // SaveSelection
             // 
             this.SaveSelection.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
@@ -261,7 +276,7 @@
             // 
             this.MainMenu.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.fileToolStripMenuItem,
-            this.optionsToolStripMenuItem});
+            this.OptionsMenu});
             this.MainMenu.Location = new System.Drawing.Point(0, 0);
             this.MainMenu.Name = "MainMenu";
             this.MainMenu.Size = new System.Drawing.Size(534, 24);
@@ -297,34 +312,30 @@
             this.exitToolStripMenuItem.Text = "E&xit";
             this.exitToolStripMenuItem.Click += new System.EventHandler(this.ExitMenu_Click);
             // 
-            // optionsToolStripMenuItem
+            // OptionsMenu
             // 
-            this.optionsToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.SymbolPathMenu});
-            this.optionsToolStripMenuItem.Name = "optionsToolStripMenuItem";
-            this.optionsToolStripMenuItem.Size = new System.Drawing.Size(61, 20);
-            this.optionsToolStripMenuItem.Text = "&Options";
+            this.OptionsMenu.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.SymbolPathMenu,
+            this.AssociateHeapdiffsMenu});
+            this.OptionsMenu.Name = "OptionsMenu";
+            this.OptionsMenu.Size = new System.Drawing.Size(61, 20);
+            this.OptionsMenu.Text = "&Options";
+            this.OptionsMenu.DropDownOpening += new System.EventHandler(this.OptionsMenu_DropDownOpening);
             // 
             // SymbolPathMenu
             // 
             this.SymbolPathMenu.Enabled = false;
             this.SymbolPathMenu.Name = "SymbolPathMenu";
-            this.SymbolPathMenu.Size = new System.Drawing.Size(150, 22);
+            this.SymbolPathMenu.Size = new System.Drawing.Size(296, 22);
             this.SymbolPathMenu.Text = "&Symbol Path...";
             this.SymbolPathMenu.Click += new System.EventHandler(this.SymbolPathMenu_Click);
             // 
-            // AutoCapture
+            // AssociateHeapdiffsMenu
             // 
-            this.AutoCapture.Appearance = System.Windows.Forms.Appearance.Button;
-            this.AutoCapture.Enabled = false;
-            this.AutoCapture.Location = new System.Drawing.Point(415, 44);
-            this.AutoCapture.Name = "AutoCapture";
-            this.AutoCapture.Size = new System.Drawing.Size(100, 22);
-            this.AutoCapture.TabIndex = 4;
-            this.AutoCapture.Text = "&Auto Capture";
-            this.AutoCapture.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            this.AutoCapture.UseVisualStyleBackColor = true;
-            this.AutoCapture.CheckedChanged += new System.EventHandler(this.AutoCapture_CheckedChanged);
+            this.AssociateHeapdiffsMenu.Name = "AssociateHeapdiffsMenu";
+            this.AssociateHeapdiffsMenu.Size = new System.Drawing.Size(296, 22);
+            this.AssociateHeapdiffsMenu.Text = "&Associate .heapdiff files with Heap Profiler";
+            this.AssociateHeapdiffsMenu.Click += new System.EventHandler(this.AssociateHeapdiffsMenu_Click);
             // 
             // MainWindow
             // 
@@ -334,6 +345,7 @@
             this.Controls.Add(this.GroupSnapshots);
             this.Controls.Add(this.GroupExecutable);
             this.Controls.Add(this.MainMenu);
+            this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.MainMenuStrip = this.MainMenu;
             this.Margin = new System.Windows.Forms.Padding(2);
             this.Name = "MainWindow";
@@ -367,7 +379,7 @@
         private System.Windows.Forms.MenuStrip MainMenu;
         private System.Windows.Forms.ToolStripMenuItem fileToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem exitToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem optionsToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem OptionsMenu;
         private System.Windows.Forms.ToolStripMenuItem SymbolPathMenu;
         private System.Windows.Forms.ToolStripMenuItem OpenDiffMenu;
         private System.Windows.Forms.ToolStripSeparator toolStripMenuItem1;
@@ -377,6 +389,7 @@
         private System.Windows.Forms.TextBox Arguments;
         private System.Windows.Forms.Label label1;
         private System.Windows.Forms.CheckBox AutoCapture;
+        private System.Windows.Forms.ToolStripMenuItem AssociateHeapdiffsMenu;
     }
 }
 

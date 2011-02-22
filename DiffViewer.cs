@@ -55,6 +55,7 @@ namespace HeapProfiler {
         public HashSet<string> FunctionNames = new HashSet<string>();
         public List<DeltaInfo> Deltas = new List<DeltaInfo>();
         public Dictionary<string, TracebackInfo> Tracebacks = new Dictionary<string, TracebackInfo>();
+
         public List<DeltaInfo> ListItems = new List<DeltaInfo>();
 
         protected string Filename;
@@ -76,152 +77,159 @@ namespace HeapProfiler {
         }
 
         public IEnumerator<object> LoadDiff (string filename) {
-            LoadingPanel.Text = "Loading diff...";
             Text = "Diff Viewer - " + filename;
+            LoadingPanel.Text = "Loading diff...";
 
-            using (var fda = new FileDataAdapter(filename, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
-            using (var input = new AsyncTextReader(fda)) {
-                Future<string> nextLine;
-                string line = null;
+            var fLines = Future.RunInThread(() => File.ReadAllLines(filename));
+            yield return fLines;
+
+            var lines = fLines.Result;
+
+            LoadingPanel.Text = "Parsing diff...";
+
+            var modules = new Dictionary<string, ModuleInfo>();
+            var functionNames = new HashSet<string>();
+            var deltas = new List<DeltaInfo>();
+            var tracebacks = new Dictionary<string, TracebackInfo>();
+
+            for (int i = 0; i < lines.Length; i++) {
+                string line = lines[i];
 
                 try {
                     LoadingProgress.Style = ProgressBarStyle.Continuous;
-                    LoadingProgress.Maximum = (int)fda.BaseStream.Length;
+                    LoadingProgress.Maximum = lines.Length;
                 } catch {
                 }
 
-                int i = 0;
-                while (true) {
-                    i += 1;
-                    if ((i % 30 == 0) && (LoadingProgress.Style == ProgressBarStyle.Continuous)) {
-                        int v = (int)fda.BaseStream.Position;
-                        // Setting the progress higher and then lower bypasses the slow animation baked into
-                        //  the windows theme engine's progress bar implementation
-                        LoadingProgress.Value = Math.Min(v + 1, LoadingProgress.Maximum);
-                        LoadingProgress.Value = v;
-                    }
+                if ((i % 50 == 0) && (LoadingProgress.Style == ProgressBarStyle.Continuous)) {
+                    int v = i;
+                    // Setting the progress higher and then lower bypasses the slow animation baked into
+                    //  the windows theme engine's progress bar implementation
+                    LoadingProgress.Value = Math.Min(v + 1, LoadingProgress.Maximum);
+                    LoadingProgress.Value = v;
 
-                    if (line == null) {
-                        yield return nextLine = input.ReadLine();
-                        line = nextLine.Result;
+                    yield return new Yield();
+                }
 
-                        if (line == null)
-                            break;
-                    }
+            retryFromHere:
 
-                    Match m;
-                    if (ModuleRegex.TryMatch(line, out m)) {
-                        var moduleName = String.Intern(m.Groups["module"].Value);
+                Match m;
+                if (ModuleRegex.TryMatch(line, out m)) {
+                    var moduleName = String.Intern(m.Groups["module"].Value);
 
-                        var info = new ModuleInfo {
-                            ModuleName = moduleName,
-                            SymbolType = String.Intern(m.Groups["symboltype"].Value),
-                        };
+                    var info = new ModuleInfo {
+                        ModuleName = moduleName,
+                        SymbolType = String.Intern(m.Groups["symboltype"].Value),
+                    };
 
-                        yield return nextLine = input.ReadLine();
-                        line = nextLine.Result;
+                    if (i < lines.Length - 1) {
+                        line = lines[i++];
                         if (!ModuleRegex.IsMatch(line)) {
                             info.SymbolPath = line.Trim();
-                            line = null;
+                        } else {
+                            goto retryFromHere;
                         }
+                    }
 
-                        Modules[moduleName] = info;
+                    modules[moduleName] = info;
+                } else if (BytesDeltaRegex.TryMatch(line, out m)) {
+                    var traceId = String.Intern(m.Groups["trace_id"].Value);
+                    var info = new DeltaInfo {
+                        Added = (m.Groups["type"].Value == "+"),
+                        BytesDelta = int.Parse(m.Groups["delta_bytes"].Value),
+                        NewBytes = int.Parse(m.Groups["new_bytes"].Value),
+                        OldBytes = int.Parse(m.Groups["old_bytes"].Value),
+                        NewCount = int.Parse(m.Groups["new_count"].Value),
+                    };
 
-                        continue;
-                    } else if (BytesDeltaRegex.TryMatch(line, out m)) {
-                        var traceId = String.Intern(m.Groups["trace_id"].Value);
-                        var info = new DeltaInfo {
-                            Added = (m.Groups["type"].Value == "+"),
-                            BytesDelta = int.Parse(m.Groups["delta_bytes"].Value),
-                            NewBytes = int.Parse(m.Groups["new_bytes"].Value),
-                            OldBytes = int.Parse(m.Groups["old_bytes"].Value),
-                            NewCount = int.Parse(m.Groups["new_count"].Value),
-                        };
+                    if (i < lines.Length - 1) {
+                        line = lines[i++];
 
-                        yield return nextLine = input.ReadLine();
-                        line = nextLine.Result;
                         if (CountDeltaRegex.TryMatch(line, out m)) {
                             info.OldCount = int.Parse(m.Groups["old_count"].Value);
                             info.CountDelta = int.Parse(m.Groups["delta"].Value);
                         }
-
-                        bool readingLeadingWhitespace = true;
-
-                        var frames = new List<TracebackFrame>();
-                        var modules = new HashSet<string>();
-                        var functions = new HashSet<string>();
-
-                        while (true) {
-                            yield return nextLine = input.ReadLine();
-                            line = nextLine.Result;
-
-                            if (line == null)
-                                break;
-                            else if (line.Trim().Length == 0) {
-                                if (readingLeadingWhitespace)
-                                    continue;
-                                else
-                                    break;
-                            } else if (TracebackRegex.TryMatch(line, out m)) {
-                                readingLeadingWhitespace = false;
-
-                                var moduleName = String.Intern(m.Groups["module"].Value);
-                                modules.Add(moduleName);
-
-                                var functionName = String.Intern(m.Groups["function"].Value);
-                                functions.Add(functionName);
-                                FunctionNames.Add(functionName);
-
-                                if (!Modules.ContainsKey(moduleName)) {
-                                    Modules[moduleName] = new ModuleInfo {
-                                        ModuleName = moduleName,
-                                        SymbolType = "Unknown",
-                                        References = 1
-                                    };
-                                } else {
-                                    Modules[moduleName].References += 1;
-                                }
-
-                                var frame = new TracebackFrame {
-                                    Module = moduleName,
-                                    Function = functionName,
-                                    Offset = UInt32.Parse(m.Groups["offset"].Value, NumberStyles.HexNumber)
-                                };
-                                if (m.Groups["offset2"].Success)
-                                    frame.Offset2 = UInt32.Parse(m.Groups["offset2"].Value, NumberStyles.HexNumber);
-
-                                frames.Add(frame);
-                            }
-                        }
-
-                        if (Tracebacks.ContainsKey(traceId)) {
-                            info.Traceback = Tracebacks[traceId];
-                            Console.WriteLine("Duplicate traceback for id {0}!", traceId);
-                        } else {
-                            info.Traceback = Tracebacks[traceId] = new TracebackInfo {
-                                TraceId = traceId,
-                                Frames = frames.ToArray(),
-                                Modules = modules,
-                                Functions = functions
-                            };
-                        }
-
-                        Deltas.Add(info);
                     }
 
-                    if (line == null)
-                        break;
-                    line = null;
+                    bool readingLeadingWhitespace = true;
+
+                    var frames = new List<TracebackFrame>();
+                    var itemModules = new HashSet<string>();
+                    var itemFunctions = new HashSet<string>();
+
+                    while (i++ < lines.Length) {
+                        line = lines[i];
+
+                        if (line.Trim().Length == 0) {
+                            if (readingLeadingWhitespace)
+                                continue;
+                            else
+                                break;
+                        } else if (TracebackRegex.TryMatch(line, out m)) {
+                            readingLeadingWhitespace = false;
+
+                            var moduleName = String.Intern(m.Groups["module"].Value);
+                            itemModules.Add(moduleName);
+
+                            var functionName = String.Intern(m.Groups["function"].Value);
+                            itemFunctions.Add(functionName);
+                            FunctionNames.Add(functionName);
+
+                            if (!modules.ContainsKey(moduleName)) {
+                                modules[moduleName] = new ModuleInfo {
+                                    ModuleName = moduleName,
+                                    SymbolType = "Unknown",
+                                    References = 1
+                                };
+                            } else {
+                                modules[moduleName].References += 1;
+                            }
+
+                            var frame = new TracebackFrame {
+                                Module = moduleName,
+                                Function = functionName,
+                                Offset = UInt32.Parse(m.Groups["offset"].Value, NumberStyles.HexNumber)
+                            };
+                            if (m.Groups["offset2"].Success)
+                                frame.Offset2 = UInt32.Parse(m.Groups["offset2"].Value, NumberStyles.HexNumber);
+
+                            frames.Add(frame);
+                        } else {
+                            i--;
+                            break;
+                        }
+                    }
+
+                    if (tracebacks.ContainsKey(traceId)) {
+                        info.Traceback = tracebacks[traceId];
+                        Console.WriteLine("Duplicate traceback for id {0}!", traceId);
+                    } else {
+                        info.Traceback = tracebacks[traceId] = new TracebackInfo {
+                            TraceId = traceId,
+                            Frames = frames.ToArray(),
+                            Modules = itemModules,
+                            Functions = itemFunctions
+                        };
+                    }
+
+                    deltas.Add(info);
+                } else {
+                    // Console.WriteLine(line);
                 }
             }
 
-            foreach (var key in Modules.Keys.ToArray()) {
-                if (Modules[key].References == 0)
-                    Modules.Remove(key);
+            foreach (var key in modules.Keys.ToArray()) {
+                if (modules[key].References == 0)
+                    modules.Remove(key);
             }
 
+            Modules = modules;
+            FunctionNames = functionNames;
+            Deltas = deltas;
+            Tracebacks = tracebacks;
+
             TracebackFilter.AutoCompleteCustomSource.Clear();
-            TracebackFilter.AutoCompleteCustomSource.AddRange(FunctionNames.ToArray());
+            TracebackFilter.AutoCompleteCustomSource.AddRange(functionNames.ToArray());
 
             Filename = filename;
             RefreshModules();
@@ -265,7 +273,7 @@ namespace HeapProfiler {
                         continue;
                 }
 
-                bool filteredOut = true;
+                bool filteredOut = (delta.Traceback.Modules.Count > 0);
                 foreach (var module in delta.Traceback.Modules) {
                     filteredOut &= Modules[module].Filtered;
 

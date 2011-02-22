@@ -40,6 +40,12 @@ namespace HeapProfiler {
             public int Index;
         }
 
+        public class VisibleItemComparer : IComparer<VisibleItem> {
+            public int Compare (VisibleItem x, VisibleItem y) {
+                return x.Index.CompareTo(y.Index);
+            }
+        }
+
         public IList<TItem> Items = new List<TItem>();
         public int Maximum = 1024;
 
@@ -162,8 +168,10 @@ namespace HeapProfiler {
                 var marginWidth = (int)Math.Ceiling(e.Graphics.MeasureString(
                     Maximum.ToString(), Font, ClientSize.Width, sf
                 ).Width);
+                var rgn = new Rectangle(0, 0, marginWidth, height);
 
-                using (var scratch = Scratch.Get(e.Graphics, new Rectangle(0, 0, marginWidth, height))) {
+                if (rgn.IntersectsWith(e.ClipRectangle))
+                using (var scratch = Scratch.Get(e.Graphics, rgn)) {
                     var g = scratch.Graphics;
                     g.Clear(BackColor);
 
@@ -194,8 +202,24 @@ namespace HeapProfiler {
                     var item = Items[i];
                     GetItemData(i, out data);
 
-                    var rgn = new Rectangle(x, 0, itemWidth, height);
+                    rgn = new Rectangle(x, 0, itemWidth, height);
 
+                    float y1, y2;
+
+                    var value = GraphLog(item.BytesDelta);
+                    if (item.Added) {
+                        y2 = centerY;
+                        y1 = y2 - (value / (float)max) * ((height / 2.0f) - 1);
+                    } else {
+                        y1 = centerY;
+                        y2 = y1 + (value / (float)max) * ((height / 2.0f) - 1);
+                    }
+
+                    var barRectangle = new RectangleF(
+                        rgn.X + 2.5f, y1 + 0.5f, itemWidth - 6f, (y2 - y1) - 1f
+                    );
+
+                    if (rgn.IntersectsWith(e.ClipRectangle))
                     using (var itemBrush = new SolidBrush(SelectItemColor(ref item)))
                     using (var scratch = Scratch.Get(e.Graphics, rgn)) {
                         var g = scratch.Graphics;
@@ -204,21 +228,6 @@ namespace HeapProfiler {
                         g.Clear(BackColor);
 
                         var brush = selected ? highlightBrush : itemBrush;
-
-                        float y1, y2;
-
-                        var value = GraphLog(item.BytesDelta);
-                        if (item.Added) {
-                            y2 = centerY;
-                            y1 = y2 - (value / (float)max) * ((height / 2.0f) - 1);
-                        } else {
-                            y1 = centerY;
-                            y2 = y1 + (value / (float)max) * ((height / 2.0f) - 1);
-                        }
-
-                        var barRectangle = new RectangleF(
-                            rgn.X + 2.5f, y1 + 0.5f, itemWidth - 6f, (y2 - y1) - 1f
-                        );
 
                         g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
 
@@ -234,19 +243,19 @@ namespace HeapProfiler {
                             barRectangle.X - 0.5f, barRectangle.Y - 0.5f,
                             barRectangle.Width + 1f, barRectangle.Height + 1f
                         );
-
-                        x += itemWidth;
-
-                        VisibleItems.Add(new VisibleItem {
-                            Rectangle = new Rectangle(
-                                (int)Math.Floor(barRectangle.X),
-                                (int)Math.Floor(barRectangle.Y),
-                                (int)Math.Ceiling(barRectangle.Width),
-                                (int)Math.Ceiling(barRectangle.Height)
-                            ),
-                            Index = i
-                        });
                     }
+
+                    VisibleItems.Add(new VisibleItem {
+                        Rectangle = new Rectangle(
+                            (int)Math.Floor(barRectangle.X),
+                            (int)Math.Floor(barRectangle.Y),
+                            (int)Math.Ceiling(barRectangle.Width),
+                            (int)Math.Ceiling(barRectangle.Height)
+                        ),
+                        Index = i
+                    });
+
+                    x += itemWidth;
 
                     if ((rgn.X >= 0) && (rgn.Right < ClientSize.Width)) {
                         minVisibleIndex = Math.Min(minVisibleIndex, i);
@@ -322,6 +331,8 @@ namespace HeapProfiler {
                         ShowTooltip(newIndex, e.Location);
                     else
                         HideTooltip();
+                } else if (_HoverIndex >= 0) {
+                    MoveTooltip(e.Location);
                 }
             }
 
@@ -384,25 +395,56 @@ namespace HeapProfiler {
                 Tooltip.Delta = item;
                 Tooltip.RenderParams = rp;
 
-                var screenLocation = PointToScreen(location);
+                MoveTooltip(location);
 
-                var screen = Screen.FromControl(this);
-                int x = screenLocation.X + 1, y = screenLocation.Y + 1;
-
-                if ((x + rgn.Width) >= screen.WorkingArea.Right)
-                    x = (screen.WorkingArea.Right - rgn.Width - 1);
-                if ((y + rgn.Height) >= screen.WorkingArea.Bottom)
-                    y = (screen.WorkingArea.Bottom - rgn.Height - 1);
-
-                Tooltip.SetBounds(x, y, rgn.Width, rgn.Height);
                 if (!Tooltip.Visible)
                     Tooltip.Show(this);
             }
 
             if (_HoverIndex != itemIndex) {
+                var oldIndex = _HoverIndex;
                 _HoverIndex = itemIndex;
-                Invalidate();
+                InvalidateItem(oldIndex);
+                InvalidateItem(_HoverIndex);
             }
+        }
+
+        protected void InvalidateItem (int index) {
+            if (index < VisibleItems[0].Index)
+                return;
+            if (index > VisibleItems[VisibleItems.Count - 1].Index)
+                return;
+
+            var vi = new VisibleItem { Index = index };
+            var visibleIndex = VisibleItems.BinarySearch(vi, new VisibleItemComparer());
+            var rectF = VisibleItems[visibleIndex].Rectangle;
+
+            Invalidate(new Rectangle(
+                (int)Math.Floor(rectF.X) - 4,
+                (int)Math.Floor(rectF.Y) - 4,
+                (int)Math.Ceiling(rectF.Width) + 8,
+                (int)Math.Ceiling(rectF.Height) + 8
+            ));
+        }
+
+        protected void MoveTooltip (Point location) {
+            var rgn = Tooltip.RenderParams.Region;
+
+            var screenLocation = PointToScreen(location);
+
+            var screen = Screen.FromControl(this);
+            int x = screenLocation.X + 4, y = screenLocation.Y + 24;
+
+            if ((x + rgn.Width) >= screen.WorkingArea.Right)
+                x = (screen.WorkingArea.Right - rgn.Width - 1);
+            if ((y + rgn.Height) >= screen.WorkingArea.Bottom)
+                y = (screen.WorkingArea.Bottom - rgn.Height - 1);
+
+            if ((Tooltip.Left != x) || 
+                (Tooltip.Top != y) || 
+                (Tooltip.Width != rgn.Width) || 
+                (Tooltip.Height != rgn.Height))
+                Tooltip.SetBounds(x, y, rgn.Width, rgn.Height);
         }
 
         protected void HideTooltip () {
@@ -410,8 +452,9 @@ namespace HeapProfiler {
                 Tooltip.Hide();
 
             if (_HoverIndex != -1) {
+                var i = _HoverIndex;
                 _HoverIndex = -1;
-                Invalidate();
+                InvalidateItem(i);
             }
         }
 

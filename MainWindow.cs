@@ -272,5 +272,27 @@ namespace HeapProfiler {
                 yield return sleep;
             }
         }
+
+        protected FileAssociation HeapdiffAssociation {
+            get {
+                var executablePath = Application.ExecutablePath;
+
+                return new FileAssociation(
+                    ".heapdiff", "HeapProfiler_heapdiff",
+                    "Heap Profiler Diff",
+                    String.Format("{0},0", executablePath),
+                    String.Format("{0} \"%1\"", executablePath)
+                );
+            }
+        }
+
+        private void AssociateHeapdiffsMenu_Click (object sender, EventArgs e) {
+            var assoc = HeapdiffAssociation;
+            assoc.IsAssociated = !assoc.IsAssociated;
+        }
+
+        private void OptionsMenu_DropDownOpening (object sender, EventArgs e) {
+            AssociateHeapdiffsMenu.Checked = HeapdiffAssociation.IsAssociated;
+        }
     }
 }

@@ -333,6 +333,7 @@
             this.Controls.Add(this.MainSplit);
             this.Controls.Add(this.LoadingPanel);
             this.Controls.Add(this.MainMenu);
+            this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.MainMenuStrip = this.MainMenu;
             this.Name = "DiffViewer";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
