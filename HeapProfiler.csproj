@@ -78,6 +78,9 @@
     <Compile Include="DeltaList.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="TimelineRangeSelector.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
     <Compile Include="Util.cs" />
     <EmbeddedResource Include="DeltaTooltip.resx">
       <DependentUpon>DeltaTooltip.cs</DependentUpon>

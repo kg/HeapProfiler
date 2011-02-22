@@ -49,6 +49,7 @@
             this.ToolTips = new System.Windows.Forms.ToolTip(this.components);
             this.StatusBar = new System.Windows.Forms.StatusStrip();
             this.StatusLabel = new System.Windows.Forms.ToolStripStatusLabel();
+            this.Timeline = new HeapProfiler.TimelineRangeSelector();
             this.LoadingPanel.SuspendLayout();
             this.MainSplit.Panel1.SuspendLayout();
             this.MainSplit.Panel2.SuspendLayout();
@@ -62,13 +63,11 @@
             // 
             // LoadingPanel
             // 
-            this.LoadingPanel.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)
-                        | System.Windows.Forms.AnchorStyles.Left)
-                        | System.Windows.Forms.AnchorStyles.Right)));
+            this.LoadingPanel.Anchor = System.Windows.Forms.AnchorStyles.None;
             this.LoadingPanel.Controls.Add(this.LoadingProgress);
-            this.LoadingPanel.Location = new System.Drawing.Point(117, 131);
+            this.LoadingPanel.Location = new System.Drawing.Point(117, 181);
             this.LoadingPanel.Name = "LoadingPanel";
-            this.LoadingPanel.Size = new System.Drawing.Size(250, 50);
+            this.LoadingPanel.Size = new System.Drawing.Size(350, 50);
             this.LoadingPanel.TabIndex = 0;
             this.LoadingPanel.TabStop = false;
             this.LoadingPanel.Text = "Generating Diff...";
@@ -81,7 +80,7 @@
             this.LoadingProgress.Location = new System.Drawing.Point(6, 19);
             this.LoadingProgress.MarqueeAnimationSpeed = 25;
             this.LoadingProgress.Name = "LoadingProgress";
-            this.LoadingProgress.Size = new System.Drawing.Size(238, 25);
+            this.LoadingProgress.Size = new System.Drawing.Size(338, 25);
             this.LoadingProgress.Style = System.Windows.Forms.ProgressBarStyle.Marquee;
             this.LoadingProgress.TabIndex = 0;
             // 
@@ -104,8 +103,8 @@
             this.MainSplit.Panel2.Controls.Add(this.DeltaHistogram);
             this.MainSplit.Panel2.Controls.Add(this.FilterPanel);
             this.MainSplit.Panel2.Controls.Add(this.DeltaList);
-            this.MainSplit.Size = new System.Drawing.Size(484, 260);
-            this.MainSplit.SplitterDistance = 161;
+            this.MainSplit.Size = new System.Drawing.Size(584, 327);
+            this.MainSplit.SplitterDistance = 124;
             this.MainSplit.TabIndex = 1;
             this.MainSplit.Visible = false;
             // 
@@ -119,7 +118,7 @@
             this.ModuleSelectionToolbar.Location = new System.Drawing.Point(0, 0);
             this.ModuleSelectionToolbar.Name = "ModuleSelectionToolbar";
             this.ModuleSelectionToolbar.RenderMode = System.Windows.Forms.ToolStripRenderMode.System;
-            this.ModuleSelectionToolbar.Size = new System.Drawing.Size(161, 25);
+            this.ModuleSelectionToolbar.Size = new System.Drawing.Size(124, 25);
             this.ModuleSelectionToolbar.TabIndex = 3;
             this.ModuleSelectionToolbar.Text = "toolStrip1";
             // 
@@ -167,7 +166,7 @@
             this.ModuleList.IntegralHeight = false;
             this.ModuleList.Location = new System.Drawing.Point(0, 28);
             this.ModuleList.Name = "ModuleList";
-            this.ModuleList.Size = new System.Drawing.Size(161, 232);
+            this.ModuleList.Size = new System.Drawing.Size(124, 299);
             this.ModuleList.TabIndex = 2;
             this.ToolTips.SetToolTip(this.ModuleList, "Filter Tracebacks By Module");
             this.ModuleList.ItemCheck += new System.Windows.Forms.ItemCheckEventHandler(this.ModuleList_ItemCheck);
@@ -184,7 +183,7 @@
             this.DeltaHistogram.Name = "DeltaHistogram";
             this.DeltaHistogram.ScrollOffset = 0;
             this.DeltaHistogram.SelectedIndex = 0;
-            this.DeltaHistogram.Size = new System.Drawing.Size(319, 229);
+            this.DeltaHistogram.Size = new System.Drawing.Size(456, 296);
             this.DeltaHistogram.TabIndex = 2;
             this.DeltaHistogram.Visible = false;
             // 
@@ -195,7 +194,7 @@
             this.FilterPanel.Dock = System.Windows.Forms.DockStyle.Top;
             this.FilterPanel.Location = new System.Drawing.Point(0, 0);
             this.FilterPanel.Name = "FilterPanel";
-            this.FilterPanel.Size = new System.Drawing.Size(319, 31);
+            this.FilterPanel.Size = new System.Drawing.Size(456, 31);
             this.FilterPanel.TabIndex = 1;
             // 
             // FindIcon
@@ -220,7 +219,7 @@
             this.TracebackFilter.Font = new System.Drawing.Font("Consolas", 11.25F);
             this.TracebackFilter.Location = new System.Drawing.Point(23, 3);
             this.TracebackFilter.Name = "TracebackFilter";
-            this.TracebackFilter.Size = new System.Drawing.Size(293, 25);
+            this.TracebackFilter.Size = new System.Drawing.Size(430, 25);
             this.TracebackFilter.TabIndex = 0;
             this.ToolTips.SetToolTip(this.TracebackFilter, "Filter Tracebacks By Function");
             this.TracebackFilter.TextChanged += new System.EventHandler(this.TracebackFilter_TextChanged);
@@ -237,7 +236,7 @@
             this.DeltaList.Name = "DeltaList";
             this.DeltaList.ScrollOffset = 0;
             this.DeltaList.SelectedIndex = 0;
-            this.DeltaList.Size = new System.Drawing.Size(319, 229);
+            this.DeltaList.Size = new System.Drawing.Size(456, 296);
             this.DeltaList.TabIndex = 0;
             // 
             // MainMenu
@@ -248,7 +247,7 @@
             this.viewToolStripMenuItem});
             this.MainMenu.Location = new System.Drawing.Point(0, 0);
             this.MainMenu.Name = "MainMenu";
-            this.MainMenu.Size = new System.Drawing.Size(484, 24);
+            this.MainMenu.Size = new System.Drawing.Size(584, 24);
             this.MainMenu.TabIndex = 2;
             this.MainMenu.Text = "menuStrip1";
             // 
@@ -310,29 +309,39 @@
             // 
             this.StatusBar.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.StatusLabel});
-            this.StatusBar.Location = new System.Drawing.Point(0, 290);
+            this.StatusBar.Location = new System.Drawing.Point(0, 390);
             this.StatusBar.Name = "StatusBar";
-            this.StatusBar.Size = new System.Drawing.Size(484, 22);
+            this.StatusBar.Size = new System.Drawing.Size(584, 22);
             this.StatusBar.TabIndex = 3;
             this.StatusBar.Text = "statusStrip1";
             // 
             // StatusLabel
             // 
             this.StatusLabel.Name = "StatusLabel";
-            this.StatusLabel.Size = new System.Drawing.Size(469, 17);
+            this.StatusLabel.Size = new System.Drawing.Size(569, 17);
             this.StatusLabel.Spring = true;
             this.StatusLabel.Text = "No Results";
             this.StatusLabel.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // Timeline
+            // 
+            this.Timeline.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)
+                        | System.Windows.Forms.AnchorStyles.Right)));
+            this.Timeline.Location = new System.Drawing.Point(0, 356);
+            this.Timeline.Name = "Timeline";
+            this.Timeline.Size = new System.Drawing.Size(584, 32);
+            this.Timeline.TabIndex = 4;
             // 
             // DiffViewer
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(484, 312);
+            this.ClientSize = new System.Drawing.Size(584, 412);
+            this.Controls.Add(this.Timeline);
             this.Controls.Add(this.StatusBar);
-            this.Controls.Add(this.MainSplit);
             this.Controls.Add(this.LoadingPanel);
             this.Controls.Add(this.MainMenu);
+            this.Controls.Add(this.MainSplit);
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.MainMenuStrip = this.MainMenu;
             this.Name = "DiffViewer";
@@ -385,5 +394,6 @@
         private System.Windows.Forms.StatusStrip StatusBar;
         private System.Windows.Forms.ToolStripStatusLabel StatusLabel;
         private DeltaHistogram DeltaHistogram;
+        private TimelineRangeSelector Timeline;
     }
 }

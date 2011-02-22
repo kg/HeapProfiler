@@ -32,6 +32,8 @@ using System.Text.RegularExpressions;
 using Squared.Util.RegexExtensions;
 using System.Globalization;
 
+using Snapshot = HeapProfiler.RunningProcess.Snapshot;
+
 namespace HeapProfiler {
     public partial class DiffViewer : TaskForm {
         public static Regex ModuleRegex = new Regex(
@@ -58,18 +60,30 @@ namespace HeapProfiler {
 
         public List<DeltaInfo> ListItems = new List<DeltaInfo>();
 
+        protected IList<Snapshot> Snapshots = null;
+
         protected string Filename;
         protected string FunctionFilter = null;
         protected StringFormat DeltaListFormat;
         protected bool Updating = false;
 
-        public DiffViewer (TaskScheduler scheduler)
+        public DiffViewer (TaskScheduler scheduler, IList<Snapshot> snapshots)
             : base (scheduler) {
             InitializeComponent();
 
             DeltaListFormat = new StringFormat();
             DeltaListFormat.Trimming = StringTrimming.None;
             DeltaListFormat.FormatFlags = StringFormatFlags.NoWrap | StringFormatFlags.FitBlackBox;
+
+            Timeline.Items = Snapshots = snapshots;
+            Timeline.Visible = (snapshots != null);
+
+            if (snapshots == null)
+                MainSplit.Height += Timeline.Bottom - MainSplit.Bottom;
+        }
+
+        public DiffViewer (TaskScheduler scheduler)
+            : this(scheduler, null) {
         }
 
         protected void SetBusy (bool busy) {
@@ -77,7 +91,6 @@ namespace HeapProfiler {
         }
 
         public IEnumerator<object> LoadDiff (string filename) {
-            Text = "Diff Viewer - " + filename;
             LoadingPanel.Text = "Loading diff...";
 
             var fLines = Future.RunInThread(() => File.ReadAllLines(filename));
@@ -231,7 +244,9 @@ namespace HeapProfiler {
             TracebackFilter.AutoCompleteCustomSource.Clear();
             TracebackFilter.AutoCompleteCustomSource.AddRange(functionNames.ToArray());
 
+            Text = "Diff Viewer - " + filename;
             Filename = filename;
+
             RefreshModules();
             RefreshDeltas();
 

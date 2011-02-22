@@ -38,7 +38,6 @@
             this.LaunchProcess = new System.Windows.Forms.Button();
             this.GroupSnapshots = new System.Windows.Forms.GroupBox();
             this.AutoCapture = new System.Windows.Forms.CheckBox();
-            this.SaveSelection = new System.Windows.Forms.Button();
             this.DiffSelection = new System.Windows.Forms.Button();
             this.CaptureSnapshot = new System.Windows.Forms.Button();
             this.SnapshotList = new System.Windows.Forms.ListBox();
@@ -191,7 +190,6 @@
                         | System.Windows.Forms.AnchorStyles.Left)
                         | System.Windows.Forms.AnchorStyles.Right)));
             this.GroupSnapshots.Controls.Add(this.AutoCapture);
-            this.GroupSnapshots.Controls.Add(this.SaveSelection);
             this.GroupSnapshots.Controls.Add(this.DiffSelection);
             this.GroupSnapshots.Controls.Add(this.CaptureSnapshot);
             this.GroupSnapshots.Controls.Add(this.SnapshotList);
@@ -216,18 +214,6 @@
             this.AutoCapture.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             this.AutoCapture.UseVisualStyleBackColor = true;
             this.AutoCapture.CheckedChanged += new System.EventHandler(this.AutoCapture_CheckedChanged);
-            // 
-            // SaveSelection
-            // 
-            this.SaveSelection.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.SaveSelection.Enabled = false;
-            this.SaveSelection.Location = new System.Drawing.Point(415, 97);
-            this.SaveSelection.Margin = new System.Windows.Forms.Padding(2);
-            this.SaveSelection.Name = "SaveSelection";
-            this.SaveSelection.Size = new System.Drawing.Size(100, 22);
-            this.SaveSelection.TabIndex = 3;
-            this.SaveSelection.Text = "&Save Selection";
-            this.SaveSelection.UseVisualStyleBackColor = true;
             // 
             // DiffSelection
             // 
@@ -375,7 +361,6 @@
         private System.Windows.Forms.ListBox SnapshotList;
         private System.Windows.Forms.Button DiffSelection;
         private System.Windows.Forms.Button CaptureSnapshot;
-        private System.Windows.Forms.Button SaveSelection;
         private System.Windows.Forms.MenuStrip MainMenu;
         private System.Windows.Forms.ToolStripMenuItem fileToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem exitToolStripMenuItem;

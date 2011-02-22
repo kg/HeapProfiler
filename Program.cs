@@ -156,7 +156,8 @@ namespace HeapProfiler {
             var fProcess = StartProcess(psi);
             yield return fProcess;
 
-            using (var process = fProcess.Result) {
+            using (var process = fProcess.Result)
+            try {
                 yield return WaitForProcessExit(process);
 
                 var stdout = process.StandardOutput.ReadToEnd().Trim();
@@ -169,6 +170,12 @@ namespace HeapProfiler {
 
                 if (process.ExitCode != 0)
                     throw new Exception(String.Format("Process exited with code {0}", process.ExitCode));
+            } finally {
+                try {
+                    if (!process.HasExited)
+                        process.Kill();
+                } catch {
+                }
             }
         }
     }

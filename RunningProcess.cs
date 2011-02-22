@@ -24,6 +24,7 @@ using System.Diagnostics;
 using Squared.Task;
 using System.IO;
 using System.Windows.Forms;
+using Squared.Util;
 
 namespace HeapProfiler {
     public class RunningProcess : IDisposable {
@@ -40,12 +41,13 @@ namespace HeapProfiler {
         public readonly TaskScheduler Scheduler;
         public readonly OwnedFutureSet Futures = new OwnedFutureSet();
         public readonly List<Snapshot> Snapshots = new List<Snapshot>();
-        public readonly List<string> TemporaryFiles = new List<string>();
+        public readonly HashSet<string> TemporaryFiles = new HashSet<string>();
         public readonly ProcessStartInfo StartInfo;
 
         public event EventHandler StatusChanged;
         public event EventHandler SnapshotsChanged;
 
+        protected LRUCache<Pair<string>, string> DiffCache = new LRUCache<Pair<string>, string>(32);
         protected Process Process;
 
         protected RunningProcess (TaskScheduler scheduler, ProcessStartInfo startInfo) {
@@ -55,6 +57,19 @@ namespace HeapProfiler {
             Futures.Add(Scheduler.Start(
                 MainTask(), TaskExecutionPolicy.RunAsBackgroundTask
             ));
+
+            DiffCache.ItemEvicted += DiffCache_ItemEvicted;
+        }
+
+        void DiffCache_ItemEvicted (KeyValuePair<Pair<string>, string> item) {
+            if (TemporaryFiles.Contains(item.Value)) {
+                TemporaryFiles.Remove(item.Value);
+
+                try {
+                    File.Delete(item.Value);
+                } catch {
+                }
+            }
         }
 
         protected void OnStatusChanged () {
@@ -105,6 +120,8 @@ namespace HeapProfiler {
 
             if ((workingDirectory != null) && (workingDirectory.Trim().Length > 0))
                 psi.WorkingDirectory = workingDirectory;
+            else
+                psi.WorkingDirectory = Path.GetDirectoryName(executablePath);
 
             return new RunningProcess(scheduler, psi);
         }
@@ -174,19 +191,31 @@ namespace HeapProfiler {
         }
 
         public IEnumerator<object> DiffSnapshots (string file1, string file2) {
-            var filename = Path.GetTempFileName();
+            file1 = Path.GetFullPath(file1);
+            file2 = Path.GetFullPath(file2);
+            var pair = Pair.New(file1, file2);
 
-            var psi = new ProcessStartInfo(
-                Settings.UmdhPath, String.Format(
-                    "-d \"{0}\" \"{1}\" -f:\"{2}\"", file1, file2, filename
-                )
-            );
+            string filename;
+            if (DiffCache.TryGetValue(pair, out filename)) {
+                yield return new Result(filename);
+            } else {
+                filename = Path.GetTempFileName();
 
-            yield return Program.RunProcess(psi);
+                var psi = new ProcessStartInfo(
+                    Settings.UmdhPath, String.Format(
+                        "-d \"{0}\" \"{1}\" -f:\"{2}\"", file1, file2, filename
+                    )
+                );
 
-            TemporaryFiles.Add(filename);
+                var rp = Scheduler.Start(Program.RunProcess(psi), TaskExecutionPolicy.RunAsBackgroundTask);
+                using (rp)
+                    yield return rp;
 
-            yield return new Result(filename);
+                DiffCache.Add(pair, filename);
+                TemporaryFiles.Add(filename);
+
+                yield return new Result(filename);
+            }
         }
     }
 }

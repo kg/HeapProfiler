@@ -137,7 +137,7 @@ namespace HeapProfiler {
 
             int height = ClientSize.Height - ScrollBar.Height;
             float centerY = height / 2;
-            int itemWidth = 40;
+            int itemWidth = 32;
 
             float max = GraphLog(Maximum);
 
@@ -166,8 +166,8 @@ namespace HeapProfiler {
             using (var textBrush = new SolidBrush(ForeColor))
             using (var highlightBrush = new SolidBrush(SystemColors.Highlight)) {
                 var marginWidth = (int)Math.Ceiling(e.Graphics.MeasureString(
-                    Maximum.ToString(), Font, ClientSize.Width, sf
-                ).Width);
+                    "+" + Maximum.ToString(), gridLineFont, ClientSize.Width, sf
+                ).Width) + 1;
                 var rgn = new Rectangle(0, 0, marginWidth, height);
 
                 if (rgn.IntersectsWith(e.ClipRectangle))
@@ -180,7 +180,7 @@ namespace HeapProfiler {
                     g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
                     g.DrawLine(gridPen, 0, centerY, marginWidth, centerY);
 
-                    for (int i = Maximum; i >= 16; i /= 4) {
+                    for (int i = Maximum; i >= Math.Min(Maximum, 16); i /= 4) {
                         float y = (GraphLog(i) / max) * (height / 2.0f);
 
                         g.DrawLine(gridPen, 0, centerY - y, marginWidth, centerY - y);

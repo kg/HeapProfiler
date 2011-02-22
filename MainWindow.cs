@@ -138,7 +138,6 @@ namespace HeapProfiler {
             SnapshotList.EndUpdate();
 
             DiffSelection.Enabled = false;
-            SaveSelection.Enabled = false;
         }
 
         private void CaptureSnapshot_Click (object sender, EventArgs e) {
@@ -152,8 +151,7 @@ namespace HeapProfiler {
         }
 
         private void SnapshotList_SelectedIndexChanged (object sender, EventArgs e) {
-            DiffSelection.Enabled = (SnapshotList.SelectedIndices.Count == 2);
-            SaveSelection.Enabled = false;
+            DiffSelection.Enabled = (SnapshotList.SelectedIndices.Count >= 2);
         }
 
         private void MainWindow_FormClosing (object sender, FormClosingEventArgs e) {
@@ -176,7 +174,7 @@ namespace HeapProfiler {
         }
 
         protected IEnumerator<object> ShowDiff (RunningProcess.Snapshot s1, RunningProcess.Snapshot s2) {
-            var viewer = new DiffViewer(Scheduler);
+            var viewer = new DiffViewer(Scheduler, Instance.Snapshots);
             Scheduler.QueueWorkItem(
                 () => viewer.ShowDialog(this)
             );
@@ -188,7 +186,7 @@ namespace HeapProfiler {
 
             var tempFile = rtc.Result;
 
-            yield return viewer.LoadDiff(tempFile);
+            yield return viewer.Start(viewer.LoadDiff(tempFile));
         }
 
         private void MainWindow_FormClosed (object sender, FormClosedEventArgs e) {
@@ -216,7 +214,7 @@ namespace HeapProfiler {
                     return;
 
                 var viewer = new DiffViewer(Scheduler);
-                Scheduler.Start(viewer.LoadDiff(dialog.FileName));
+                viewer.Start(viewer.LoadDiff(dialog.FileName));
                 viewer.ShowDialog(this);
             }
         }
