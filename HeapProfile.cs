@@ -21,6 +21,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Drawing;
+using System.IO;
 
 namespace HeapProfiler {
     public class ModuleInfo {
@@ -90,19 +91,22 @@ namespace HeapProfiler {
                 Region[] fillRegions = null;
 
                 if (rp.FunctionFilter == frame.Function) {
-                    var startIndex = text.IndexOf('!') + 1;
-                    var endIndex = text.LastIndexOfAny(functionEndChars);
-                    rp.StringFormat.SetMeasurableCharacterRanges(new[] { 
-                        new CharacterRange(startIndex, endIndex - startIndex)
-                    });
+                    var startIndex = text.IndexOf(rp.FunctionFilter);
+                    var endIndex = startIndex + rp.FunctionFilter.Length;
 
-                    fillRegions = g.MeasureCharacterRanges(
-                        text, rp.Font, layoutRect, rp.StringFormat
-                    );
+                    if ((endIndex > startIndex) && (startIndex >= 0)) {
+                        rp.StringFormat.SetMeasurableCharacterRanges(new[] { 
+                            new CharacterRange(startIndex, endIndex - startIndex)
+                        });
 
-                    foreach (var fillRegion in fillRegions) {
-                        g.FillRegion(rp.FunctionHighlightBrush, fillRegion);
-                        g.ExcludeClip(fillRegion);
+                        fillRegions = g.MeasureCharacterRanges(
+                            text, rp.Font, layoutRect, rp.StringFormat
+                        );
+
+                        foreach (var fillRegion in fillRegions) {
+                            g.FillRegion(rp.FunctionHighlightBrush, fillRegion);
+                            g.ExcludeClip(fillRegion);
+                        }
                     }
                 }
 
@@ -198,7 +202,7 @@ namespace HeapProfiler {
 
         public override string ToString () {
             if ((SourceFile != null) && (SourceLine.HasValue))
-                return String.Format("{0}!{1} line {2}", Module, Function, SourceLine);
+                return String.Format("{0}!{1} line {2} ({3})", Module, Function, SourceLine, Path.GetFileName(SourceFile));
             else if (Offset2.HasValue)
                 return String.Format("{0}!{1}@{2:x8}", Module, Function, Offset2.Value);
             else
