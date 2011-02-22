@@ -30,12 +30,19 @@ using Squared.Util;
 
 namespace HeapProfiler {
     public partial class TimelineRangeSelector : UserControl {
+        public struct VisibleItem {
+            public float X;
+            public int Index;
+        }
+
         public event EventHandler RangeChanged;
 
-        public IList<Snapshot> Items;
+        public IList<Snapshot> Items = new List<Snapshot>();
 
+        protected readonly List<VisibleItem> VisibleItems = new List<VisibleItem>();
         protected ScratchBuffer Scratch = new ScratchBuffer();
-        protected int BeginIndex, EndIndex;
+        protected int BeginIndex = -1, EndIndex = -1;
+        protected Point MouseDownLocation;
 
         public TimelineRangeSelector () {
             SetStyle(
@@ -57,21 +64,33 @@ namespace HeapProfiler {
 
         public Snapshot Begin {
             get {
-                return default(Snapshot);
+                if ((BeginIndex < 0) || (BeginIndex >= Items.Count))
+                    return default(Snapshot);
+
+                return Items[BeginIndex];
             }
             set {
-                BeginIndex = Items.IndexOf(value);
-                OnRangeChanged();
+                var newIndex = Items.IndexOf(value);
+                if (newIndex != BeginIndex) {
+                    BeginIndex = Items.IndexOf(value);
+                    OnRangeChanged();
+                }
             }
         }
 
         public Snapshot End {
             get {
-                return default(Snapshot);
+                if ((EndIndex < 0) || (EndIndex >= Items.Count))
+                    return default(Snapshot);
+
+                return Items[EndIndex];
             }
             set {
-                EndIndex = Items.IndexOf(value);
-                OnRangeChanged();
+                var newIndex = Items.IndexOf(value);
+                if (newIndex != EndIndex) {
+                    EndIndex = newIndex;
+                    OnRangeChanged();
+                }
             }
         }
 
@@ -80,9 +99,11 @@ namespace HeapProfiler {
                 return new Pair<int>(BeginIndex, EndIndex);
             }
             set {
-                BeginIndex = value.First;
-                EndIndex = value.Second;
-                OnRangeChanged();
+                if ((value.First != BeginIndex) || (value.Second != EndIndex)) {
+                    BeginIndex = value.First;
+                    EndIndex = value.Second;
+                    OnRangeChanged();
+                }
             }
         }
 
@@ -97,17 +118,140 @@ namespace HeapProfiler {
         }
 
         protected override void OnPaint (PaintEventArgs e) {
-            var width = ClientSize.Width - 2.0f;
-            var height = ClientSize.Height - 2.0f;
+            var width = ClientSize.Width - 18.0f;
+            var height = ClientSize.Height - 8.0f;
+
+            VisibleItems.Clear();
 
             using (var textBrush = new SolidBrush(ForeColor))
+            using (var outlinePen = new Pen(ForeColor))
+            using (var highlightBrush = new SolidBrush(SystemColors.Highlight))
+            using (var highlightPen = new Pen(SystemColors.HighlightText))
             using (var scratch = Scratch.Get(e.Graphics, e.ClipRectangle)) {
                 var g = scratch.Graphics;
+                var xOffset = (ClientSize.Width - width) / 2f;
+                var itemWidth = width / (float)(Items.Count - 1);
 
                 g.Clear(BackColor);
+                g.DrawRectangle(
+                    outlinePen, xOffset, 0.0f, width - 1, height - 1
+                );
 
-                g.DrawString("Hello World", Font, textBrush, new PointF(1f, 1f));
+                g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
+
+                for (int i = 0; i < Items.Count - 1; i++) {
+                    float x = itemWidth * i;
+                    g.DrawLine(outlinePen, x + xOffset, 0, x + xOffset, height - 1);
+
+                    VisibleItems.Add(new VisibleItem {
+                        Index = i, X = x
+                    });
+                }
+
+                var x1 = (itemWidth * BeginIndex) + xOffset;
+                var x2 = (itemWidth * EndIndex) + xOffset;
+                g.FillRectangle(
+                    highlightBrush, new RectangleF(
+                        x1, 0, x2 - x1, height
+                ));
+                g.DrawRectangle(
+                    highlightPen, x1, 0, x2 - x1, height
+                );
+
+                for (int i = BeginIndex; i <= EndIndex; i++) {
+                    float x = itemWidth * i;
+                    g.DrawLine(highlightPen, x + xOffset, 0, x + xOffset, height - 1);
+                }
+
+                g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
+
+                float arrowWidth = (ClientSize.Height - height);
+                foreach (float x in new [] { 
+                    Math.Ceiling((itemWidth * BeginIndex) + xOffset), 
+                    Math.Floor((itemWidth * EndIndex) + xOffset)
+                }) {
+                    g.FillPolygon(
+                        highlightBrush, new PointF[] {
+                            new PointF(x, height), 
+                            new PointF(x - arrowWidth, ClientSize.Height - 1),
+                            new PointF(x + arrowWidth, ClientSize.Height - 1)
+                        }
+                    );
+                    g.DrawLine(outlinePen, x, height, x - arrowWidth, ClientSize.Height - 1);
+                    g.DrawLine(outlinePen, x, height, x + arrowWidth, ClientSize.Height - 1);
+                    g.DrawLine(outlinePen, x - arrowWidth, ClientSize.Height - 1, x + arrowWidth, ClientSize.Height - 1);
+                }
             }
+        }
+
+        protected int IndexFromPoint (Point pt, int direction) {
+            if (direction < 0) {
+                for (int i = VisibleItems.Count - 1; i >= 0; i--) {
+                    var vi = VisibleItems[i];
+                    if (pt.X >= vi.X)
+                        return vi.Index;
+                }
+
+                return 0;
+            } else {
+                for (int i = 0; i < VisibleItems.Count; i++) {
+                    var vi = VisibleItems[i];
+                    if (pt.X <= vi.X)
+                        return vi.Index;
+                }
+
+                return Items.Count - 1;
+            }
+        }
+
+        protected void SetRangeFromPoints (Point start, Point end) {
+            int i1, i2;
+
+            if (start.X > end.X) {
+                i1 = IndexFromPoint(end, -1);
+                i2 = IndexFromPoint(start, 1);
+            } else {
+                i1 = IndexFromPoint(start, -1);
+                i2 = IndexFromPoint(end, 1);
+            }
+            if (i2 < i1) {
+                var t = i1;
+                i1 = i2;
+                i2 = t;
+            }
+
+            if (i1 > (Items.Count - 2))
+                i1 = Items.Count - 2;
+
+            if ((i1 != BeginIndex) || (i2 != EndIndex)) {
+                BeginIndex = i1;
+                EndIndex = i2;
+                OnRangeChanged();
+            }
+        }
+
+        protected override void OnMouseDown (MouseEventArgs e) {
+            if (e.Button == MouseButtons.Left) {
+                MouseDownLocation = e.Location;
+
+                SetRangeFromPoints(MouseDownLocation, e.Location);
+            }
+
+            base.OnMouseDown(e);
+        }
+
+        protected override void OnMouseMove (MouseEventArgs e) {
+            if (e.Button == MouseButtons.Left)
+                SetRangeFromPoints(MouseDownLocation, e.Location);
+
+            base.OnMouseMove(e);
+        }
+
+        protected override void OnMouseUp (MouseEventArgs e) {
+            if (e.Button == MouseButtons.Left)
+                SetRangeFromPoints(MouseDownLocation, e.Location);
+
+            base.OnMouseUp(e);
         }
     }
 }

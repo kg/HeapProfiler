@@ -103,7 +103,7 @@
             this.MainSplit.Panel2.Controls.Add(this.DeltaHistogram);
             this.MainSplit.Panel2.Controls.Add(this.FilterPanel);
             this.MainSplit.Panel2.Controls.Add(this.DeltaList);
-            this.MainSplit.Size = new System.Drawing.Size(584, 327);
+            this.MainSplit.Size = new System.Drawing.Size(584, 328);
             this.MainSplit.SplitterDistance = 124;
             this.MainSplit.TabIndex = 1;
             this.MainSplit.Visible = false;
@@ -166,7 +166,7 @@
             this.ModuleList.IntegralHeight = false;
             this.ModuleList.Location = new System.Drawing.Point(0, 28);
             this.ModuleList.Name = "ModuleList";
-            this.ModuleList.Size = new System.Drawing.Size(124, 299);
+            this.ModuleList.Size = new System.Drawing.Size(124, 300);
             this.ModuleList.TabIndex = 2;
             this.ToolTips.SetToolTip(this.ModuleList, "Filter Tracebacks By Module");
             this.ModuleList.ItemCheck += new System.Windows.Forms.ItemCheckEventHandler(this.ModuleList_ItemCheck);
@@ -183,7 +183,7 @@
             this.DeltaHistogram.Name = "DeltaHistogram";
             this.DeltaHistogram.ScrollOffset = 0;
             this.DeltaHistogram.SelectedIndex = 0;
-            this.DeltaHistogram.Size = new System.Drawing.Size(456, 296);
+            this.DeltaHistogram.Size = new System.Drawing.Size(456, 297);
             this.DeltaHistogram.TabIndex = 2;
             this.DeltaHistogram.Visible = false;
             // 
@@ -236,7 +236,7 @@
             this.DeltaList.Name = "DeltaList";
             this.DeltaList.ScrollOffset = 0;
             this.DeltaList.SelectedIndex = 0;
-            this.DeltaList.Size = new System.Drawing.Size(456, 296);
+            this.DeltaList.Size = new System.Drawing.Size(456, 297);
             this.DeltaList.TabIndex = 0;
             // 
             // MainMenu
@@ -327,10 +327,14 @@
             // 
             this.Timeline.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)
                         | System.Windows.Forms.AnchorStyles.Right)));
+            this.Timeline.BackColor = System.Drawing.SystemColors.Control;
+            this.Timeline.Enabled = false;
+            this.Timeline.ForeColor = System.Drawing.SystemColors.ControlText;
             this.Timeline.Location = new System.Drawing.Point(0, 356);
             this.Timeline.Name = "Timeline";
             this.Timeline.Size = new System.Drawing.Size(584, 32);
             this.Timeline.TabIndex = 4;
+            this.Timeline.RangeChanged += new System.EventHandler(this.Timeline_RangeChanged);
             // 
             // DiffViewer
             // 

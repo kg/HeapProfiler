@@ -26,6 +26,7 @@ using System.Text;
 using System.Windows.Forms;
 using System.IO;
 using Squared.Task;
+using Squared.Util;
 
 namespace HeapProfiler {
     public partial class MainWindow : TaskForm {
@@ -86,6 +87,9 @@ namespace HeapProfiler {
 
             RefreshStatus();
             RefreshSnapshots();
+
+            if (AutoCapture.Checked)
+                AutoCaptureFuture = Start(AutoCaptureTask());
         }
 
         private void ExecutablePath_TextChanged (object sender, EventArgs e) {
@@ -114,10 +118,12 @@ namespace HeapProfiler {
             );
 
             bool running = (Instance != null) && (Instance.Running);
-            AutoCapture.Enabled = CaptureSnapshot.Enabled = running;
+            CaptureSnapshot.Enabled = running;
 
-            if (!running)
-                AutoCapture.Checked = false;
+            if ((!running) && (AutoCaptureFuture != null)) {
+                AutoCaptureFuture.Dispose();
+                AutoCaptureFuture = null;
+            }
 
             RefreshLaunchEnabled();
         }
@@ -160,33 +166,26 @@ namespace HeapProfiler {
         }
 
         private void DiffSelection_Click (object sender, EventArgs e) {
-            var s1 = (RunningProcess.Snapshot)SnapshotList.SelectedItems[0];
-            var s2 = (RunningProcess.Snapshot)SnapshotList.SelectedItems[1];
+            int i1 = SnapshotList.SelectedIndices[0], 
+                i2 = SnapshotList.SelectedIndices[SnapshotList.SelectedIndices.Count - 1];
 
             DiffSelection.Enabled = false;
             UseWaitCursor = true;
 
-            Start(ShowDiff(s1, s2))
+            Start(ShowDiff(i1, i2))
                 .RegisterOnComplete((_) => {
                     DiffSelection.Enabled = true;
                     UseWaitCursor = false;
                 });
         }
 
-        protected IEnumerator<object> ShowDiff (RunningProcess.Snapshot s1, RunningProcess.Snapshot s2) {
-            var viewer = new DiffViewer(Scheduler, Instance.Snapshots);
+        protected IEnumerator<object> ShowDiff (int index1, int index2) {
+            var viewer = new DiffViewer(Scheduler, Instance);
             Scheduler.QueueWorkItem(
                 () => viewer.ShowDialog(this)
             );
 
-            var rtc = new RunToCompletion<string>(Instance.DiffSnapshots(
-                s1.Filename, s2.Filename
-            ));
-            yield return rtc;
-
-            var tempFile = rtc.Result;
-
-            yield return viewer.Start(viewer.LoadDiff(tempFile));
+            yield return viewer.Start(viewer.LoadRange(Pair.New(index1, index2)));
         }
 
         private void MainWindow_FormClosed (object sender, FormClosedEventArgs e) {
@@ -249,9 +248,7 @@ namespace HeapProfiler {
         }
 
         private void AutoCapture_CheckedChanged (object sender, EventArgs e) {
-            CaptureSnapshot.Enabled = !AutoCapture.Checked && AutoCapture.Enabled;
-
-            if (AutoCapture.Checked) {
+            if (AutoCapture.Checked && CaptureSnapshot.Enabled) {
                 AutoCaptureFuture = Start(AutoCaptureTask());
             } else if (AutoCaptureFuture != null) {
                 AutoCaptureFuture.Dispose();

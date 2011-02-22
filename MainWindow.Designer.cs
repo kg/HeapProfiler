@@ -204,8 +204,8 @@
             // 
             // AutoCapture
             // 
+            this.AutoCapture.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.AutoCapture.Appearance = System.Windows.Forms.Appearance.Button;
-            this.AutoCapture.Enabled = false;
             this.AutoCapture.Location = new System.Drawing.Point(415, 44);
             this.AutoCapture.Name = "AutoCapture";
             this.AutoCapture.Size = new System.Drawing.Size(100, 22);

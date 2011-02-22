@@ -33,6 +33,7 @@ using Squared.Util.RegexExtensions;
 using System.Globalization;
 
 using Snapshot = HeapProfiler.RunningProcess.Snapshot;
+using Squared.Util;
 
 namespace HeapProfiler {
     public partial class DiffViewer : TaskForm {
@@ -60,14 +61,17 @@ namespace HeapProfiler {
 
         public List<DeltaInfo> ListItems = new List<DeltaInfo>();
 
-        protected IList<Snapshot> Snapshots = null;
+        protected IFuture PendingLoad = null;
+        protected Pair<int> PendingLoadPair = new Pair<int>(-1, -1);
+        protected RunningProcess Instance = null;
 
+        protected Pair<int> CurrentPair = new Pair<int>(-1, -1);
         protected string Filename;
         protected string FunctionFilter = null;
         protected StringFormat DeltaListFormat;
         protected bool Updating = false;
 
-        public DiffViewer (TaskScheduler scheduler, IList<Snapshot> snapshots)
+        public DiffViewer (TaskScheduler scheduler, RunningProcess instance)
             : base (scheduler) {
             InitializeComponent();
 
@@ -75,11 +79,13 @@ namespace HeapProfiler {
             DeltaListFormat.Trimming = StringTrimming.None;
             DeltaListFormat.FormatFlags = StringFormatFlags.NoWrap | StringFormatFlags.FitBlackBox;
 
-            Timeline.Items = Snapshots = snapshots;
-            Timeline.Visible = (snapshots != null);
-
-            if (snapshots == null)
+            Instance = instance;
+            if (Instance != null) {
+                Timeline.Items = Instance.Snapshots;
+            } else {
+                Timeline.Visible = false;
                 MainSplit.Height += Timeline.Bottom - MainSplit.Bottom;
+            }
         }
 
         public DiffViewer (TaskScheduler scheduler)
@@ -88,6 +94,32 @@ namespace HeapProfiler {
 
         protected void SetBusy (bool busy) {
             UseWaitCursor = Updating = busy;
+        }
+
+        public IEnumerator<object> LoadRange (Pair<int> range) {
+            LoadingPanel.Text = "Generating diff...";
+            LoadingProgress.Value = 0;
+            LoadingProgress.Style = ProgressBarStyle.Marquee;
+
+            MainMenuStrip.Enabled = false;
+            LoadingPanel.Visible = true;
+            MainSplit.Visible = false;
+            UseWaitCursor = true;
+
+            var s1 = Instance.Snapshots[range.First].Filename;
+            var s2 = Instance.Snapshots[range.Second].Filename;
+
+            Timeline.Indices = range;
+
+            var f = Start(Instance.DiffSnapshots(s1, s2));
+            using (f)
+                yield return f;
+
+            var filename = f.Result as string;
+            f = Start(LoadDiff(filename));
+            using (f)
+                yield return f;
+            CurrentPair = range;
         }
 
         public IEnumerator<object> LoadDiff (string filename) {
@@ -186,7 +218,7 @@ namespace HeapProfiler {
 
                             var functionName = String.Intern(m.Groups["function"].Value);
                             itemFunctions.Add(functionName);
-                            FunctionNames.Add(functionName);
+                            functionNames.Add(functionName);
 
                             if (!modules.ContainsKey(moduleName)) {
                                 modules[moduleName] = new ModuleInfo {
@@ -253,6 +285,7 @@ namespace HeapProfiler {
             MainMenuStrip.Enabled = true;
             LoadingPanel.Visible = false;
             MainSplit.Visible = true;
+            Timeline.Enabled = true;
             UseWaitCursor = false;
         }
 
@@ -305,7 +338,10 @@ namespace HeapProfiler {
             StatusLabel.Text = String.Format("Showing {0} out of {1} item(s)", ListItems.Count, Deltas.Count);
 
             DeltaHistogram.Items = DeltaList.Items = ListItems;
-            DeltaHistogram.Maximum = max;
+            if (ListItems.Count > 0)
+                DeltaHistogram.Maximum = max;
+            else
+                DeltaHistogram.Maximum = 1024;
 
             DeltaList.Invalidate();
             DeltaHistogram.Invalidate();
@@ -415,6 +451,21 @@ namespace HeapProfiler {
         private void ViewHistogramMenu_Click (object sender, EventArgs e) {
             DeltaList.Visible = ViewListMenu.Checked = false;
             DeltaHistogram.Visible = ViewHistogramMenu.Checked = true;
+        }
+
+        private void Timeline_RangeChanged (object sender, EventArgs e) {
+            var pair = Timeline.Indices;
+
+            if ((pair.CompareTo(PendingLoadPair) != 0) && (PendingLoad != null)) {
+                PendingLoad.Dispose();
+                PendingLoad = null;
+                PendingLoadPair = Pair.New(-1, -1);
+            }
+
+            if (pair.CompareTo(CurrentPair) != 0) {
+                PendingLoadPair = pair;
+                PendingLoad = Start(LoadRange(pair));
+            }
         }
     }
 }

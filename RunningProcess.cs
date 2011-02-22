@@ -63,6 +63,7 @@ namespace HeapProfiler {
 
         void DiffCache_ItemEvicted (KeyValuePair<Pair<string>, string> item) {
             if (TemporaryFiles.Contains(item.Value)) {
+                Console.WriteLine("Evicted: {0}", item.Value);
                 TemporaryFiles.Remove(item.Value);
 
                 try {
@@ -211,7 +212,7 @@ namespace HeapProfiler {
                 using (rp)
                     yield return rp;
 
-                DiffCache.Add(pair, filename);
+                DiffCache[pair] = filename;
                 TemporaryFiles.Add(filename);
 
                 yield return new Result(filename);
