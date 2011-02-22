@@ -64,7 +64,7 @@ namespace HeapProfiler {
         protected RunningProcess (TaskScheduler scheduler, string[] snapshots) {
             Scheduler = scheduler;
 
-            foreach (var snapshot in snapshots) {
+            foreach (var snapshot in snapshots.OrderBy((s) => s)) {
                 var parts = Path.GetFileNameWithoutExtension(snapshot)
                     .Split(new[] { '_' }, 2);
 

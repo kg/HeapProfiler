@@ -256,7 +256,11 @@ namespace HeapProfiler {
         }
 
         protected override void OnMouseWheel (MouseEventArgs e) {
-            ScrollOffset -= (e.Delta / SystemInformation.MouseWheelScrollDelta) * SystemInformation.MouseWheelScrollLines;
+            var delta = (int)Math.Ceiling(
+                (e.Delta / (float)SystemInformation.MouseWheelScrollDelta) 
+                * SystemInformation.MouseWheelScrollLines
+            );
+            ScrollOffset -= delta;
 
             base.OnMouseWheel(e);
         }
