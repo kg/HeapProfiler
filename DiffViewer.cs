@@ -473,13 +473,13 @@ namespace HeapProfiler {
                     PendingLoad.Dispose();
                     PendingLoad = null;
                     PendingLoadPair = Pair.New(-1, -1);
-                } else {
-                    if (pair.CompareTo(CurrentPair) != 0)
-                        PendingLoad = Start(LoadRange(pair));
                 }
             } else {
                 return;
             }
+
+            if (pair.CompareTo(CurrentPair) != 0)
+                PendingLoad = Start(LoadRange(pair));
         }
     }
 }
