@@ -27,6 +27,8 @@ using System.Windows.Forms;
 using System.IO;
 using Squared.Task;
 using Squared.Util;
+using Squared.Util.Bind;
+using Microsoft.Win32;
 
 namespace HeapProfiler {
     public partial class MainWindow : TaskForm {
@@ -34,9 +36,38 @@ namespace HeapProfiler {
 
         protected IFuture AutoCaptureFuture = null;
 
+        IBoundMember[] PersistedControls;
+
         public MainWindow (TaskScheduler scheduler) 
             : base(scheduler) {
             InitializeComponent();
+
+            PersistedControls = new[] {
+                BoundMember.New(() => ExecutablePath.Text),
+                BoundMember.New(() => Arguments.Text),
+                BoundMember.New(() => WorkingDirectory.Text)
+            };
+
+            LoadPersistedValues();
+        }
+
+        protected string ChooseName (IBoundMember bm) {
+            return String.Format("{0}_{1}", (bm.Target as Control).Name, bm.Name);
+        }
+
+        protected void LoadPersistedValues () {
+            if (!Registry.CurrentUser.SubKeyExists("Software\\HeapProfiler"))
+                return;
+
+            using (var key = Registry.CurrentUser.OpenSubKey("Software\\HeapProfiler"))
+            foreach (var pc in PersistedControls)
+                pc.Value = key.GetValue(ChooseName(pc), pc.Value);
+        }
+
+        protected void SavePersistedValues () {
+            using (var key = Registry.CurrentUser.OpenOrCreateSubKey("Software\\HeapProfiler"))
+            foreach (var pc in PersistedControls)
+                key.SetValue(ChooseName(pc), pc.Value);
         }
 
         private void SelectExecutable_Click (object sender, EventArgs e) {
@@ -161,6 +192,8 @@ namespace HeapProfiler {
         }
 
         private void MainWindow_FormClosing (object sender, FormClosingEventArgs e) {
+            SavePersistedValues();
+
             if (Instance != null)
                 Instance.Dispose();
         }
@@ -172,20 +205,19 @@ namespace HeapProfiler {
             DiffSelection.Enabled = false;
             UseWaitCursor = true;
 
-            Start(ShowDiff(i1, i2))
-                .RegisterOnComplete((_) => {
-                    DiffSelection.Enabled = true;
-                    UseWaitCursor = false;
-                });
+            ShowDiff(i1, i2);
         }
 
-        protected IEnumerator<object> ShowDiff (int index1, int index2) {
+        protected void ShowDiff (int index1, int index2) {
             var viewer = new DiffViewer(Scheduler, Instance);
-            Scheduler.QueueWorkItem(
-                () => viewer.ShowDialog(this)
-            );
 
-            yield return viewer.Start(viewer.LoadRange(Pair.New(index1, index2)));
+            viewer.Start(viewer.LoadRange(Pair.New(index1, index2)));
+
+            Scheduler.QueueWorkItem(() => {
+                DiffSelection.Enabled = true;
+                UseWaitCursor = false;
+                viewer.ShowDialog(this);
+            });
         }
 
         private void MainWindow_FormClosed (object sender, FormClosedEventArgs e) {

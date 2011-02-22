@@ -158,7 +158,7 @@ namespace HeapProfiler {
                         x1, 0, x2 - x1, height
                 ));
                 g.DrawRectangle(
-                    highlightPen, x1, 0, x2 - x1, height
+                    highlightPen, x1, 0, x2 - x1, height - 1
                 );
 
                 for (int i = BeginIndex; i <= EndIndex; i++) {

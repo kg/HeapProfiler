@@ -99,6 +99,8 @@ namespace HeapProfiler {
         }
 
         public IEnumerator<object> LoadRange (Pair<int> range) {
+            PendingLoadPair = range;
+
             LoadingPanel.Text = "Generating diff...";
             LoadingProgress.Value = 0;
             LoadingProgress.Style = ProgressBarStyle.Marquee;
@@ -121,6 +123,8 @@ namespace HeapProfiler {
             f = Start(LoadDiff(filename));
             using (f)
                 yield return f;
+
+            PendingLoadPair = Pair.New(-1, -1);
             CurrentPair = range;
         }
 
@@ -458,15 +462,17 @@ namespace HeapProfiler {
         private void Timeline_RangeChanged (object sender, EventArgs e) {
             var pair = Timeline.Indices;
 
-            if ((pair.CompareTo(PendingLoadPair) != 0) && (PendingLoad != null)) {
-                PendingLoad.Dispose();
-                PendingLoad = null;
-                PendingLoadPair = Pair.New(-1, -1);
-            }
-
-            if (pair.CompareTo(CurrentPair) != 0) {
-                PendingLoadPair = pair;
-                PendingLoad = Start(LoadRange(pair));
+            if (pair.CompareTo(PendingLoadPair) != 0) {
+                if (PendingLoad != null) {
+                    PendingLoad.Dispose();
+                    PendingLoad = null;
+                    PendingLoadPair = Pair.New(-1, -1);
+                } else {
+                    if (pair.CompareTo(CurrentPair) != 0)
+                        PendingLoad = Start(LoadRange(pair));
+                }
+            } else {
+                return;
             }
         }
     }

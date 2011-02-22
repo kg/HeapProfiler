@@ -109,6 +109,8 @@
             this.WorkingDirectory.AllowDrop = true;
             this.WorkingDirectory.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
                         | System.Windows.Forms.AnchorStyles.Right)));
+            this.WorkingDirectory.AutoCompleteMode = System.Windows.Forms.AutoCompleteMode.SuggestAppend;
+            this.WorkingDirectory.AutoCompleteSource = System.Windows.Forms.AutoCompleteSource.FileSystemDirectories;
             this.WorkingDirectory.Location = new System.Drawing.Point(104, 64);
             this.WorkingDirectory.Margin = new System.Windows.Forms.Padding(2);
             this.WorkingDirectory.Name = "WorkingDirectory";
@@ -161,6 +163,8 @@
             this.ExecutablePath.AllowDrop = true;
             this.ExecutablePath.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
                         | System.Windows.Forms.AnchorStyles.Right)));
+            this.ExecutablePath.AutoCompleteMode = System.Windows.Forms.AutoCompleteMode.SuggestAppend;
+            this.ExecutablePath.AutoCompleteSource = System.Windows.Forms.AutoCompleteSource.FileSystem;
             this.ExecutablePath.Location = new System.Drawing.Point(7, 16);
             this.ExecutablePath.Margin = new System.Windows.Forms.Padding(2);
             this.ExecutablePath.Name = "ExecutablePath";
