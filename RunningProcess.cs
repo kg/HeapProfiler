@@ -61,6 +61,26 @@ namespace HeapProfiler {
             DiffCache.ItemEvicted += DiffCache_ItemEvicted;
         }
 
+        protected RunningProcess (TaskScheduler scheduler, string[] snapshots) {
+            Scheduler = scheduler;
+
+            foreach (var snapshot in snapshots) {
+                var parts = Path.GetFileNameWithoutExtension(snapshot)
+                    .Split(new[] { '_' }, 2);
+
+                Snapshots.Add(new Snapshot {
+                    Index = int.Parse(parts[0]),
+                    Filename = snapshot,
+                    When = DateTime.ParseExact(
+                        parts[1].Replace("_", ":"), "u", 
+                        System.Globalization.DateTimeFormatInfo.InvariantInfo
+                    )
+                });
+            }
+
+            DiffCache.ItemEvicted += DiffCache_ItemEvicted;
+        }
+
         void DiffCache_ItemEvicted (KeyValuePair<Pair<string>, string> item) {
             if (TemporaryFiles.Contains(item.Value)) {
                 Console.WriteLine("Evicted: {0}", item.Value);
@@ -137,12 +157,6 @@ namespace HeapProfiler {
         }
 
         public void Dispose () {
-            foreach (var ss in Snapshots) {
-                try {
-                    File.Delete(ss.Filename);
-                } catch {
-                }
-            }
             Snapshots.Clear();
 
             foreach (var fn in TemporaryFiles) {
@@ -188,6 +202,7 @@ namespace HeapProfiler {
                 When = now,
                 Filename = targetFilename
             });
+            TemporaryFiles.Add(targetFilename);
             OnSnapshotsChanged();
         }
 
@@ -217,6 +232,12 @@ namespace HeapProfiler {
 
                 yield return new Result(filename);
             }
+        }
+
+        public static RunningProcess FromSnapshots (TaskScheduler scheduler, string[] snapshots) {
+            return new RunningProcess(
+                scheduler, snapshots
+            );
         }
     }
 }

@@ -27,6 +27,7 @@
             // 
             // DeltaTooltip
             // 
+            this.AccessibleRole = System.Windows.Forms.AccessibleRole.ToolTip;
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
             this.CausesValidation = false;
             this.ClientSize = new System.Drawing.Size(284, 262);

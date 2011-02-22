@@ -78,6 +78,12 @@
     <Compile Include="DeltaList.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="SymbolSettingsDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="SymbolSettingsDialog.Designer.cs">
+      <DependentUpon>SymbolSettingsDialog.cs</DependentUpon>
+    </Compile>
     <Compile Include="TimelineRangeSelector.cs">
       <SubType>UserControl</SubType>
     </Compile>
@@ -100,6 +106,9 @@
       <AutoGen>True</AutoGen>
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
+    <EmbeddedResource Include="SymbolSettingsDialog.resx">
+      <DependentUpon>SymbolSettingsDialog.cs</DependentUpon>
+    </EmbeddedResource>
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>
       <LastGenOutput>Settings.Designer.cs</LastGenOutput>

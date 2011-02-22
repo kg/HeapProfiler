@@ -229,7 +229,8 @@ namespace HeapProfiler {
         }
 
         private void SymbolPathMenu_Click (object sender, EventArgs e) {
-
+            using (var dialog = new SymbolSettingsDialog())
+                dialog.ShowDialog(this);
         }
 
         private void OpenDiffMenu_Click (object sender, EventArgs e) {
@@ -320,6 +321,53 @@ namespace HeapProfiler {
 
         private void OptionsMenu_DropDownOpening (object sender, EventArgs e) {
             AssociateHeapdiffsMenu.Checked = HeapdiffAssociation.IsAssociated;
+        }
+
+        private void SaveAllSnapshots_Click (object sender, EventArgs e) {
+            if (Instance == null)
+                return;
+            if (Instance.Snapshots.Count == 0)
+                return;
+
+            using (var dialog = new FolderBrowserDialog()) {
+                dialog.Description = "Save snapshots to folder";
+                dialog.ShowNewFolderButton = true;
+
+                if (dialog.ShowDialog(this) != System.Windows.Forms.DialogResult.OK)
+                    return;
+
+                foreach (var snap in Instance.Snapshots) {
+                    var destPath = Path.Combine(
+                        dialog.SelectedPath,
+                        String.Format(
+                            "{0:0000}_{1}.heapsnap", 
+                            snap.Index, 
+                            snap.When.ToString("u").Replace(":", "_")
+                        )
+                    );
+                    File.Copy(snap.Filename, destPath);
+                }
+            }
+        }
+
+        private void OpenSnapshotsMenu_Click (object sender, EventArgs e) {
+            using (var dialog = new OpenFileDialog()) {
+                dialog.Title = "Open Snapshots";
+                dialog.Filter = "Saved Snapshots|*.heapsnap";
+                dialog.Multiselect = true;
+                dialog.ShowReadOnly = false;
+                dialog.AddExtension = false;
+                dialog.CheckFileExists = true;
+
+                if (dialog.ShowDialog(this) != System.Windows.Forms.DialogResult.OK)
+                    return;
+
+                Instance = RunningProcess.FromSnapshots(
+                    Scheduler, dialog.FileNames
+                );
+                RefreshStatus();
+                RefreshSnapshots();
+            }
         }
     }
 }
