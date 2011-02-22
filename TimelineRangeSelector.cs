@@ -35,6 +35,9 @@ namespace HeapProfiler {
             public int Index;
         }
 
+        public const float HorizontalMargin = 18.0f;
+        public const float BottomMargin = 8.0f;
+
         public event EventHandler RangeChanged;
 
         public IList<Snapshot> Items = new List<Snapshot>();
@@ -118,8 +121,8 @@ namespace HeapProfiler {
         }
 
         protected override void OnPaint (PaintEventArgs e) {
-            var width = ClientSize.Width - 18.0f;
-            var height = ClientSize.Height - 8.0f;
+            var width = ClientSize.Width - HorizontalMargin;
+            var height = ClientSize.Height - BottomMargin;
 
             VisibleItems.Clear();
 

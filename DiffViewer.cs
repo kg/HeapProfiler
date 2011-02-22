@@ -37,6 +37,8 @@ using Squared.Util;
 
 namespace HeapProfiler {
     public partial class DiffViewer : TaskForm {
+        const int ProgressInterval = 50;
+
         public static Regex ModuleRegex = new Regex(
             @"DBGHELP: (?'module'.*?)( - )(?'symboltype'[^\n\r]*)", 
             RegexOptions.Compiled | RegexOptions.ExplicitCapture
@@ -146,13 +148,13 @@ namespace HeapProfiler {
                 } catch {
                 }
 
-                if ((i % 50 == 0) && (LoadingProgress.Style == ProgressBarStyle.Continuous)) {
-                    int v = i;
+                if ((i % ProgressInterval == 0) && (LoadingProgress.Style == ProgressBarStyle.Continuous)) {
                     // Setting the progress higher and then lower bypasses the slow animation baked into
                     //  the windows theme engine's progress bar implementation
-                    LoadingProgress.Value = Math.Min(v + 1, LoadingProgress.Maximum);
-                    LoadingProgress.Value = v;
+                    LoadingProgress.Value = Math.Min(i + 1, LoadingProgress.Maximum);
+                    LoadingProgress.Value = i;
 
+                    // Suspend processing until any messages in the windows message queue have been processed
                     yield return new Yield();
                 }
 

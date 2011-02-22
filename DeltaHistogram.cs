@@ -46,6 +46,8 @@ namespace HeapProfiler {
             }
         }
 
+        public const int ItemWidth = 32;
+
         public IList<TItem> Items = new List<TItem>();
         public int Maximum = 1024;
 
@@ -137,7 +139,6 @@ namespace HeapProfiler {
 
             int height = ClientSize.Height - ScrollBar.Height;
             float centerY = height / 2;
-            int itemWidth = 32;
 
             float max = GraphLog(Maximum);
 
@@ -202,7 +203,7 @@ namespace HeapProfiler {
                     var item = Items[i];
                     GetItemData(i, out data);
 
-                    rgn = new Rectangle(x, 0, itemWidth, height);
+                    rgn = new Rectangle(x, 0, ItemWidth, height);
 
                     float y1, y2;
 
@@ -216,7 +217,7 @@ namespace HeapProfiler {
                     }
 
                     var barRectangle = new RectangleF(
-                        rgn.X + 2.5f, y1 + 0.5f, itemWidth - 6f, (y2 - y1) - 1f
+                        rgn.X + 2.5f, y1 + 0.5f, ItemWidth - 6f, (y2 - y1) - 1f
                     );
 
                     if (rgn.IntersectsWith(e.ClipRectangle))
@@ -255,7 +256,7 @@ namespace HeapProfiler {
                         Index = i
                     });
 
-                    x += itemWidth;
+                    x += ItemWidth;
 
                     if ((rgn.X >= 0) && (rgn.Right < ClientSize.Width)) {
                         minVisibleIndex = Math.Min(minVisibleIndex, i);
@@ -287,7 +288,7 @@ namespace HeapProfiler {
                 goto retryFromHere;
             }
 
-            int largeChange = Math.Max(4, ClientSize.Width / itemWidth);
+            int largeChange = Math.Max(4, ClientSize.Width / ItemWidth);
             if (ScrollBar.LargeChange != largeChange)
                 ScrollBar.LargeChange = largeChange;
 
