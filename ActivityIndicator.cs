@@ -140,7 +140,8 @@ namespace HeapProfiler {
                 ).Max()
             );
             size.Height = Math.Min(
-                size.Height, progressBarSize.Height * _Items.Count
+                size.Height, (progressBarSize.Height * _Items.Count) +
+                Math.Max(0, _Items.Count - 1) * 2
             );
 
             return size;
@@ -164,6 +165,8 @@ namespace HeapProfiler {
 
                 item.Label.Visible = true;
                 item.ProgressBar.Visible = true;
+
+                y += Math.Max(labelSize.Height, progressSize.Height) + 2;
             }
 
             Invalidate(true);

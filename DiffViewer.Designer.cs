@@ -66,9 +66,9 @@
             this.LoadingPanel.Anchor = System.Windows.Forms.AnchorStyles.None;
             this.LoadingPanel.Controls.Add(this.LoadingProgress);
             this.LoadingPanel.Location = new System.Drawing.Point(156, 223);
-            this.LoadingPanel.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
+            this.LoadingPanel.Margin = new System.Windows.Forms.Padding(4);
             this.LoadingPanel.Name = "LoadingPanel";
-            this.LoadingPanel.Padding = new System.Windows.Forms.Padding(4, 4, 4, 4);
+            this.LoadingPanel.Padding = new System.Windows.Forms.Padding(4);
             this.LoadingPanel.Size = new System.Drawing.Size(467, 62);
             this.LoadingPanel.TabIndex = 0;
             this.LoadingPanel.TabStop = false;
@@ -80,7 +80,7 @@
                         | System.Windows.Forms.AnchorStyles.Left)
                         | System.Windows.Forms.AnchorStyles.Right)));
             this.LoadingProgress.Location = new System.Drawing.Point(8, 23);
-            this.LoadingProgress.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
+            this.LoadingProgress.Margin = new System.Windows.Forms.Padding(4);
             this.LoadingProgress.MarqueeAnimationSpeed = 25;
             this.LoadingProgress.Name = "LoadingProgress";
             this.LoadingProgress.Size = new System.Drawing.Size(451, 31);
@@ -93,7 +93,7 @@
                         | System.Windows.Forms.AnchorStyles.Left)
                         | System.Windows.Forms.AnchorStyles.Right)));
             this.MainSplit.Location = new System.Drawing.Point(0, 33);
-            this.MainSplit.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
+            this.MainSplit.Margin = new System.Windows.Forms.Padding(4);
             this.MainSplit.Name = "MainSplit";
             // 
             // MainSplit.Panel1
@@ -108,7 +108,7 @@
             this.MainSplit.Panel2.Controls.Add(this.FilterPanel);
             this.MainSplit.Panel2.Controls.Add(this.DeltaList);
             this.MainSplit.Size = new System.Drawing.Size(779, 406);
-            this.MainSplit.SplitterDistance = 165;
+            this.MainSplit.SplitterDistance = 164;
             this.MainSplit.SplitterWidth = 5;
             this.MainSplit.TabIndex = 1;
             this.MainSplit.Visible = false;
@@ -123,7 +123,7 @@
             this.ModuleSelectionToolbar.Location = new System.Drawing.Point(0, 0);
             this.ModuleSelectionToolbar.Name = "ModuleSelectionToolbar";
             this.ModuleSelectionToolbar.RenderMode = System.Windows.Forms.ToolStripRenderMode.System;
-            this.ModuleSelectionToolbar.Size = new System.Drawing.Size(165, 27);
+            this.ModuleSelectionToolbar.Size = new System.Drawing.Size(164, 27);
             this.ModuleSelectionToolbar.TabIndex = 3;
             this.ModuleSelectionToolbar.Text = "toolStrip1";
             // 
@@ -170,9 +170,9 @@
             this.ModuleList.FormattingEnabled = true;
             this.ModuleList.IntegralHeight = false;
             this.ModuleList.Location = new System.Drawing.Point(0, 29);
-            this.ModuleList.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
+            this.ModuleList.Margin = new System.Windows.Forms.Padding(4);
             this.ModuleList.Name = "ModuleList";
-            this.ModuleList.Size = new System.Drawing.Size(164, 377);
+            this.ModuleList.Size = new System.Drawing.Size(163, 377);
             this.ModuleList.TabIndex = 2;
             this.ToolTips.SetToolTip(this.ModuleList, "Filter Tracebacks By Module");
             this.ModuleList.ItemCheck += new System.Windows.Forms.ItemCheckEventHandler(this.ModuleList_ItemCheck);
@@ -186,11 +186,11 @@
             this.DeltaHistogram.Font = new System.Drawing.Font("Consolas", 11.25F);
             this.DeltaHistogram.ForeColor = System.Drawing.SystemColors.WindowText;
             this.DeltaHistogram.Location = new System.Drawing.Point(0, 38);
-            this.DeltaHistogram.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
+            this.DeltaHistogram.Margin = new System.Windows.Forms.Padding(4);
             this.DeltaHistogram.Name = "DeltaHistogram";
             this.DeltaHistogram.ScrollOffset = 0;
             this.DeltaHistogram.SelectedIndex = 0;
-            this.DeltaHistogram.Size = new System.Drawing.Size(609, 368);
+            this.DeltaHistogram.Size = new System.Drawing.Size(610, 368);
             this.DeltaHistogram.TabIndex = 2;
             this.DeltaHistogram.Visible = false;
             // 
@@ -200,9 +200,9 @@
             this.FilterPanel.Controls.Add(this.TracebackFilter);
             this.FilterPanel.Dock = System.Windows.Forms.DockStyle.Top;
             this.FilterPanel.Location = new System.Drawing.Point(0, 0);
-            this.FilterPanel.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
+            this.FilterPanel.Margin = new System.Windows.Forms.Padding(4);
             this.FilterPanel.Name = "FilterPanel";
-            this.FilterPanel.Size = new System.Drawing.Size(609, 38);
+            this.FilterPanel.Size = new System.Drawing.Size(610, 38);
             this.FilterPanel.TabIndex = 1;
             // 
             // FindIcon
@@ -212,7 +212,7 @@
             this.FindIcon.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("FindIcon.BackgroundImage")));
             this.FindIcon.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Center;
             this.FindIcon.Location = new System.Drawing.Point(4, 4);
-            this.FindIcon.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
+            this.FindIcon.Margin = new System.Windows.Forms.Padding(4);
             this.FindIcon.Name = "FindIcon";
             this.FindIcon.Size = new System.Drawing.Size(24, 31);
             this.FindIcon.TabIndex = 1;
@@ -227,9 +227,9 @@
             this.TracebackFilter.AutoCompleteSource = System.Windows.Forms.AutoCompleteSource.CustomSource;
             this.TracebackFilter.Font = new System.Drawing.Font("Consolas", 11.25F);
             this.TracebackFilter.Location = new System.Drawing.Point(31, 4);
-            this.TracebackFilter.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
+            this.TracebackFilter.Margin = new System.Windows.Forms.Padding(4);
             this.TracebackFilter.Name = "TracebackFilter";
-            this.TracebackFilter.Size = new System.Drawing.Size(573, 29);
+            this.TracebackFilter.Size = new System.Drawing.Size(574, 29);
             this.TracebackFilter.TabIndex = 0;
             this.ToolTips.SetToolTip(this.TracebackFilter, "Filter Tracebacks By Function");
             this.TracebackFilter.TextChanged += new System.EventHandler(this.TracebackFilter_TextChanged);
@@ -243,11 +243,11 @@
             this.DeltaList.Font = new System.Drawing.Font("Consolas", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.DeltaList.ForeColor = System.Drawing.SystemColors.WindowText;
             this.DeltaList.Location = new System.Drawing.Point(0, 38);
-            this.DeltaList.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
+            this.DeltaList.Margin = new System.Windows.Forms.Padding(4);
             this.DeltaList.Name = "DeltaList";
             this.DeltaList.ScrollOffset = 0;
             this.DeltaList.SelectedIndex = 0;
-            this.DeltaList.Size = new System.Drawing.Size(609, 368);
+            this.DeltaList.Size = new System.Drawing.Size(610, 368);
             this.DeltaList.TabIndex = 0;
             // 
             // MainMenu
@@ -344,7 +344,7 @@
             this.Timeline.Enabled = false;
             this.Timeline.ForeColor = System.Drawing.SystemColors.ControlText;
             this.Timeline.Location = new System.Drawing.Point(0, 440);
-            this.Timeline.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
+            this.Timeline.Margin = new System.Windows.Forms.Padding(4);
             this.Timeline.Name = "Timeline";
             this.Timeline.Size = new System.Drawing.Size(779, 39);
             this.Timeline.TabIndex = 4;
@@ -361,10 +361,10 @@
             this.Controls.Add(this.MainSplit);
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.MainMenuStrip = this.MainMenu;
-            this.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
+            this.Margin = new System.Windows.Forms.Padding(4);
             this.Name = "DiffViewer";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
-            this.Text = "View Diff";
+            this.Text = "Diff Viewer";
             this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.DiffViewer_FormClosed);
             this.Shown += new System.EventHandler(this.DiffViewer_Shown);
             this.LoadingPanel.ResumeLayout(false);

@@ -174,7 +174,7 @@ namespace HeapProfiler {
 
             SnapshotList.EndUpdate();
 
-            DiffSelection.Enabled = false;
+            DiffSelection.Enabled = (SnapshotList.SelectedIndices.Count >= 2);
         }
 
         private void CaptureSnapshot_Click (object sender, EventArgs e) {
@@ -200,8 +200,6 @@ namespace HeapProfiler {
             int i1 = SnapshotList.SelectedIndices[0], 
                 i2 = SnapshotList.SelectedIndices[SnapshotList.SelectedIndices.Count - 1];
 
-            DiffSelection.Enabled = false;
-
             ShowDiff(i1, i2);
         }
 
@@ -211,7 +209,6 @@ namespace HeapProfiler {
             viewer.Start(viewer.LoadRange(Pair.New(index1, index2)));
 
             Scheduler.QueueWorkItem(() => {
-                DiffSelection.Enabled = true;
                 viewer.ShowDialog(this);
             });
         }
