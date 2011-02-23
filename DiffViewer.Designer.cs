@@ -50,6 +50,7 @@
             this.StatusBar = new System.Windows.Forms.StatusStrip();
             this.StatusLabel = new System.Windows.Forms.ToolStripStatusLabel();
             this.Timeline = new HeapProfiler.TimelineRangeSelector();
+            this.AllocationTotals = new System.Windows.Forms.ToolStripStatusLabel();
             this.LoadingPanel.SuspendLayout();
             this.MainSplit.Panel1.SuspendLayout();
             this.MainSplit.Panel2.SuspendLayout();
@@ -320,7 +321,8 @@
             // StatusBar
             // 
             this.StatusBar.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.StatusLabel});
+            this.StatusLabel,
+            this.AllocationTotals});
             this.StatusBar.Location = new System.Drawing.Point(0, 482);
             this.StatusBar.Name = "StatusBar";
             this.StatusBar.Padding = new System.Windows.Forms.Padding(1, 0, 19, 0);
@@ -331,7 +333,7 @@
             // StatusLabel
             // 
             this.StatusLabel.Name = "StatusLabel";
-            this.StatusLabel.Size = new System.Drawing.Size(759, 20);
+            this.StatusLabel.Size = new System.Drawing.Size(364, 20);
             this.StatusLabel.Spring = true;
             this.StatusLabel.Text = "No Results";
             this.StatusLabel.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -349,6 +351,12 @@
             this.Timeline.Size = new System.Drawing.Size(779, 39);
             this.Timeline.TabIndex = 4;
             this.Timeline.RangeChanged += new System.EventHandler(this.Timeline_RangeChanged);
+            // 
+            // AllocationTotals
+            // 
+            this.AllocationTotals.Name = "AllocationTotals";
+            this.AllocationTotals.Size = new System.Drawing.Size(364, 20);
+            this.AllocationTotals.Spring = true;
             // 
             // DiffViewer
             // 
@@ -413,5 +421,6 @@
         private System.Windows.Forms.ToolStripStatusLabel StatusLabel;
         private DeltaHistogram DeltaHistogram;
         private TimelineRangeSelector Timeline;
+        private System.Windows.Forms.ToolStripStatusLabel AllocationTotals;
     }
 }

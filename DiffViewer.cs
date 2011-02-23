@@ -174,7 +174,7 @@ namespace HeapProfiler {
                     };
 
                     if (i < lines.Length - 1) {
-                        line = lines[i++];
+                        line = lines[++i];
                         if (!ModuleRegex.IsMatch(line)) {
                             info.SymbolPath = line.Trim();
                         } else {
@@ -194,7 +194,7 @@ namespace HeapProfiler {
                     };
 
                     if (i < lines.Length - 1) {
-                        line = lines[i++];
+                        line = lines[++i];
 
                         if (CountDeltaRegex.TryMatch(line, out m)) {
                             info.OldCount = int.Parse(m.Groups["old_count"].Value);
@@ -325,6 +325,7 @@ namespace HeapProfiler {
             SetBusy(true);
 
             int max = -int.MaxValue;
+            int totalBytes = 0, totalAllocs = 0;
 
             ListItems.Clear();
             foreach (var delta in Deltas) {
@@ -343,11 +344,14 @@ namespace HeapProfiler {
 
                 if (!filteredOut) {
                     ListItems.Add(delta);
+                    totalBytes += delta.BytesDelta * (delta.Added ? 1 : -1);
+                    totalAllocs += delta.CountDelta.GetValueOrDefault(0) * (delta.Added ? 1 : -1);
                     max = Math.Max(max, delta.BytesDelta);
                 }
             }
 
             StatusLabel.Text = String.Format("Showing {0} out of {1} item(s)", ListItems.Count, Deltas.Count);
+            AllocationTotals.Text = String.Format("Delta bytes: {0} Delta allocations: {1}", totalBytes, totalAllocs);
 
             DeltaHistogram.Items = DeltaList.Items = ListItems;
             if (ListItems.Count > 0)

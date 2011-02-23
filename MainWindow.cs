@@ -328,6 +328,7 @@ namespace HeapProfiler {
                 if (dialog.ShowDialog(this) != System.Windows.Forms.DialogResult.OK)
                     return;
 
+                using (Activities.AddItem("Saving snapshots"))
                 foreach (var snap in Instance.Snapshots) {
                     var destPath = Path.Combine(
                         dialog.SelectedPath,
@@ -337,7 +338,12 @@ namespace HeapProfiler {
                             snap.When.ToString("u").Replace(":", "_")
                         )
                     );
-                    File.Copy(snap.Filename, destPath);
+                    try {
+                        File.Copy(snap.Filename, destPath);
+                    } catch (Exception ex) {
+                        MessageBox.Show("Save failed: " + ex.ToString());
+                        return;
+                    }
                 }
             }
         }
