@@ -49,10 +49,12 @@ namespace HeapProfiler {
         public const int ItemWidth = 32;
 
         public IList<TItem> Items = new List<TItem>();
+        public int? TotalDelta = null;
         public int Maximum = 1024;
 
         public string FunctionFilter = null;
 
+        protected readonly LRUCache<long, string> FormattedSizeCache = new LRUCache<long, string>(128);
         protected readonly LRUCache<TItem, ItemData> Data = new LRUCache<TItem, ItemData>(256, new ReferenceComparer<TItem>());
         protected readonly List<VisibleItem> VisibleItems = new List<VisibleItem>();
         protected bool ShouldAutoscroll = false;
@@ -86,6 +88,14 @@ namespace HeapProfiler {
             OnResize(EventArgs.Empty);
 
             Controls.Add(ScrollBar);
+        }
+
+        protected string FormatSize (long sizeBytes) {
+            string result;
+            if (!FormattedSizeCache.TryGetValue(sizeBytes, out result))
+                FormattedSizeCache[sizeBytes] = result = FileSize.Format(sizeBytes);
+
+            return result;
         }
 
         protected override void Dispose (bool disposing) {
@@ -130,6 +140,23 @@ namespace HeapProfiler {
             double scale = 2.0;
             double result = (Math.Log(Math.Abs(value) + 1) / Math.Log(scale)) * Math.Sign(value);
             return (float)result;
+        }
+
+        protected RectangleF ComputeBarRectangle (int bytesDelta, float x, float centerY, float height, float max) {
+            float y1, y2;
+
+            var value = GraphLog(bytesDelta);
+            if (value >= 0) {
+                y2 = centerY;
+                y1 = y2 - (value / (float)max) * ((height / 2.0f) - 1);
+            } else {
+                y1 = centerY;
+                y2 = y1 + (-value / (float)max) * ((height / 2.0f) - 1);
+            }
+
+            return new RectangleF(
+                x + 2.5f, y1 + 0.5f, ItemWidth - 6f, (y2 - y1) - 1f
+            );
         }
 
         protected override void OnPaint (PaintEventArgs e) {
@@ -184,18 +211,61 @@ namespace HeapProfiler {
                     for (int i = Maximum; i >= Math.Min(Maximum, 16); i /= 4) {
                         float y = (GraphLog(i) / max) * (height / 2.0f);
 
+                        var formatted = FormatSize(i);
+
                         g.DrawLine(gridPen, 0, centerY - y, marginWidth, centerY - y);
-                        var text = String.Format("+{0}", i);
+                        var text = String.Format("+{0}", formatted);
                         g.DrawString(text, gridLineFont, textBrush, new PointF(0, centerY - y));
 
                         g.DrawLine(gridPen, 0, centerY + y, marginWidth, centerY + y);
-                        text = String.Format("-{0}", i);
+                        text = String.Format("-{0}", formatted);
                         var sz = g.MeasureString(text, gridLineFont, marginWidth, sf);
                         g.DrawString(text, gridLineFont, textBrush, new PointF(0, centerY + y - sz.Height));
                     }
                 }
 
                 int x = marginWidth;
+
+                rgn = new Rectangle(x, 0, ItemWidth, height);
+                if ((TotalDelta.GetValueOrDefault(0) != 0) && rgn.IntersectsWith(e.ClipRectangle))
+                using (var scratch = Scratch.Get(e.Graphics, rgn)) {
+                    var barRectangle = ComputeBarRectangle(
+                        TotalDelta.Value, rgn.X, centerY, height, max
+                    );
+
+                    var g = scratch.Graphics;
+
+                    g.ResetClip();
+                    g.Clear(BackColor);
+
+                    g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
+
+                    g.DrawLine(gridPen, rgn.X, centerY, rgn.Right, centerY);
+
+                    g.DrawRectangle(
+                        outlinePen, barRectangle.X, barRectangle.Y, barRectangle.Width, barRectangle.Height
+                    );
+
+                    var oldTransform = g.Transform;
+                    var oldAlignment = sf.LineAlignment;
+                    var oldRenderingHint = g.TextRenderingHint;
+
+                    try {
+                        g.ResetTransform();
+                        g.RotateTransform(90);
+                        g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias;
+                        sf.LineAlignment = StringAlignment.Far;
+                        g.DrawString("Total bytes", Font, textBrush, Math.Min(barRectangle.Y, barRectangle.Bottom), 0f, sf);
+                    } finally {
+                        sf.LineAlignment = oldAlignment;
+                        g.Transform = oldTransform;
+                        g.TextRenderingHint = oldRenderingHint;
+                    }
+                }
+
+                if ((TotalDelta.GetValueOrDefault(0) != 0))
+                    x += ItemWidth;
+
                 for (int i = _ScrollOffset; (i < Items.Count) && (x < ClientSize.Width); i++) {
                     var x1 = x;
                     var selected = (i == SelectedIndex);
@@ -205,19 +275,9 @@ namespace HeapProfiler {
 
                     rgn = new Rectangle(x, 0, ItemWidth, height);
 
-                    float y1, y2;
-
-                    var value = GraphLog(item.BytesDelta);
-                    if (item.Added) {
-                        y2 = centerY;
-                        y1 = y2 - (value / (float)max) * ((height / 2.0f) - 1);
-                    } else {
-                        y1 = centerY;
-                        y2 = y1 + (value / (float)max) * ((height / 2.0f) - 1);
-                    }
-
-                    var barRectangle = new RectangleF(
-                        rgn.X + 2.5f, y1 + 0.5f, ItemWidth - 6f, (y2 - y1) - 1f
+                    var barRectangle = ComputeBarRectangle(
+                        item.BytesDelta * (item.Added ? 1 : -1), 
+                        rgn.X, centerY, height, max
                     );
 
                     if (rgn.IntersectsWith(e.ClipRectangle))

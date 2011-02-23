@@ -68,6 +68,19 @@ namespace HeapProfiler {
         public int? CountDelta, OldCount;
         public TracebackInfo Traceback;
 
+        protected string FormattedBytesCache = null;
+
+        public string FormattedBytesDelta {
+            get {
+                if (FormattedBytesCache == null)
+                    FormattedBytesCache = FileSize.Format(
+                        BytesDelta * (Added ? 1 : -1)
+                    );
+
+                return FormattedBytesCache;
+            }
+        }
+
         public float Render (Graphics g, ref RenderParams rp) {
             char[] functionEndChars = new char[] { '@', '+' };
 
@@ -156,9 +169,9 @@ namespace HeapProfiler {
 
         public string ToString (bool includeTraceback) {
             var result = String.Format(
-                "{0} {1} byte(s) ({2} - {3})",
+                "{0} {1} ({2} - {3})",
                 Added ? "+" : "-",
-                BytesDelta, NewBytes, OldBytes
+                FormattedBytesDelta, NewBytes, OldBytes
             );
 
             if (includeTraceback)

@@ -350,14 +350,17 @@ namespace HeapProfiler {
                 }
             }
 
+            max = Math.Max(max, Math.Abs(totalBytes));
+
             StatusLabel.Text = String.Format("Showing {0} out of {1} item(s)", ListItems.Count, Deltas.Count);
-            AllocationTotals.Text = String.Format("Delta bytes: {0} Delta allocations: {1}", totalBytes, totalAllocs);
+            AllocationTotals.Text = String.Format("Delta bytes: {0} Delta allocations: {1}", FileSize.Format(totalBytes), totalAllocs);
 
             DeltaHistogram.Items = DeltaList.Items = ListItems;
             if (ListItems.Count > 0)
                 DeltaHistogram.Maximum = max;
             else
                 DeltaHistogram.Maximum = 1024;
+            DeltaHistogram.TotalDelta = totalBytes;
 
             DeltaList.Invalidate();
             DeltaHistogram.Invalidate();

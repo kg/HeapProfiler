@@ -509,4 +509,23 @@ namespace HeapProfiler {
             }
         }
     }
+
+    public static class FileSize {
+        [DllImport("shlwapi.dll", CharSet = CharSet.Unicode)]
+        static unsafe extern char * StrFormatByteSize (
+            long fileSize, 
+            char * pBuffer, 
+            int bufferSize
+        );
+
+        public static unsafe string Format (long sizeBytes) {
+            char[] buffer = new char[1024];
+            fixed (char* pBuffer = buffer) {
+                if (StrFormatByteSize(sizeBytes, pBuffer, 1023) == pBuffer)
+                    return new String(pBuffer).Replace("bytes", "B");
+                else
+                    return null;
+            }
+        }
+    }
 }
