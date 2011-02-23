@@ -39,6 +39,7 @@ namespace HeapProfiler {
         }
 
         public readonly TaskScheduler Scheduler;
+        public readonly ActivityIndicator Activities;
         public readonly OwnedFutureSet Futures = new OwnedFutureSet();
         public readonly List<Snapshot> Snapshots = new List<Snapshot>();
         public readonly HashSet<string> TemporaryFiles = new HashSet<string>();
@@ -50,8 +51,13 @@ namespace HeapProfiler {
         protected LRUCache<Pair<string>, string> DiffCache = new LRUCache<Pair<string>, string>(32);
         protected Process Process;
 
-        protected RunningProcess (TaskScheduler scheduler, ProcessStartInfo startInfo) {
+        protected RunningProcess (
+            TaskScheduler scheduler,
+            ActivityIndicator activities,
+            ProcessStartInfo startInfo
+        ) {
             StartInfo = startInfo;
+            Activities = activities;
 
             Scheduler = scheduler;
             Futures.Add(Scheduler.Start(
@@ -61,8 +67,13 @@ namespace HeapProfiler {
             DiffCache.ItemEvicted += DiffCache_ItemEvicted;
         }
 
-        protected RunningProcess (TaskScheduler scheduler, string[] snapshots) {
+        protected RunningProcess (
+            TaskScheduler scheduler,
+            ActivityIndicator activities,
+            string[] snapshots
+        ) {
             Scheduler = scheduler;
+            Activities = activities;
 
             foreach (var snapshot in snapshots.OrderBy((s) => s)) {
                 var parts = Path.GetFileNameWithoutExtension(snapshot)
@@ -106,6 +117,7 @@ namespace HeapProfiler {
         protected IEnumerator<object> MainTask () {
             var shortName = Path.GetFileName(Path.GetFullPath(StartInfo.FileName));
 
+            using (Activities.AddItem("Enabling heap instrumentation"))
             yield return Program.RunProcess(new ProcessStartInfo(
                 Settings.GflagsPath, String.Format(
                     "-i {0} +ust", shortName
@@ -113,7 +125,8 @@ namespace HeapProfiler {
             ));
 
             var f = Program.StartProcess(StartInfo);
-            yield return f;
+            using (Activities.AddItem("Starting process"))
+                yield return f;
 
             using (Process = f.Result) {
                 OnStatusChanged();
@@ -122,6 +135,7 @@ namespace HeapProfiler {
 
             Process = null;
 
+            using (Activities.AddItem("Disabling heap instrumentation"))
             yield return Program.RunProcess(new ProcessStartInfo(
                 Settings.GflagsPath, String.Format(
                     "-i {0} -ust", shortName
@@ -132,7 +146,7 @@ namespace HeapProfiler {
         }
 
         public static RunningProcess Start (
-            TaskScheduler scheduler, string executablePath, string arguments, string workingDirectory
+            TaskScheduler scheduler, ActivityIndicator activities, string executablePath, string arguments, string workingDirectory
         ) {
             var psi = new ProcessStartInfo(
                 executablePath, arguments
@@ -144,7 +158,7 @@ namespace HeapProfiler {
             else
                 psi.WorkingDirectory = Path.GetDirectoryName(executablePath);
 
-            return new RunningProcess(scheduler, psi);
+            return new RunningProcess(scheduler, activities, psi);
         }
 
         public bool Running {
@@ -195,7 +209,8 @@ namespace HeapProfiler {
                 )
             );
 
-            yield return Program.RunProcess(psi);
+            using (Activities.AddItem("Capturing heap snapshot"))
+                yield return Program.RunProcess(psi);
 
             Snapshots.Add(new Snapshot {
                 Index = Snapshots.Count + 1,
@@ -224,6 +239,8 @@ namespace HeapProfiler {
                 );
 
                 var rp = Scheduler.Start(Program.RunProcess(psi), TaskExecutionPolicy.RunAsBackgroundTask);
+
+                using (Activities.AddItem("Generating heap diff"))
                 using (rp)
                     yield return rp;
 
@@ -234,9 +251,9 @@ namespace HeapProfiler {
             }
         }
 
-        public static RunningProcess FromSnapshots (TaskScheduler scheduler, string[] snapshots) {
+        public static RunningProcess FromSnapshots (TaskScheduler scheduler, ActivityIndicator activities, string[] snapshots) {
             return new RunningProcess(
-                scheduler, snapshots
+                scheduler, activities, snapshots
             );
         }
     }

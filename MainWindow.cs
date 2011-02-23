@@ -108,7 +108,7 @@ namespace HeapProfiler {
             LaunchProcess.Enabled = false;
 
             Instance = RunningProcess.Start(
-                Scheduler, 
+                Scheduler, Activities,
                 ExecutablePath.Text,
                 Arguments.Text,
                 WorkingDirectory.Text
@@ -179,11 +179,9 @@ namespace HeapProfiler {
 
         private void CaptureSnapshot_Click (object sender, EventArgs e) {
             AutoCapture.Enabled = CaptureSnapshot.Enabled = false;
-            UseWaitCursor = true;
             Instance.CaptureSnapshot()
                 .RegisterOnComplete((_) => {
                     AutoCapture.Enabled = CaptureSnapshot.Enabled = true;
-                    UseWaitCursor = false;
                 });
         }
 
@@ -203,7 +201,6 @@ namespace HeapProfiler {
                 i2 = SnapshotList.SelectedIndices[SnapshotList.SelectedIndices.Count - 1];
 
             DiffSelection.Enabled = false;
-            UseWaitCursor = true;
 
             ShowDiff(i1, i2);
         }
@@ -215,7 +212,6 @@ namespace HeapProfiler {
 
             Scheduler.QueueWorkItem(() => {
                 DiffSelection.Enabled = true;
-                UseWaitCursor = false;
                 viewer.ShowDialog(this);
             });
         }
@@ -293,11 +289,10 @@ namespace HeapProfiler {
             var sleep = new Sleep(5.0);
 
             while (AutoCapture.Checked && Instance.Running) {
-                UseWaitCursor = true;
                 yield return Instance.CaptureSnapshot();
-                UseWaitCursor = false;
 
-                yield return sleep;
+                using (Activities.AddItem("Waiting for next automatic capture"))
+                    yield return sleep;
             }
         }
 
@@ -363,11 +358,32 @@ namespace HeapProfiler {
                     return;
 
                 Instance = RunningProcess.FromSnapshots(
-                    Scheduler, dialog.FileNames
+                    Scheduler, Activities, dialog.FileNames
                 );
                 RefreshStatus();
                 RefreshSnapshots();
             }
+        }
+
+        private void Activities_PreferredSizeChanged (object sender, EventArgs e) {
+            var margin = GroupSnapshots.Left;
+            var ps = Activities.GetPreferredSize(new Size(
+                GroupSnapshots.Width, ClientSize.Height
+            ));
+
+            var newTop = ClientSize.Height - ps.Height - margin;
+
+            SuspendLayout();
+
+            GroupSnapshots.SetBounds(
+                GroupSnapshots.Left, GroupSnapshots.Top,
+                GroupSnapshots.Width, newTop - margin - GroupSnapshots.Top
+            );
+            Activities.SetBounds(
+                GroupSnapshots.Left, newTop, GroupSnapshots.Width, ps.Height
+            );
+
+            ResumeLayout(true);
         }
     }
 }
