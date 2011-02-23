@@ -46,6 +46,10 @@ namespace HeapProfiler {
             }
         }
 
+        public const int MaxTooltipWidthPercent = 50;
+        public const int MaxTooltipHeightPercent = 60;
+        public const float MinTooltipSizeEm = 7.5f;
+
         public const int ItemWidth = 32;
 
         public IList<TItem> Items = new List<TItem>();
@@ -428,13 +432,33 @@ namespace HeapProfiler {
             var item = Items[itemIndex];
             var sf = GetStringFormat();
 
+            Rectangle rgn = new Rectangle();
+            int width = 0;
+            float lineHeight = 0;
+            var font = Font;
+            var fontSize = Font.Size;
+
             using (var g = CreateGraphics()) {
-                var width = (int)Math.Ceiling(g.MeasureString(item.ToString(true), Font, 99999, sf).Width);
-                var lineHeight = g.MeasureString("AaBbYyZz", Font, width, sf).Height;
-                var rgn = new Rectangle(
-                    0, 0, width,
-                    (int)Math.Ceiling(lineHeight * (item.Traceback.Frames.Length + 1))
-                );
+                var screenBounds = Screen.FromControl(this).Bounds;
+                
+                // Iterate a few times to shrink the tooltip's font size if it's too big
+                for (int i = 0; i < 10; i++) {
+                    width = (int)Math.Ceiling(g.MeasureString(item.ToString(true), font, 99999, sf).Width);
+                    lineHeight = g.MeasureString("AaBbYyZz", font, width, sf).Height;
+                    rgn = new Rectangle(
+                        0, 0, width,
+                        (int)Math.Ceiling(lineHeight * (item.Traceback.Frames.Length + 1))
+                    );
+
+                    if (fontSize <= MinTooltipSizeEm)
+                        break;
+                    if (rgn.Width < (screenBounds.Width * MaxTooltipWidthPercent / 100) &&
+                        rgn.Height < (screenBounds.Height * MaxTooltipHeightPercent / 100))
+                        break;
+
+                    fontSize *= 0.9f;
+                    font = new Font(font.FontFamily, Math.Min(fontSize, MinTooltipSizeEm), font.Style);
+                }
 
                 var rp = new DeltaInfo.RenderParams {
                     BackgroundBrush = new SolidBrush(SystemColors.Info),
@@ -446,7 +470,7 @@ namespace HeapProfiler {
                     ElideTextBrush = null,
                     FunctionHighlightBrush = new SolidBrush(SystemColors.Window),
                     FunctionFilter = FunctionFilter,
-                    Font = Font,
+                    Font = font,
                     LineHeight = lineHeight,
                     Region = rgn,
                     ShadeBrush = new SolidBrush(Color.FromArgb(31, 0, 0, 0)),
