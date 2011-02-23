@@ -110,12 +110,12 @@ namespace HeapProfiler {
             MainSplit.Visible = false;
             UseWaitCursor = true;
 
-            var s1 = Instance.Snapshots[range.First].Filename;
-            var s2 = Instance.Snapshots[range.Second].Filename;
+            var s1 = Instance.Snapshots[range.First];
+            var s2 = Instance.Snapshots[range.Second];
 
             Timeline.Indices = range;
 
-            var f = Start(Instance.DiffSnapshots(s1, s2));
+            var f = Start(Instance.DiffSnapshots(s1.Filename, s2.Filename));
             using (f)
                 yield return f;
 
@@ -126,6 +126,8 @@ namespace HeapProfiler {
 
             PendingLoadPair = Pair.New(-1, -1);
             CurrentPair = range;
+
+            Text = "Diff Viewer - " + String.Format("{0} - {1}", s1.When.ToLongTimeString(), s2.When.ToLongTimeString());
         }
 
         public IEnumerator<object> LoadDiff (string filename) {

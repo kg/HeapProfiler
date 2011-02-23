@@ -47,6 +47,9 @@ namespace HeapProfiler {
         protected int BeginIndex = -1, EndIndex = -1;
         protected Point MouseDownLocation;
 
+        protected Pair<int> ToolTipIndices = Pair.New(-1, -1);
+        protected ToolTip ToolTip;
+
         public TimelineRangeSelector () {
             SetStyle(
                 ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint |
@@ -57,10 +60,13 @@ namespace HeapProfiler {
 
             BackColor = SystemColors.Control;
             ForeColor = SystemColors.ControlText;
+
+            ToolTip = new ToolTip();
         }
 
         protected override void Dispose (bool disposing) {
             Scratch.Dispose();
+            ToolTip.Dispose();
 
             base.Dispose(disposing);
         }
@@ -226,6 +232,8 @@ namespace HeapProfiler {
             if (i1 > (Items.Count - 2))
                 i1 = Items.Count - 2;
 
+            SetTooltipRange(Pair.New(i1, i2));
+
             if ((i1 != BeginIndex) || (i2 != EndIndex)) {
                 BeginIndex = i1;
                 EndIndex = i2;
@@ -243,9 +251,34 @@ namespace HeapProfiler {
             base.OnMouseDown(e);
         }
 
+        protected void SetTooltipRange (Pair<int> range) {
+            if (range.CompareTo(ToolTipIndices) == 0)
+                return;
+
+            ToolTipIndices = range;
+            ToolTip.SetToolTip(
+                this, String.Format(
+                    "{0} - {1}",
+                    Items[range.First].When.ToLongTimeString(),
+                    Items[range.Second].When.ToLongTimeString()
+                )
+            );
+        }
+
         protected override void OnMouseMove (MouseEventArgs e) {
-            if (e.Button == MouseButtons.Left)
+            if (e.Button == MouseButtons.Left) {
                 SetRangeFromPoints(MouseDownLocation, e.Location);
+            } else {
+                var i1 = IndexFromPoint(e.Location, -1);
+                var i2 = IndexFromPoint(e.Location, 1);
+
+                if ((i1 >= BeginIndex) && (i2 <= EndIndex)) {
+                    i1 = BeginIndex;
+                    i2 = EndIndex;
+                }
+
+                SetTooltipRange(Pair.New(i1, i2));
+            }
 
             base.OnMouseMove(e);
         }

@@ -259,7 +259,7 @@ namespace HeapProfiler {
                         g.RotateTransform(90);
                         g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias;
                         sf.LineAlignment = StringAlignment.Far;
-                        g.DrawString("Total bytes", Font, textBrush, Math.Min(barRectangle.Y, barRectangle.Bottom), 0f, sf);
+                        g.DrawString("Delta bytes", Font, textBrush, Math.Min(barRectangle.Y, barRectangle.Bottom), 0f, sf);
                     } finally {
                         sf.LineAlignment = oldAlignment;
                         g.Transform = oldTransform;
@@ -397,7 +397,7 @@ namespace HeapProfiler {
                     else
                         HideTooltip();
                 } else if (_HoverIndex >= 0) {
-                    MoveTooltip(e.Location);
+                    // MoveTooltip(e.Location);
                 }
             }
 
