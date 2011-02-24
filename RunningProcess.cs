@@ -33,12 +33,15 @@ namespace HeapProfiler {
         public struct Snapshot {
             public int Index;
             public DateTime When;
+            public MemoryStatistics Memory;
             public string Filename;
 
             public override string ToString () {
                 return String.Format("#{0} - {1}", Index, When.ToLongTimeString());
             }
         }
+
+        public const int TraceDatabaseSizeMB = 128;
 
         public readonly TaskScheduler Scheduler;
         public readonly ActivityIndicator Activities;
@@ -132,7 +135,7 @@ namespace HeapProfiler {
             using (Activities.AddItem("Enabling heap instrumentation"))
             yield return Program.RunProcess(new ProcessStartInfo(
                 Settings.GflagsPath, String.Format(
-                    "-i {0} +ust", shortName
+                    "-i {0} +ust -tracedb {1}", shortName, TraceDatabaseSizeMB
                 )
             ));
 
@@ -319,6 +322,8 @@ namespace HeapProfiler {
         protected IEnumerator<object> CaptureSnapshotTask (string targetFilename) {
             var now = DateTime.Now;
 
+            var mem = new MemoryStatistics(Process);
+
             var psi = new ProcessStartInfo(
                 Settings.UmdhPath, String.Format(
                     "-p:{0} -f:\"{1}\"", Process.Id, targetFilename
@@ -328,9 +333,12 @@ namespace HeapProfiler {
             using (Activities.AddItem("Capturing heap snapshot"))
                 yield return Program.RunProcess(psi);
 
+            File.AppendAllText(targetFilename, mem.GetFileText());
+
             Snapshots.Add(new Snapshot {
                 Index = Snapshots.Count + 1,
                 When = now,
+                Memory = mem,
                 Filename = targetFilename
             });
 

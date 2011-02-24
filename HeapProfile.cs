@@ -22,6 +22,8 @@ using System.Linq;
 using System.Text;
 using System.Drawing;
 using System.IO;
+using System.Diagnostics;
+using Squared.Task.Data.Mapper;
 
 namespace HeapProfiler {
     public class ModuleInfo {
@@ -218,6 +220,40 @@ namespace HeapProfiler {
                 return String.Format("{0}!{1}@{2:x8}", Module, Function, Offset2.Value);
             else
                 return String.Format("{0}!{1}+{2:x8}", Module, Function, Offset);
+        }
+    }
+
+    public class MemoryStatistics {
+        public readonly long NonpagedSystem, Paged, PagedSystem, Private, Virtual, WorkingSet;
+        public readonly long PeakPaged, PeakVirtual, PeakWorking;
+
+        public MemoryStatistics () {
+        }
+
+        public MemoryStatistics (Process process) {
+            NonpagedSystem = process.NonpagedSystemMemorySize64;
+            Paged = process.PagedMemorySize64;
+            PagedSystem = process.PagedSystemMemorySize64;
+            Private = process.PrivateMemorySize64;
+            Virtual = process.VirtualMemorySize64;
+            WorkingSet = process.WorkingSet64;
+            PeakPaged = process.PeakPagedMemorySize64;
+            PeakVirtual = process.PeakVirtualMemorySize64;
+            PeakWorking = process.PeakWorkingSet64;
+        }
+
+        public string GetFileText () {
+            var sb = new StringBuilder();
+
+            var cn = Mapper<MemoryStatistics>.ColumnNames;
+            var cv = Mapper<MemoryStatistics>.GetColumnValues(this);
+
+            sb.AppendLine("// HeapProfiler Memory Statistics");
+            for (int i = 0; i < cn.Length; i++) {
+                sb.AppendFormat("// {0}={1:x}{2}", cn[i], cv[i], Environment.NewLine);
+            }
+
+            return sb.ToString();
         }
     }
 }
