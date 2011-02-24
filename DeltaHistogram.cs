@@ -486,10 +486,17 @@ namespace HeapProfiler {
                 Tooltip.Delta = item;
                 Tooltip.RenderParams = rp;
 
+                bool wasVisible = Tooltip.Visible;
+                Tooltip.Visible = false;
+
                 MoveTooltip(location);
 
-                if (!Tooltip.Visible)
+                Tooltip.Refresh();
+
+                if (!wasVisible)
                     Tooltip.Show(this);
+                else
+                    Tooltip.Visible = true;
             }
 
             if (_HoverIndex != itemIndex) {
