@@ -38,9 +38,27 @@ namespace HeapProfiler {
     }
 
     public class ScratchBuffer : IDisposable {
+        const uint SRCCOPY = 0xCC0020;
+
+        [DllImport("gdi32.dll", SetLastError=true)]
+        static extern bool BitBlt (
+            IntPtr hDC, int nXDest, int nYDest, int nWidth, int nHeight, 
+            IntPtr hDCSrc, int nXSrc, int nYSrc, uint dwRop
+        );
+
+        [DllImport("gdi32.dll", SetLastError = true)]
+        static extern IntPtr CreateCompatibleDC (IntPtr hdc);
+
+        [DllImport("gdi32.dll", SetLastError = true)]
+        static extern bool DeleteObject (IntPtr hGDIObj);
+
+        [DllImport("gdi32.dll", SetLastError = true)]
+        static extern IntPtr SelectObject (IntPtr hDC, IntPtr hGDIObj);
+
         public struct Region : IDisposable {
             public readonly Graphics Graphics;
             public readonly Bitmap Bitmap;
+            private readonly IntPtr HBitmap, HDC;
 
             public readonly Graphics DestinationGraphics;
             public readonly Rectangle DestinationRegion;
@@ -55,17 +73,27 @@ namespace HeapProfiler {
                     (sb._ScratchBuffer == null) || (sb._ScratchBuffer.Width < minWidth) ||
                     (sb._ScratchBuffer.Height < minHeight);
 
-                if (needNewBitmap && sb._ScratchBuffer != null)
+                if (needNewBitmap && sb._ScratchBuffer != null) {
+                    DeleteObject(sb._ScratchHDC);
+                    DeleteObject(sb._ScratchHBitmap);
                     sb._ScratchBuffer.Dispose();
+                }
                 if (needNewBitmap && sb._ScratchGraphics != null)
                     sb._ScratchGraphics.Dispose();
 
                 if (needNewBitmap) {
                     Bitmap = sb._ScratchBuffer = new Bitmap(
-                        minWidth, minHeight, graphics
+                        minWidth, minHeight, System.Drawing.Imaging.PixelFormat.Format32bppRgb
                     );
-                    Graphics = sb._ScratchGraphics = Graphics.FromImage(Bitmap);
+                    HBitmap = sb._ScratchHBitmap = Bitmap.GetHbitmap();
+                    var tempDC = graphics.GetHdc();
+                    HDC = sb._ScratchHDC = CreateCompatibleDC(tempDC);
+                    graphics.ReleaseHdc(tempDC);
+                    SelectObject(HDC, HBitmap);
+                    Graphics = sb._ScratchGraphics = Graphics.FromHdc(HDC);
                 } else {
+                    HDC = sb._ScratchHDC;
+                    HBitmap = sb._ScratchHBitmap;
                     Bitmap = sb._ScratchBuffer;
                     Graphics = sb._ScratchGraphics;
                 }
@@ -90,25 +118,25 @@ namespace HeapProfiler {
                 if (Cancelled)
                     return;
 
-                var oldCompositing = DestinationGraphics.CompositingMode;
-                DestinationGraphics.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceCopy;
-                var oldInterpolation = DestinationGraphics.InterpolationMode;
-                DestinationGraphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
-                var oldSmoothing = DestinationGraphics.SmoothingMode;
-                DestinationGraphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
+                var destDC = DestinationGraphics.GetHdc();
 
-                DestinationGraphics.DrawImageUnscaledAndClipped(
-                    Bitmap, DestinationRegion
-                );
-
-                DestinationGraphics.CompositingMode = oldCompositing;
-                DestinationGraphics.InterpolationMode = oldInterpolation;
-                DestinationGraphics.SmoothingMode = oldSmoothing;
+                try {
+                    BitBlt(
+                        destDC,
+                        DestinationRegion.X, DestinationRegion.Y,
+                        DestinationRegion.Width, DestinationRegion.Height,
+                        HDC,
+                        0, 0, SRCCOPY
+                    );
+                } finally {
+                    DestinationGraphics.ReleaseHdc(destDC);
+                }
 
                 Cancelled = true;
             }
         }
 
+        protected IntPtr _ScratchHBitmap, _ScratchHDC;
         protected Bitmap _ScratchBuffer = null;
         protected Graphics _ScratchGraphics = null;
 
@@ -137,6 +165,9 @@ namespace HeapProfiler {
             }
 
             if (_ScratchBuffer != null) {
+                DeleteObject(_ScratchHBitmap);
+                DeleteObject(_ScratchHDC);
+                _ScratchHDC = _ScratchHBitmap = IntPtr.Zero;
                 _ScratchBuffer.Dispose();
                 _ScratchBuffer = null;
             }
