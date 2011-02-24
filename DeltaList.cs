@@ -186,7 +186,7 @@ namespace HeapProfiler {
                         Y1 = y1, Y2 = y, Index = i
                     });
 
-                    if ((y1 >= 0) && (y < ClientSize.Height)) {
+                    if ((y1 >= 0) && (y < ClientSize.Height) || ((y - y1) >= ClientSize.Height)) {
                         minVisibleIndex = Math.Min(minVisibleIndex, i);
                         maxVisibleIndex = Math.Max(maxVisibleIndex, i);
                         selectedItemVisible |= selected;

@@ -65,6 +65,17 @@ namespace HeapProfiler {
             }
         }
 
+        public static string SymChkPath {
+            get {
+                return GetMsiComponentPath(
+                    // dbg_x86.msi
+                    "{D09605BE-5587-4B0C-86C8-69B5092CB80F}",
+                    // symchk.exe
+                    "{9462A8A3-32B9-47D6-8361-C57110C6B82E}"
+                );
+            }
+        }
+
         static unsafe string GetMsiComponentPath (string product, string component) {
             int length = 0;
 

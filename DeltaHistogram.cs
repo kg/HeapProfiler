@@ -197,9 +197,15 @@ namespace HeapProfiler {
             using (var backgroundBrush = new SolidBrush(BackColor))
             using (var textBrush = new SolidBrush(ForeColor))
             using (var highlightBrush = new SolidBrush(SystemColors.Highlight)) {
-                var marginWidth = (int)Math.Ceiling(e.Graphics.MeasureString(
-                    "+" + Maximum.ToString(), gridLineFont, ClientSize.Width, sf
-                ).Width) + 1;
+                int marginWidth = 0;
+                for (int i = Maximum; i >= Math.Min(Maximum, 16); i /= 4) {
+                    marginWidth = Math.Max(marginWidth,
+                        (int)Math.Ceiling(e.Graphics.MeasureString(
+                            "+" + FormatSize(i), gridLineFont, ClientSize.Width, sf
+                        ).Width) + 1
+                    );
+                }
+
                 var rgn = new Rectangle(0, 0, marginWidth, height);
 
                 if (rgn.IntersectsWith(e.ClipRectangle))

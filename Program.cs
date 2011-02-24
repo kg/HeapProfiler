@@ -147,6 +147,19 @@ namespace HeapProfiler {
         }
 
         public static IEnumerator<object> RunProcess (ProcessStartInfo psi) {
+            var rtc = new RunToCompletion<RunProcessResult>(RunProcessWithResult(psi));
+            yield return rtc;
+
+            if (rtc.Result.StdOut.Trim().Length > 0)
+                Console.WriteLine("{0} stdout:\n{1}", Path.GetFileNameWithoutExtension(psi.FileName), rtc.Result.StdOut);
+            if (rtc.Result.StdErr.Trim().Length > 0)
+                Console.WriteLine("{0} stderr:\n{1}", Path.GetFileNameWithoutExtension(psi.FileName), rtc.Result.StdErr);
+
+            if (rtc.Result.ExitCode != 0)
+                throw new Exception(String.Format("Process exited with code {0}", rtc.Result.ExitCode));
+        }
+
+        public static IEnumerator<object> RunProcessWithResult (ProcessStartInfo psi) {
             psi.UseShellExecute = false;
             psi.CreateNoWindow = true;
             psi.RedirectStandardOutput = true;
@@ -160,16 +173,11 @@ namespace HeapProfiler {
             try {
                 yield return WaitForProcessExit(process);
 
-                var stdout = process.StandardOutput.ReadToEnd().Trim();
-                var stderr = process.StandardError.ReadToEnd().Trim();
-
-                if (stdout.Length > 0)
-                    Console.WriteLine("{0} stdout:\n{1}", Path.GetFileNameWithoutExtension(psi.FileName), stdout);
-                if (stderr.Length > 0)
-                    Console.WriteLine("{0} stderr:\n{1}", Path.GetFileNameWithoutExtension(psi.FileName), stderr);
-
-                if (process.ExitCode != 0)
-                    throw new Exception(String.Format("Process exited with code {0}", process.ExitCode));
+                yield return new Result(new RunProcessResult {
+                    StdOut = process.StandardOutput.ReadToEnd(),
+                    StdErr = process.StandardOutput.ReadToEnd(),
+                    ExitCode = process.ExitCode
+                });
             } finally {
                 try {
                     if (!process.HasExited)
@@ -178,5 +186,10 @@ namespace HeapProfiler {
                 }
             }
         }
+    }
+
+    public class RunProcessResult {
+        public string StdOut, StdErr;
+        public int ExitCode;
     }
 }

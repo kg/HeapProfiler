@@ -76,7 +76,7 @@ namespace HeapProfiler {
 
         protected WaitHandle WaitHandle = new AutoResetEvent(false);
         protected readonly HashSet<Item> _Items = new HashSet<Item>();
-        protected bool RelayoutPending = false;
+        protected bool RelayoutPending = false, SizeChangedPending = false;
 
         public ActivityIndicator () {
         }
@@ -155,11 +155,11 @@ namespace HeapProfiler {
 
                 item.Label.SetBounds(
                     0, y,
-                    Math.Max(ClientSize.Width - progressSize.Width, labelSize.Width),
+                    Math.Min(ClientSize.Width - progressSize.Width, labelSize.Width),
                     Math.Max(labelSize.Height, progressSize.Height)
                 );
                 item.ProgressBar.SetBounds(
-                    item.Label.Width, y,
+                    ClientSize.Width - progressSize.Width, y,
                     progressSize.Width, progressSize.Height
                 );
 
@@ -186,19 +186,35 @@ namespace HeapProfiler {
             Relayout();
         }
 
-        protected void OnPreferredSizeChanged () {
+        protected void DoOnPreferredSizeChanged () {
+            if (!SizeChangedPending)
+                return;
+
             var oldSize = ClientSize;
 
+            SizeChangedPending = false;
             if (PreferredSizeChanged != null)
                 PreferredSizeChanged(this, EventArgs.Empty);
 
             if (ClientSize == oldSize && !RelayoutPending) {
                 RelayoutPending = true;
                 ThreadPool.RegisterWaitForSingleObject(
-                    WaitHandle, 
+                    WaitHandle,
                     (s, t) => {
                         BeginInvoke((Action)DoPendingRelayout);
-                    }, null, 50, true
+                    }, null, 25, true
+                );
+            }
+        }
+
+        protected void OnPreferredSizeChanged () {
+            if (PreferredSizeChanged != null && !SizeChangedPending) {
+                SizeChangedPending = true;
+                ThreadPool.RegisterWaitForSingleObject(
+                    WaitHandle,
+                    (s, t) => {
+                        BeginInvoke((Action)DoOnPreferredSizeChanged);
+                    }, null, 25, true
                 );
             }
         }

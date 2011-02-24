@@ -25,6 +25,8 @@ using Squared.Task;
 using System.IO;
 using System.Windows.Forms;
 using Squared.Util;
+using Squared.Util.RegexExtensions;
+using System.Text.RegularExpressions;
 
 namespace HeapProfiler {
     public class RunningProcess : IDisposable {
@@ -48,8 +50,12 @@ namespace HeapProfiler {
         public event EventHandler StatusChanged;
         public event EventHandler SnapshotsChanged;
 
-        protected LRUCache<Pair<string>, string> DiffCache = new LRUCache<Pair<string>, string>(32);
         protected Process Process;
+
+        protected readonly HashSet<string> PreloadedSymbols = new HashSet<string>();
+        protected readonly BlockingQueue<string> SymbolPreloadQueue = new BlockingQueue<string>();
+        protected readonly BlockingQueue<string> SnapshotPreprocessQueue = new BlockingQueue<string>();
+        protected readonly LRUCache<Pair<string>, string> DiffCache = new LRUCache<Pair<string>, string>(32);
 
         protected RunningProcess (
             TaskScheduler scheduler,
@@ -60,8 +66,15 @@ namespace HeapProfiler {
             Activities = activities;
 
             Scheduler = scheduler;
+
             Futures.Add(Scheduler.Start(
                 MainTask(), TaskExecutionPolicy.RunAsBackgroundTask
+            ));
+            Futures.Add(Scheduler.Start(
+                SnapshotPreprocessTask(), TaskExecutionPolicy.RunAsBackgroundTask
+            ));
+            Futures.Add(Scheduler.Start(
+                SymbolPreloadTask(), TaskExecutionPolicy.RunAsBackgroundTask
             ));
 
             DiffCache.ItemEvicted += DiffCache_ItemEvicted;
@@ -94,7 +107,6 @@ namespace HeapProfiler {
 
         void DiffCache_ItemEvicted (KeyValuePair<Pair<string>, string> item) {
             if (TemporaryFiles.Contains(item.Value)) {
-                Console.WriteLine("Evicted: {0}", item.Value);
                 TemporaryFiles.Remove(item.Value);
 
                 try {
@@ -143,6 +155,110 @@ namespace HeapProfiler {
             ));
 
             OnStatusChanged();
+        }
+
+        protected IEnumerator<object> SnapshotPreprocessTask () {
+            while (true) {
+                var f = SnapshotPreprocessQueue.Dequeue();
+                using (f)
+                    yield return f;
+
+                using (Activities.AddItem("Preprocessing snapshot")) {
+                    var fModules = Future.RunInThread(() =>
+                        ReadModuleListFromSnapshot(f.Result)
+                    );
+                    yield return fModules;
+
+                    foreach (var filename in fModules.Result)
+                        if (!PreloadedSymbols.Contains(filename))
+                            SymbolPreloadQueue.Enqueue(filename);
+                }
+            }
+        }
+
+        protected string[] ReadModuleListFromSnapshot (string filename) {
+            var result = new List<string>();
+            var moduleRegex = new Regex(
+                "//\\s*([A-F0-9]+)\\s+([A-F0-9]+)\\s+(?'module'[^\r\n]+)",
+                RegexOptions.Compiled | RegexOptions.ExplicitCapture | RegexOptions.IgnoreCase
+            );
+            string line = null;
+            bool scanningForStart = true;
+
+            using (var f = File.OpenRead(filename))
+            using (var sr = new StreamReader(f))
+            while ((line = sr.ReadLine()) != null) {
+                if (scanningForStart) {
+                    if (line.Contains("Loaded modules"))
+                        scanningForStart = false;
+                    else if (line.Contains("Start of data for heap"))
+                        break;
+                    else
+                        continue;
+                } else {
+                    Match m;
+                    if (!moduleRegex.TryMatch(line, out m)) {
+                        if (line.Contains("Process modules enumerated"))
+                            break;
+                        else
+                            continue;
+                    }
+
+                    result.Add(Path.GetFullPath(m.Groups["module"].Value).ToLowerInvariant());
+                }
+            }
+
+            return result.ToArray();
+        }
+
+        protected IEnumerator<object> SymbolPreloadTask () {
+            while (true) {
+                var f = SymbolPreloadQueue.Dequeue();
+                using (f)
+                    yield return f;
+
+                int c = SymbolPreloadQueue.Count + 1;
+                int i = 0;
+
+                using (var a = Activities.AddItem("Loading symbols"))
+                do {
+                    if (i > c) {
+                        c = SymbolPreloadQueue.Count;
+                        a.Progress = i = 0;
+                        a.Maximum = c;
+                    } else if (c > 1) {
+                        a.Maximum = c;
+                        a.Progress = i;
+                    }
+
+                    if (f == null) {
+                        f = SymbolPreloadQueue.Dequeue();
+                        yield return f;
+                    }
+
+                    var filename = f.Result;
+                    if (!PreloadedSymbols.Contains(filename)) {
+                        var rtc = new RunToCompletion<RunProcessResult>(
+                            Program.RunProcessWithResult(new ProcessStartInfo(
+                                Settings.SymChkPath, String.Format(
+                                    "\"{0}\" /q /oi /op /oe", filename
+                                )
+                            ))
+                        );
+                        yield return rtc;
+
+                        /*
+                        Console.WriteLine(rtc.Result.StdOut);
+                        Console.WriteLine(rtc.Result.StdErr);
+                         */
+
+                        PreloadedSymbols.Add(filename);
+                    }
+
+                    f = null;
+                    i += 1;
+                } while (SymbolPreloadQueue.Count > 0);
+            }
         }
 
         public static RunningProcess Start (
@@ -217,7 +333,10 @@ namespace HeapProfiler {
                 When = now,
                 Filename = targetFilename
             });
+
             TemporaryFiles.Add(targetFilename);
+            SnapshotPreprocessQueue.Enqueue(targetFilename);
+
             OnSnapshotsChanged();
         }
 

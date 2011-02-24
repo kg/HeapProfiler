@@ -375,12 +375,16 @@ namespace HeapProfiler {
             ));
 
             int newTop = ClientSize.Height - ps.Height - margin;
+            var newHeight = newTop - (ps.Height > 0 ? margin : 0) - GroupSnapshots.Top;
+
+            if ((newTop == Activities.Top) && (newHeight == GroupSnapshots.Height))
+                return;
 
             SuspendLayout();
 
             GroupSnapshots.SetBounds(
                 GroupSnapshots.Left, GroupSnapshots.Top,
-                GroupSnapshots.Width, newTop - (ps.Height > 0 ? margin : 0) - GroupSnapshots.Top
+                GroupSnapshots.Width, newHeight
             );
             Activities.SetBounds(
                 GroupSnapshots.Left, newTop, GroupSnapshots.Width, ps.Height
