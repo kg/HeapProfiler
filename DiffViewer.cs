@@ -37,22 +37,22 @@ using Squared.Util;
 
 namespace HeapProfiler {
     public partial class DiffViewer : TaskForm {
-        const int ProgressInterval = 50;
+        const int ProgressInterval = 200;
 
         public static Regex ModuleRegex = new Regex(
-            @"DBGHELP: (?'module'.*?)( - )(?'symboltype'[^\n\r]*)", 
+            @"DBGHELP: (?'module'.*?)( - )(?'symbol_type'[^\n\r]*)", 
             RegexOptions.Compiled | RegexOptions.ExplicitCapture
         );
         public static Regex BytesDeltaRegex = new Regex(
-            @"(?'type'\+|\-)(\s+)(?'delta_bytes'[\da-fA-F]+)(\s+)\((\s*)(?'new_bytes'[\da-fA-F]*)(\s*)-(\s*)(?'old_bytes'[\da-fA-F]*)\)(\s*)(?'new_count'[\da-fA-F]+) allocs\t(BackTrace(?'trace_id'\w*))",
+            @"(?'type'\+|\-)(\s+)(?'delta_bytes'[0-9A-Fa-f]+)(\s+)\((\s*)(?'new_bytes'[0-9A-Fa-f]*)(\s*)-(\s*)(?'old_bytes'[0-9A-Fa-f]*)\)(\s*)(?'new_count'[0-9A-Fa-f]+) allocs\t(BackTrace(?'trace_id'\w*))",
             RegexOptions.Compiled | RegexOptions.ExplicitCapture
         );
         public static Regex CountDeltaRegex = new Regex(
-            @"(?'type'\+|\-)(\s+)(?'delta'[\da-fA-F]+)(\s+)\((\s*)(?'new_count'[\da-fA-F]*)(\s*)-(\s*)(?'old_count'[\da-fA-F]*)\)\t(BackTrace(?'trace_id'\w*))\tallocations",
+            @"(?'type'\+|\-)(\s+)(?'delta_count'[0-9A-Fa-f]+)(\s+)\((\s*)(?'new_count'[0-9A-Fa-f]*)(\s*)-(\s*)(?'old_count'[0-9A-Fa-f]*)\)\t(BackTrace(?'trace_id'\w*))\tallocations",
             RegexOptions.Compiled | RegexOptions.ExplicitCapture
         );
         public static Regex TracebackRegex = new Regex(
-            @"\t(?'module'[^!]+)!(?'function'[^+]+)\+(?'offset'[\dA-Fa-f]+)(\s*:\s*(?'offset2'[\dA-Fa-f]+))?(\s*\(\s*(?'path'[^,]+),\s*(?'line'[0-9]*)\))?",
+            @"\t(?'module'[^!]+)!(?'function'[^+]+)\+(?'offset'[0-9A-Fa-f]+)(\s*:\s*(?'offset2'[0-9A-Fa-f]+))?(\s*\(\s*(?'path'[^,]+),\s*(?'line'[0-9]*)\))?",
             RegexOptions.Compiled | RegexOptions.ExplicitCapture
         );
 
@@ -133,6 +133,8 @@ namespace HeapProfiler {
         public IEnumerator<object> LoadDiff (string filename) {
             LoadingPanel.Text = "Loading diff...";
 
+            // We could stream the lines in from the IO thread while we parse them, but this
+            //  part of the load is usually pretty quick even on a regular hard disk
             var fLines = Future.RunInThread(() => File.ReadAllLines(filename));
             yield return fLines;
 
@@ -140,12 +142,33 @@ namespace HeapProfiler {
 
             LoadingPanel.Text = "Parsing diff...";
 
-            var modules = new Dictionary<string, ModuleInfo>();
-            var functionNames = new HashSet<string>();
-            var deltas = new List<DeltaInfo>();
-            var tracebacks = new Dictionary<string, TracebackInfo>();
+            // The default comparer for HashSet is the GenericComparer, so this is a lot faster
+            var stringComparer = StringComparer.Ordinal;
 
-            for (int i = 0; i < lines.Length; i++) {
+            var modules = new Dictionary<string, ModuleInfo>(stringComparer);
+            var functionNames = new HashSet<string>(stringComparer);
+            var deltas = new List<DeltaInfo>();
+            var tracebacks = new Dictionary<string, TracebackInfo>(stringComparer);
+
+            // Regex.Groups[string] does an inefficient lookup, so we do that lookup once here
+            int groupModule = ModuleRegex.GroupNumberFromName("module");
+            int groupSymbolType = ModuleRegex.GroupNumberFromName("symbol_type");
+            int groupTraceId = BytesDeltaRegex.GroupNumberFromName("trace_id");
+            int groupType = BytesDeltaRegex.GroupNumberFromName("type");
+            int groupDeltaBytes = BytesDeltaRegex.GroupNumberFromName("delta_bytes");
+            int groupNewBytes = BytesDeltaRegex.GroupNumberFromName("new_bytes");
+            int groupOldBytes = BytesDeltaRegex.GroupNumberFromName("old_bytes");
+            int groupNewCount = BytesDeltaRegex.GroupNumberFromName("new_count");
+            int groupOldCount = CountDeltaRegex.GroupNumberFromName("old_count");
+            int groupCountDelta = CountDeltaRegex.GroupNumberFromName("delta_count");
+            int groupTracebackModule = TracebackRegex.GroupNumberFromName("module");
+            int groupTracebackFunction = TracebackRegex.GroupNumberFromName("function");
+            int groupTracebackOffset = TracebackRegex.GroupNumberFromName("offset");
+            int groupTracebackOffset2 = TracebackRegex.GroupNumberFromName("offset2");
+            int groupTracebackPath = TracebackRegex.GroupNumberFromName("path");
+            int groupTracebackLine = TracebackRegex.GroupNumberFromName("line");
+
+            for (int i = 0, j = 0; i < lines.Length; i++, j++) {
                 string line = lines[i];
 
                 try {
@@ -154,7 +177,8 @@ namespace HeapProfiler {
                 } catch {
                 }
 
-                if ((i % ProgressInterval == 0) && (LoadingProgress.Style == ProgressBarStyle.Continuous)) {
+                // Use j for the progress interval check instead of i, because of the inner line scan loops
+                if ((j % ProgressInterval == 0) && (LoadingProgress.Style == ProgressBarStyle.Continuous)) {
                     // Setting the progress higher and then lower bypasses the slow animation baked into
                     //  the windows theme engine's progress bar implementation
                     LoadingProgress.Value = Math.Min(i + 1, LoadingProgress.Maximum);
@@ -168,11 +192,11 @@ namespace HeapProfiler {
 
                 Match m;
                 if (ModuleRegex.TryMatch(line, out m)) {
-                    var moduleName = String.Intern(m.Groups["module"].Value);
+                    var moduleName = String.Intern(m.Groups[groupModule].Value);
 
                     var info = new ModuleInfo {
                         ModuleName = moduleName,
-                        SymbolType = String.Intern(m.Groups["symboltype"].Value),
+                        SymbolType = String.Intern(m.Groups[groupSymbolType].Value),
                     };
 
                     if (i < lines.Length - 1) {
@@ -186,29 +210,29 @@ namespace HeapProfiler {
 
                     modules[moduleName] = info;
                 } else if (BytesDeltaRegex.TryMatch(line, out m)) {
-                    var traceId = String.Intern(m.Groups["trace_id"].Value);
+                    var traceId = String.Intern(m.Groups[groupTraceId].Value);
                     var info = new DeltaInfo {
-                        Added = (m.Groups["type"].Value == "+"),
-                        BytesDelta = int.Parse(m.Groups["delta_bytes"].Value),
-                        NewBytes = int.Parse(m.Groups["new_bytes"].Value),
-                        OldBytes = int.Parse(m.Groups["old_bytes"].Value),
-                        NewCount = int.Parse(m.Groups["new_count"].Value),
+                        Added = (m.Groups[groupType].Value == "+"),
+                        BytesDelta = int.Parse(m.Groups[groupDeltaBytes].Value),
+                        NewBytes = int.Parse(m.Groups[groupNewBytes].Value),
+                        OldBytes = int.Parse(m.Groups[groupOldBytes].Value),
+                        NewCount = int.Parse(m.Groups[groupNewCount].Value),
                     };
 
                     if (i < lines.Length - 1) {
                         line = lines[++i];
 
                         if (CountDeltaRegex.TryMatch(line, out m)) {
-                            info.OldCount = int.Parse(m.Groups["old_count"].Value);
-                            info.CountDelta = int.Parse(m.Groups["delta"].Value);
+                            info.OldCount = int.Parse(m.Groups[groupOldCount].Value);
+                            info.CountDelta = int.Parse(m.Groups[groupCountDelta].Value);
                         }
                     }
 
                     bool readingLeadingWhitespace = true;
 
                     var frames = new List<TracebackFrame>();
-                    var itemModules = new HashSet<string>();
-                    var itemFunctions = new HashSet<string>();
+                    var itemModules = new HashSet<string>(stringComparer);
+                    var itemFunctions = new HashSet<string>(stringComparer);
 
                     while (i++ < lines.Length) {
                         line = lines[i];
@@ -221,10 +245,10 @@ namespace HeapProfiler {
                         } else if (TracebackRegex.TryMatch(line, out m)) {
                             readingLeadingWhitespace = false;
 
-                            var moduleName = String.Intern(m.Groups["module"].Value);
+                            var moduleName = String.Intern(m.Groups[groupTracebackModule].Value);
                             itemModules.Add(moduleName);
 
-                            var functionName = String.Intern(m.Groups["function"].Value);
+                            var functionName = String.Intern(m.Groups[groupTracebackFunction].Value);
                             itemFunctions.Add(functionName);
                             functionNames.Add(functionName);
 
@@ -241,16 +265,16 @@ namespace HeapProfiler {
                             var frame = new TracebackFrame {
                                 Module = moduleName,
                                 Function = functionName,
-                                Offset = UInt32.Parse(m.Groups["offset"].Value, NumberStyles.HexNumber)
+                                Offset = UInt32.Parse(m.Groups[groupTracebackOffset].Value, NumberStyles.HexNumber)
                             };
-                            if (m.Groups["offset2"].Success)
-                                frame.Offset2 = UInt32.Parse(m.Groups["offset2"].Value, NumberStyles.HexNumber);
+                            if (m.Groups[groupTracebackOffset2].Success)
+                                frame.Offset2 = UInt32.Parse(m.Groups[groupTracebackOffset2].Value, NumberStyles.HexNumber);
 
-                            if (m.Groups["path"].Success)
-                                frame.SourceFile = m.Groups["path"].Value;
+                            if (m.Groups[groupTracebackPath].Success)
+                                frame.SourceFile = m.Groups[groupTracebackPath].Value;
 
-                            if (m.Groups["line"].Success)
-                                frame.SourceLine = int.Parse(m.Groups["line"].Value);
+                            if (m.Groups[groupTracebackLine].Success)
+                                frame.SourceLine = int.Parse(m.Groups[groupTracebackLine].Value);
 
                             frames.Add(frame);
                         } else {
