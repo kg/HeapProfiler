@@ -44,11 +44,11 @@ namespace HeapProfiler {
             RegexOptions.Compiled | RegexOptions.ExplicitCapture
         );
         public static Regex BytesDeltaRegex = new Regex(
-            @"(?'type'\+|\-)(\s+)(?'delta_bytes'[\da-fA-F]+)(\s+)\((\s*)(?'old_bytes'[\da-fA-F]*)(\s*)-(\s*)(?'new_bytes'[\da-fA-F]*)\)(\s*)(?'new_count'[\da-fA-F]+) allocs\t(BackTrace(?'trace_id'\w*))",
+            @"(?'type'\+|\-)(\s+)(?'delta_bytes'[\da-fA-F]+)(\s+)\((\s*)(?'new_bytes'[\da-fA-F]*)(\s*)-(\s*)(?'old_bytes'[\da-fA-F]*)\)(\s*)(?'new_count'[\da-fA-F]+) allocs\t(BackTrace(?'trace_id'\w*))",
             RegexOptions.Compiled | RegexOptions.ExplicitCapture
         );
         public static Regex CountDeltaRegex = new Regex(
-            @"(?'type'\+|\-)(\s+)(?'delta'[\da-fA-F]+)(\s+)\((\s*)(?'old_count'[\da-fA-F]*)(\s*)-(\s*)(?'new_count'[\da-fA-F]*)\)\t(BackTrace(?'trace_id'\w*))\tallocations",
+            @"(?'type'\+|\-)(\s+)(?'delta'[\da-fA-F]+)(\s+)\((\s*)(?'new_count'[\da-fA-F]*)(\s*)-(\s*)(?'old_count'[\da-fA-F]*)\)\t(BackTrace(?'trace_id'\w*))\tallocations",
             RegexOptions.Compiled | RegexOptions.ExplicitCapture
         );
         public static Regex TracebackRegex = new Regex(

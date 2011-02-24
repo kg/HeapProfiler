@@ -521,9 +521,13 @@ namespace HeapProfiler {
         public static unsafe string Format (long sizeBytes) {
             char[] buffer = new char[1024];
             fixed (char* pBuffer = buffer) {
-                if (StrFormatByteSize(sizeBytes, pBuffer, 1023) == pBuffer)
-                    return new String(pBuffer).Replace("bytes", "B");
-                else
+                if (StrFormatByteSize(Math.Abs(sizeBytes), pBuffer, 1023) == pBuffer) {
+                    var result = new String(pBuffer).Replace("bytes", "B");
+                    if (sizeBytes < 0)
+                        return "-" + result;
+                    else
+                        return result;
+                } else
                     return null;
             }
         }

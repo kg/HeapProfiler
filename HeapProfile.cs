@@ -85,7 +85,6 @@ namespace HeapProfiler {
             char[] functionEndChars = new char[] { '@', '+' };
 
             g.ResetClip();
-            g.Clear(rp.BackgroundColor);
             g.FillRectangle(rp.ShadeBrush, 0, rp.Region.Y, rp.Region.Width, rp.LineHeight - 1);
 
             var text = ToString(false);
@@ -169,9 +168,8 @@ namespace HeapProfiler {
 
         public string ToString (bool includeTraceback) {
             var result = String.Format(
-                "{0} {1} ({2} - {3})",
-                Added ? "+" : "-",
-                FormattedBytesDelta, NewBytes, OldBytes
+                "{0} ({1} - {2})",
+                FormattedBytesDelta, OldBytes, NewBytes
             );
 
             if (includeTraceback)

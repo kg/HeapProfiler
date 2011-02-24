@@ -170,7 +170,6 @@ namespace HeapProfiler {
 
                         g.ResetClip();
                         g.Clear(selected ? highlightBrush.Color : backgroundBrush.Color);
-                        g.FillRectangle(shadeBrush, 0, rgn.Y, rgn.Width, lineHeight - 1);
 
                         renderParams.BackgroundColor = selected ? highlightBrush.Color : backgroundBrush.Color;
                         renderParams.BackgroundBrush = selected ? highlightBrush : backgroundBrush;

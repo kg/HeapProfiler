@@ -6,6 +6,7 @@ using System.Drawing;
 using System.Linq;
 using System.Text;
 using System.Windows.Forms;
+using System.Windows.Forms.VisualStyles;
 
 namespace HeapProfiler {
     public partial class DeltaTooltip : Form {
@@ -13,17 +14,25 @@ namespace HeapProfiler {
         public DeltaInfo Delta;
         public DeltaInfo.RenderParams RenderParams;
 
+        protected VisualStyleRenderer BackgroundRenderer;
+
         public DeltaTooltip (DeltaHistogram histogram) {
             Histogram = histogram;
 
             SetStyle(
                 ControlStyles.Opaque | ControlStyles.AllPaintingInWmPaint | 
-                ControlStyles.UserPaint | ControlStyles.ResizeRedraw, 
+                ControlStyles.UserPaint | ControlStyles.ResizeRedraw,
                 true
             );
             SetStyle(
                 ControlStyles.Selectable | ControlStyles.SupportsTransparentBackColor, false
             );
+
+            try {
+                BackgroundRenderer = new VisualStyleRenderer(VisualStyleElement.ToolTip.Standard.Normal);
+            } catch {
+                BackgroundRenderer = null;
+            }
 
             InitializeComponent();
         }
@@ -43,8 +52,41 @@ namespace HeapProfiler {
             }
         }
 
+        protected void UpdateRegion () {
+            if (BackgroundRenderer == null)
+                return;
+            try {
+                if (BackgroundRenderer.IsBackgroundPartiallyTransparent())
+                    using (var g = this.CreateGraphics())
+                        this.Region = BackgroundRenderer.GetBackgroundRegion(g, RenderParams.Region);
+            } catch {
+            }
+        }
+
+        protected override void OnShown (EventArgs e) {
+            UpdateRegion();
+
+            base.OnShown(e);
+        }
+
+        protected override void OnSizeChanged (EventArgs e) {
+            UpdateRegion();
+
+            base.OnSizeChanged(e);
+        }
+
         protected override void OnPaint (PaintEventArgs e) {
             base.OnPaint(e);
+
+            if (BackgroundRenderer == null) {
+                e.Graphics.Clear(RenderParams.BackgroundColor);
+            } else {
+                e.Graphics.Clear(SystemColors.Window);
+                try {
+                    BackgroundRenderer.DrawBackground(e.Graphics, RenderParams.Region);
+                } catch {
+                }
+            }
 
             Delta.Render(e.Graphics, ref RenderParams);
         }
