@@ -374,13 +374,13 @@ namespace HeapProfiler {
                 GroupSnapshots.Width, ClientSize.Height
             ));
 
-            var newTop = ClientSize.Height - ps.Height - margin;
+            int newTop = ClientSize.Height - ps.Height - margin;
 
             SuspendLayout();
 
             GroupSnapshots.SetBounds(
                 GroupSnapshots.Left, GroupSnapshots.Top,
-                GroupSnapshots.Width, newTop - margin - GroupSnapshots.Top
+                GroupSnapshots.Width, newTop - (ps.Height > 0 ? margin : 0) - GroupSnapshots.Top
             );
             Activities.SetBounds(
                 GroupSnapshots.Left, newTop, GroupSnapshots.Width, ps.Height
