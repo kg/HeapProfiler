@@ -174,6 +174,9 @@ namespace HeapProfiler {
 
             SnapshotList.EndUpdate();
 
+            SnapshotTimeline.Items = Instance.Snapshots;
+            SnapshotTimeline.Invalidate();
+
             DiffSelection.Enabled = (SnapshotList.SelectedIndices.Count >= 2);
         }
 

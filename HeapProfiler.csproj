@@ -82,6 +82,9 @@
     <Compile Include="DeltaList.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="SnapshotTimeline.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
     <Compile Include="SymbolSettingsDialog.cs">
       <SubType>Form</SubType>
     </Compile>

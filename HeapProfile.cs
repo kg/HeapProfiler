@@ -247,6 +247,8 @@ namespace HeapProfiler {
         }
 
         public MemoryStatistics (Process process) {
+            process.Refresh();
+
             NonpagedSystem = process.NonpagedSystemMemorySize64;
             Paged = process.PagedMemorySize64;
             PagedSystem = process.PagedSystemMemorySize64;

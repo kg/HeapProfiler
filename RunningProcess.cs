@@ -30,7 +30,7 @@ using System.Text.RegularExpressions;
 
 namespace HeapProfiler {
     public class RunningProcess : IDisposable {
-        public struct Snapshot {
+        public class Snapshot {
             public int Index;
             public DateTime When;
             public MemoryStatistics Memory;
@@ -57,7 +57,7 @@ namespace HeapProfiler {
 
         protected readonly HashSet<string> PreloadedSymbols = new HashSet<string>();
         protected readonly BlockingQueue<string> SymbolPreloadQueue = new BlockingQueue<string>();
-        protected readonly BlockingQueue<string> SnapshotPreprocessQueue = new BlockingQueue<string>();
+        protected readonly BlockingQueue<Snapshot> SnapshotPreprocessQueue = new BlockingQueue<Snapshot>();
         protected readonly LRUCache<Pair<string>, string> DiffCache = new LRUCache<Pair<string>, string>(32);
 
         protected RunningProcess (
@@ -86,23 +86,29 @@ namespace HeapProfiler {
             Scheduler = scheduler;
             Activities = activities;
 
-            foreach (var snapshot in snapshots.OrderBy((s) => s)) {
+            foreach (var snapshot in snapshots) {
                 var parts = Path.GetFileNameWithoutExtension(snapshot)
                     .Split(new[] { '_' }, 2);
 
-                Snapshots.Add(new Snapshot {
+                var snap = new Snapshot {
                     Index = int.Parse(parts[0]),
                     Filename = snapshot,
                     When = DateTime.ParseExact(
-                        parts[1].Replace("_", ":"), "u", 
+                        parts[1].Replace("_", ":"), "u",
                         System.Globalization.DateTimeFormatInfo.InvariantInfo
                     )
-                });
+                };
+                Snapshots.Add(snap);
             }
 
-            StartHelperTasks();
+            // Resort the loaded snapshots, since it's possible for the user to load
+            //  a subset of a full capture, or load snapshots in the wrong order
+            Snapshots.Sort((lhs, rhs) => lhs.When.CompareTo(rhs.When));
 
-            SnapshotPreprocessQueue.EnqueueMultiple(snapshots);
+            foreach (var snap in Snapshots)
+                SnapshotPreprocessQueue.Enqueue(snap);
+
+            StartHelperTasks();
 
             DiffCache.ItemEvicted += DiffCache_ItemEvicted;
         }
@@ -174,20 +180,47 @@ namespace HeapProfiler {
                 using (f)
                     yield return f;
 
-                using (Activities.AddItem("Preprocessing snapshot")) {
+                int c = SnapshotPreprocessQueue.Count + 1;
+                int i = 0;
+
+                using (var a = Activities.AddItem("Preprocessing snapshots"))
+                do {
+                    if (i > c) {
+                        c = SnapshotPreprocessQueue.Count;
+                        a.Progress = i = 0;
+                        a.Maximum = c;
+                    } else if (c > 1) {
+                        a.Maximum = c;
+                        a.Progress = i;
+                    }
+
+                    if (f == null) {
+                        f = SnapshotPreprocessQueue.Dequeue();
+                        yield return f;
+                    }
+
+                    var snap = f.Result;
+
+                    var fMemory = new Future<MemoryStatistics>();
                     var fModules = Future.RunInThread(() =>
-                        ReadModuleListFromSnapshot(f.Result)
+                        ReadModuleListFromSnapshot(snap.Filename, fMemory)
                     );
                     yield return fModules;
+
+                    if (snap.Memory == null)
+                        snap.Memory = fMemory.Result;
 
                     foreach (var filename in fModules.Result)
                         if (!PreloadedSymbols.Contains(filename))
                             SymbolPreloadQueue.Enqueue(filename);
-                }
+
+                    f = null;
+                    i += 1;
+                } while (SnapshotPreprocessQueue.Count > 0); 
             }
         }
 
-        protected string[] ReadModuleListFromSnapshot (string filename) {
+        protected string[] ReadModuleListFromSnapshot (string filename, Future<MemoryStatistics> fMemory) {
             var result = new List<string>();
             var moduleRegex = new Regex(
                 "//\\s*([A-F0-9]+)\\s+([A-F0-9]+)\\s+(?'module'[^\r\n]+)",
@@ -208,8 +241,7 @@ namespace HeapProfiler {
                         continue;
                 } else if (scanningForMemory) {
                     if (line.StartsWith("// Memory=")) {
-                        var mem = new MemoryStatistics(line);
-                        Console.WriteLine(mem.GetFileText());
+                        fMemory.Complete(new MemoryStatistics(line));
                         scanningForMemory = false;
                         break;
                     }
@@ -350,15 +382,17 @@ namespace HeapProfiler {
 
             File.AppendAllText(targetFilename, mem.GetFileText());
 
-            Snapshots.Add(new Snapshot {
+            var snap = new Snapshot {
                 Index = Snapshots.Count + 1,
                 When = now,
                 Memory = mem,
                 Filename = targetFilename
-            });
+            };
+
+            Snapshots.Add(snap);
+            SnapshotPreprocessQueue.Enqueue(snap);
 
             TemporaryFiles.Add(targetFilename);
-            SnapshotPreprocessQueue.Enqueue(targetFilename);
 
             OnSnapshotsChanged();
         }

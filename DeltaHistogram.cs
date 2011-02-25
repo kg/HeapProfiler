@@ -164,7 +164,6 @@ namespace HeapProfiler {
         }
 
         protected override void OnPaint (PaintEventArgs e) {
-            char[] functionEndChars = new char[] { '@', '+' };
             bool retrying = false, selectedItemVisible = false;
             int minVisibleIndex = int.MaxValue,  maxVisibleIndex = -int.MaxValue;
 
