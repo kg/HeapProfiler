@@ -13,6 +13,7 @@ using Squared.Util;
 namespace HeapProfiler {
     public partial class SnapshotTimeline : UserControl {
         public event EventHandler SelectionChanged;
+        public event EventHandler ItemValueGetterChanged;
 
         public const int PixelsPerMinute = 120;
         public const int MarginWidth = 20;
@@ -24,6 +25,7 @@ namespace HeapProfiler {
         protected ScrollBar ScrollBar = null;
         protected ToolTip ToolTip;
 
+        protected Func<TItem, long> _ItemValueGetter;
         protected int _ZoomRatio = 100;
         protected int _ContentWidth = 0; 
         protected int _ScrollOffset = 0;
@@ -71,6 +73,8 @@ namespace HeapProfiler {
             Controls.Add(ScrollBar);
             Controls.Add(ZoomInButton);
             Controls.Add(ZoomOutButton);
+
+            _ItemValueGetter = (s) => 0;
         }
 
         void ZoomOutButton_Click (object sender, EventArgs e) {
@@ -121,19 +125,11 @@ namespace HeapProfiler {
             double maxValue = 1024;
             long minTicks = 0, maxTicks = 0;
             int contentWidth;
-            var getMemory = (Func<RunningProcess.Snapshot, long>)(
-                (s) => {
-                    if (s.Memory != null)
-                        return s.Memory.Paged;
-                    else
-                        return 0;
-                }
-            );
 
             var minuteInTicks = Squared.Util.Time.SecondInTicks * 60;
 
             if (Items.Count > 0) {
-                maxValue = Math.Max(1024, (double)((from s in Items select getMemory(s)).Max()));
+                maxValue = Math.Max(1024, (double)((from s in Items select _ItemValueGetter(s)).Max()));
                 minTicks = (from s in Items select s.When.Ticks).Min();
                 maxTicks = (from s in Items select s.When.Ticks).Max();
                 _ContentWidth = contentWidth = (int)(
@@ -182,7 +178,7 @@ namespace HeapProfiler {
                         (i >= _Selection.First) && 
                         (i <= _Selection.Second);
                     var item = Items[i];
-                    var value = getMemory(item);
+                    var value = _ItemValueGetter(item);
 
                     lastY = y;
                     y = (float)(height - (value / maxValue) * height);
@@ -465,6 +461,21 @@ namespace HeapProfiler {
         public bool HasSelection {
             get {
                 return (_Selection.First != -1) && (_Selection.Second != -1);
+            }
+        }
+
+        public Func<TItem, long> ItemValueGetter {
+            get {
+                return _ItemValueGetter;
+            }
+            set {
+                if (value != _ItemValueGetter) {
+                    _ItemValueGetter = value;
+
+                    Invalidate();
+                    if (ItemValueGetterChanged != null)
+                        ItemValueGetterChanged(this, EventArgs.Empty);
+                }
             }
         }
     }

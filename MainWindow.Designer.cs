@@ -52,6 +52,11 @@
             this.OptionsMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.SymbolPathMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.AssociateHeapdiffsMenu = new System.Windows.Forms.ToolStripMenuItem();
+            this.viewToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.ViewPagedMemoryMenu = new System.Windows.Forms.ToolStripMenuItem();
+            this.ViewVirtualMemoryMenu = new System.Windows.Forms.ToolStripMenuItem();
+            this.ViewWorkingSetMenu = new System.Windows.Forms.ToolStripMenuItem();
+            this.heapFragmentationToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.Activities = new HeapProfiler.ActivityIndicator();
             this.GroupExecutable.SuspendLayout();
             this.GroupSnapshots.SuspendLayout();
@@ -272,6 +277,7 @@
                         | System.Windows.Forms.AnchorStyles.Right)));
             this.SnapshotTimeline.BackColor = System.Drawing.SystemColors.Control;
             this.SnapshotTimeline.ForeColor = System.Drawing.SystemColors.WindowText;
+            this.SnapshotTimeline.ItemValueGetter = ((System.Func<HeapProfiler.RunningProcess.Snapshot, long>)(resources.GetObject("SnapshotTimeline.ItemValueGetter")));
             this.SnapshotTimeline.Location = new System.Drawing.Point(5, 21);
             this.SnapshotTimeline.Name = "SnapshotTimeline";
             this.SnapshotTimeline.ScrollOffset = 0;
@@ -279,12 +285,14 @@
             this.SnapshotTimeline.TabIndex = 6;
             this.SnapshotTimeline.ZoomRatio = 100;
             this.SnapshotTimeline.SelectionChanged += new System.EventHandler(this.SnapshotTimeline_SelectionChanged);
+            this.SnapshotTimeline.ItemValueGetterChanged += new System.EventHandler(this.SnapshotTimeline_ItemValueGetterChanged);
             // 
             // MainMenu
             // 
             this.MainMenu.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.fileToolStripMenuItem,
-            this.OptionsMenu});
+            this.OptionsMenu,
+            this.viewToolStripMenuItem});
             this.MainMenu.Location = new System.Drawing.Point(0, 0);
             this.MainMenu.Name = "MainMenu";
             this.MainMenu.Padding = new System.Windows.Forms.Padding(8, 2, 0, 2);
@@ -361,6 +369,47 @@
             this.AssociateHeapdiffsMenu.Text = "&Associate .heapdiff files with Heap Profiler";
             this.AssociateHeapdiffsMenu.Click += new System.EventHandler(this.AssociateHeapdiffsMenu_Click);
             // 
+            // viewToolStripMenuItem
+            // 
+            this.viewToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.ViewPagedMemoryMenu,
+            this.ViewVirtualMemoryMenu,
+            this.ViewWorkingSetMenu,
+            this.heapFragmentationToolStripMenuItem});
+            this.viewToolStripMenuItem.Name = "viewToolStripMenuItem";
+            this.viewToolStripMenuItem.Size = new System.Drawing.Size(53, 24);
+            this.viewToolStripMenuItem.Text = "&View";
+            // 
+            // ViewPagedMemoryMenu
+            // 
+            this.ViewPagedMemoryMenu.Checked = true;
+            this.ViewPagedMemoryMenu.CheckState = System.Windows.Forms.CheckState.Checked;
+            this.ViewPagedMemoryMenu.Name = "ViewPagedMemoryMenu";
+            this.ViewPagedMemoryMenu.Size = new System.Drawing.Size(215, 24);
+            this.ViewPagedMemoryMenu.Text = "Paged Memory";
+            this.ViewPagedMemoryMenu.Click += new System.EventHandler(this.ViewPagedMemoryMenu_Click);
+            // 
+            // ViewVirtualMemoryMenu
+            // 
+            this.ViewVirtualMemoryMenu.Name = "ViewVirtualMemoryMenu";
+            this.ViewVirtualMemoryMenu.Size = new System.Drawing.Size(215, 24);
+            this.ViewVirtualMemoryMenu.Text = "Virtual Memory";
+            this.ViewVirtualMemoryMenu.Click += new System.EventHandler(this.ViewVirtualMemoryMenu_Click);
+            // 
+            // ViewWorkingSetMenu
+            // 
+            this.ViewWorkingSetMenu.Name = "ViewWorkingSetMenu";
+            this.ViewWorkingSetMenu.Size = new System.Drawing.Size(215, 24);
+            this.ViewWorkingSetMenu.Text = "Working Set";
+            this.ViewWorkingSetMenu.Click += new System.EventHandler(this.ViewWorkingSetMenu_Click);
+            // 
+            // heapFragmentationToolStripMenuItem
+            // 
+            this.heapFragmentationToolStripMenuItem.Enabled = false;
+            this.heapFragmentationToolStripMenuItem.Name = "heapFragmentationToolStripMenuItem";
+            this.heapFragmentationToolStripMenuItem.Size = new System.Drawing.Size(215, 24);
+            this.heapFragmentationToolStripMenuItem.Text = "Heap Fragmentation";
+            // 
             // Activities
             // 
             this.Activities.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)
@@ -429,6 +478,11 @@
         private System.Windows.Forms.ToolStripMenuItem SaveSnapshotsMenu;
         private ActivityIndicator Activities;
         private SnapshotTimeline SnapshotTimeline;
+        private System.Windows.Forms.ToolStripMenuItem viewToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem ViewPagedMemoryMenu;
+        private System.Windows.Forms.ToolStripMenuItem ViewVirtualMemoryMenu;
+        private System.Windows.Forms.ToolStripMenuItem ViewWorkingSetMenu;
+        private System.Windows.Forms.ToolStripMenuItem heapFragmentationToolStripMenuItem;
     }
 }
 

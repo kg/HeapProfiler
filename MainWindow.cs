@@ -380,5 +380,45 @@ namespace HeapProfiler {
         private void SnapshotTimeline_SelectionChanged (object sender, EventArgs e) {
             DiffSelection.Enabled = SnapshotTimeline.HasSelection;
         }
+
+        protected long GetPagedMemory (RunningProcess.Snapshot item) {
+            if (item.Memory == null)
+                return 0;
+
+            return item.Memory.Paged;
+        }
+
+        protected long GetVirtualMemory (RunningProcess.Snapshot item) {
+            if (item.Memory == null)
+                return 0;
+
+            return item.Memory.Virtual;
+        }
+
+        protected long GetWorkingSet (RunningProcess.Snapshot item) {
+            if (item.Memory == null)
+                return 0;
+
+            return item.Memory.WorkingSet;
+        }
+
+        private void ViewPagedMemoryMenu_Click (object sender, EventArgs e) {
+            SnapshotTimeline.ItemValueGetter = GetPagedMemory;
+        }
+
+        private void ViewVirtualMemoryMenu_Click (object sender, EventArgs e) {
+            SnapshotTimeline.ItemValueGetter = GetVirtualMemory;
+        }
+
+        private void ViewWorkingSetMenu_Click (object sender, EventArgs e) {
+            SnapshotTimeline.ItemValueGetter = GetWorkingSet;
+        }
+
+        private void SnapshotTimeline_ItemValueGetterChanged (object sender, EventArgs e) {
+            var getter = SnapshotTimeline.ItemValueGetter;
+            ViewPagedMemoryMenu.Checked = (getter == GetPagedMemory);
+            ViewVirtualMemoryMenu.Checked = (getter == GetVirtualMemory);
+            ViewWorkingSetMenu.Checked = (getter == GetWorkingSet);
+        }
     }
 }
