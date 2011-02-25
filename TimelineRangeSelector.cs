@@ -272,11 +272,6 @@ namespace HeapProfiler {
                 var i1 = IndexFromPoint(e.Location, -1);
                 var i2 = IndexFromPoint(e.Location, 1);
 
-                if ((i1 >= BeginIndex) && (i2 <= EndIndex)) {
-                    i1 = BeginIndex;
-                    i2 = EndIndex;
-                }
-
                 SetTooltipRange(Pair.New(i1, i2));
             }
 

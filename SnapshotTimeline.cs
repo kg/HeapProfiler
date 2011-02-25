@@ -22,12 +22,14 @@ namespace HeapProfiler {
         protected ScratchBuffer Scratch = new ScratchBuffer();
         protected Button ZoomInButton = null, ZoomOutButton = null;
         protected ScrollBar ScrollBar = null;
+        protected ToolTip ToolTip;
 
         protected int _ZoomRatio = 100;
         protected int _ContentWidth = 0; 
         protected int _ScrollOffset = 0;
         protected Point _MouseDownLocation;
         protected Pair<int> _Selection = new Pair<int>(-1, -1);
+        protected Pair<int> _ToolTipRange = new Pair<int>(-1, -1);
 
         public SnapshotTimeline () {
             SetStyle(
@@ -61,6 +63,8 @@ namespace HeapProfiler {
                 UseVisualStyleBackColor = true
             };
             ZoomOutButton.Click += new EventHandler(ZoomOutButton_Click);
+
+            ToolTip = new ToolTip();
 
             OnResize(EventArgs.Empty);
 
@@ -232,7 +236,7 @@ namespace HeapProfiler {
 
         public int IndexFromPoint (Point location, int direction) {
             var absoluteX = (location.X + _ScrollOffset);
-            if (absoluteX <= 0)
+            if (absoluteX < 0)
                 return 0;
             else if (absoluteX >= (_ContentWidth - MarginWidth))
                 return Items.Count - 1;
@@ -260,6 +264,14 @@ namespace HeapProfiler {
                     index -= 1;
             }
 
+            if (direction < 0) {
+                if (index >= Items.Count - 1)
+                    index = Items.Count - 2;
+            } else {
+                if (index <= 0)
+                    index = 1;
+            }
+
             return index;
         }
 
@@ -276,6 +288,27 @@ namespace HeapProfiler {
                 Math.Max(index1, index2)
             );
             Selection = newSelection;
+
+            SetToolTip(newSelection);
+        }
+
+        protected void UpdateToolTip (Point mouseLocation) {
+            var index1 = IndexFromPoint(mouseLocation, -1);
+            var index2 = IndexFromPoint(mouseLocation, 1);
+
+            SetToolTip(Pair.New(index1, index2));
+        }
+
+        protected void SetToolTip (Pair<int> range) {
+            if (range.CompareTo(_ToolTipRange) == 0)
+                return;
+
+            _ToolTipRange = range;
+            ToolTip.SetToolTip(this, String.Format(
+                "{0} - {1}",
+                Items[range.First].When.ToLongTimeString(),
+                Items[range.Second].When.ToLongTimeString()
+            ));
         }
 
         protected override void OnMouseDown (MouseEventArgs e) {
@@ -290,6 +323,8 @@ namespace HeapProfiler {
         protected override void OnMouseMove (MouseEventArgs e) {
             if (e.Button == System.Windows.Forms.MouseButtons.Left)
                 UpdateSelection(e.Location);
+            else
+                UpdateToolTip(e.Location);
 
             base.OnMouseMove(e);
         }
