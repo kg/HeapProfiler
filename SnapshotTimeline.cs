@@ -8,9 +8,12 @@ using System.Text;
 using System.Windows.Forms;
 
 using TItem = HeapProfiler.RunningProcess.Snapshot;
+using Squared.Util;
 
 namespace HeapProfiler {
     public partial class SnapshotTimeline : UserControl {
+        public event EventHandler SelectionChanged;
+
         public const int PixelsPerMinute = 120;
         public const int MarginWidth = 20;
 
@@ -23,7 +26,8 @@ namespace HeapProfiler {
         protected int _ZoomRatio = 100;
         protected int _ContentWidth = 0; 
         protected int _ScrollOffset = 0;
-        protected int _MouseIndex = -1;
+        protected Point _MouseDownLocation;
+        protected Pair<int> _Selection = new Pair<int>(-1, -1);
 
         public SnapshotTimeline () {
             SetStyle(
@@ -170,7 +174,9 @@ namespace HeapProfiler {
                 var points = new List<PointF>();
 
                 for (int i = 0; (i < Items.Count) && (lastX <= ClientSize.Width); i++) {
-                    bool selected = (i == _MouseIndex) || (i == _MouseIndex + 1);
+                    bool selected = HasSelection && 
+                        (i >= _Selection.First) && 
+                        (i <= _Selection.Second);
                     var item = Items[i];
                     var value = getMemory(item);
 
@@ -224,7 +230,13 @@ namespace HeapProfiler {
             }
         }
 
-        public int IndexFromPoint (Point location) {
+        public int IndexFromPoint (Point location, int direction) {
+            var absoluteX = (location.X + _ScrollOffset);
+            if (absoluteX <= 0)
+                return 0;
+            else if (absoluteX >= (_ContentWidth - MarginWidth))
+                return Items.Count - 1;
+
             int pixelsPerMinute = PixelsPerMinute * ZoomRatio / 100;
             long minTicks = 0;
             var minuteInTicks = Squared.Util.Time.SecondInTicks * 60;
@@ -233,8 +245,7 @@ namespace HeapProfiler {
                 minTicks = (from s in Items select s.When.Ticks).Min();
 
             var time = new DateTime(
-                ((location.X + _ScrollOffset)
-                * minuteInTicks / pixelsPerMinute) + minTicks,
+                (absoluteX * minuteInTicks / pixelsPerMinute) + minTicks,
                 DateTimeKind.Local
             );
 
@@ -243,22 +254,42 @@ namespace HeapProfiler {
                 new TimeComparer()
             );
 
-            if (index < 0)
-                index = ~index - 1;
+            if (index < 0) {
+                index = ~index;
+                if (direction < 0)
+                    index -= 1;
+            }
 
             return index;
         }
 
+        protected void UpdateSelection (Point mouseLocation) {
+            int direction = 1;
+            if (mouseLocation.X < _MouseDownLocation.X)
+                direction = -1;
+
+            var index1 = IndexFromPoint(_MouseDownLocation, -direction);
+            var index2 = IndexFromPoint(mouseLocation, direction);
+
+            var newSelection = Pair.New(
+                Math.Min(index1, index2),
+                Math.Max(index1, index2)
+            );
+            Selection = newSelection;
+        }
+
         protected override void OnMouseDown (MouseEventArgs e) {
-            _MouseIndex = IndexFromPoint(e.Location);
-            Invalidate();
+            if (e.Button == System.Windows.Forms.MouseButtons.Left) {
+                _MouseDownLocation = e.Location;
+                UpdateSelection(e.Location);
+            }
 
             base.OnMouseDown(e);
         }
 
         protected override void OnMouseMove (MouseEventArgs e) {
-            _MouseIndex = IndexFromPoint(e.Location);
-            Invalidate();
+            if (e.Button == System.Windows.Forms.MouseButtons.Left)
+                UpdateSelection(e.Location);
 
             base.OnMouseMove(e);
         }
@@ -373,6 +404,32 @@ namespace HeapProfiler {
 
                     Invalidate();
                 }
+            }
+        }
+
+        public Pair<int> Selection {
+            get {
+                return _Selection;
+            }
+            set {
+                if ((value.First < 0) || (value.First >= Items.Count))
+                    value.First = -1;
+                if ((value.Second < 0) || (value.Second >= Items.Count))
+                    value.Second = -1;
+
+                if (_Selection.CompareTo(value) != 0) {
+                    _Selection = value;
+
+                    Invalidate();
+                    if (SelectionChanged != null)
+                        SelectionChanged(this, EventArgs.Empty);
+                }
+            }
+        }
+
+        public bool HasSelection {
+            get {
+                return (_Selection.First != -1) && (_Selection.Second != -1);
             }
         }
     }

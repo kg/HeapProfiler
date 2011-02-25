@@ -37,12 +37,11 @@
             this.ExecutablePath = new System.Windows.Forms.TextBox();
             this.LaunchProcess = new System.Windows.Forms.Button();
             this.GroupSnapshots = new System.Windows.Forms.GroupBox();
-            this.SnapshotTimeline = new HeapProfiler.SnapshotTimeline();
             this.SaveAllSnapshots = new System.Windows.Forms.Button();
             this.AutoCapture = new System.Windows.Forms.CheckBox();
             this.DiffSelection = new System.Windows.Forms.Button();
             this.CaptureSnapshot = new System.Windows.Forms.Button();
-            this.SnapshotList = new System.Windows.Forms.ListBox();
+            this.SnapshotTimeline = new HeapProfiler.SnapshotTimeline();
             this.MainMenu = new System.Windows.Forms.MenuStrip();
             this.fileToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.OpenDiffMenu = new System.Windows.Forms.ToolStripMenuItem();
@@ -199,12 +198,11 @@
             this.GroupSnapshots.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)
                         | System.Windows.Forms.AnchorStyles.Left)
                         | System.Windows.Forms.AnchorStyles.Right)));
-            this.GroupSnapshots.Controls.Add(this.SnapshotTimeline);
             this.GroupSnapshots.Controls.Add(this.SaveAllSnapshots);
             this.GroupSnapshots.Controls.Add(this.AutoCapture);
             this.GroupSnapshots.Controls.Add(this.DiffSelection);
             this.GroupSnapshots.Controls.Add(this.CaptureSnapshot);
-            this.GroupSnapshots.Controls.Add(this.SnapshotList);
+            this.GroupSnapshots.Controls.Add(this.SnapshotTimeline);
             this.GroupSnapshots.Location = new System.Drawing.Point(11, 180);
             this.GroupSnapshots.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
             this.GroupSnapshots.Name = "GroupSnapshots";
@@ -213,19 +211,6 @@
             this.GroupSnapshots.TabIndex = 2;
             this.GroupSnapshots.TabStop = false;
             this.GroupSnapshots.Text = "Snapshots";
-            // 
-            // SnapshotTimeline
-            // 
-            this.SnapshotTimeline.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)
-                        | System.Windows.Forms.AnchorStyles.Left)
-                        | System.Windows.Forms.AnchorStyles.Right)));
-            this.SnapshotTimeline.ForeColor = System.Drawing.SystemColors.WindowText;
-            this.SnapshotTimeline.Location = new System.Drawing.Point(5, 21);
-            this.SnapshotTimeline.Name = "SnapshotTimeline";
-            this.SnapshotTimeline.ScrollOffset = 0;
-            this.SnapshotTimeline.Size = new System.Drawing.Size(541, 292);
-            this.SnapshotTimeline.TabIndex = 6;
-            this.SnapshotTimeline.ZoomRatio = 100;
             // 
             // SaveAllSnapshots
             // 
@@ -280,21 +265,20 @@
             this.CaptureSnapshot.UseVisualStyleBackColor = true;
             this.CaptureSnapshot.Click += new System.EventHandler(this.CaptureSnapshot_Click);
             // 
-            // SnapshotList
+            // SnapshotTimeline
             // 
-            this.SnapshotList.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)
+            this.SnapshotTimeline.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)
                         | System.Windows.Forms.AnchorStyles.Left)
                         | System.Windows.Forms.AnchorStyles.Right)));
-            this.SnapshotList.Font = new System.Drawing.Font("Consolas", 10.8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.SnapshotList.IntegralHeight = false;
-            this.SnapshotList.ItemHeight = 22;
-            this.SnapshotList.Location = new System.Drawing.Point(5, 21);
-            this.SnapshotList.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
-            this.SnapshotList.Name = "SnapshotList";
-            this.SnapshotList.SelectionMode = System.Windows.Forms.SelectionMode.MultiExtended;
-            this.SnapshotList.Size = new System.Drawing.Size(541, 292);
-            this.SnapshotList.TabIndex = 0;
-            this.SnapshotList.SelectedIndexChanged += new System.EventHandler(this.SnapshotList_SelectedIndexChanged);
+            this.SnapshotTimeline.BackColor = System.Drawing.SystemColors.Control;
+            this.SnapshotTimeline.ForeColor = System.Drawing.SystemColors.WindowText;
+            this.SnapshotTimeline.Location = new System.Drawing.Point(5, 21);
+            this.SnapshotTimeline.Name = "SnapshotTimeline";
+            this.SnapshotTimeline.ScrollOffset = 0;
+            this.SnapshotTimeline.Size = new System.Drawing.Size(541, 292);
+            this.SnapshotTimeline.TabIndex = 6;
+            this.SnapshotTimeline.ZoomRatio = 100;
+            this.SnapshotTimeline.SelectionChanged += new System.EventHandler(this.SnapshotTimeline_SelectionChanged);
             // 
             // MainMenu
             // 
@@ -424,7 +408,6 @@
         private System.Windows.Forms.Button LaunchProcess;
         private System.Windows.Forms.Label ExecutableStatus;
         private System.Windows.Forms.GroupBox GroupSnapshots;
-        private System.Windows.Forms.ListBox SnapshotList;
         private System.Windows.Forms.Button DiffSelection;
         private System.Windows.Forms.Button CaptureSnapshot;
         private System.Windows.Forms.MenuStrip MainMenu;

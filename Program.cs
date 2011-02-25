@@ -171,11 +171,21 @@ namespace HeapProfiler {
 
             using (var process = fProcess.Result)
             try {
+                var fStdOut = Future.RunInThread(
+                    () => process.StandardOutput.ReadToEnd()
+                );
+                var fStdErr = Future.RunInThread(
+                    () => process.StandardError.ReadToEnd()
+                );
+
                 yield return WaitForProcessExit(process);
 
+                yield return fStdOut;
+                yield return fStdErr;
+
                 yield return new Result(new RunProcessResult {
-                    StdOut = process.StandardOutput.ReadToEnd(),
-                    StdErr = process.StandardOutput.ReadToEnd(),
+                    StdOut = fStdOut.Result,
+                    StdErr = fStdErr.Result,
                     ExitCode = process.ExitCode
                 });
             } finally {

@@ -160,24 +160,10 @@ namespace HeapProfiler {
         }
 
         private void RefreshSnapshots () {
-            SnapshotList.BeginUpdate();
-
-            while (SnapshotList.Items.Count > Instance.Snapshots.Count)
-                SnapshotList.Items.RemoveAt(SnapshotList.Items.Count - 1);
-
-            for (int i = 0; i < Instance.Snapshots.Count; i++) {
-                if (i >= SnapshotList.Items.Count)
-                    SnapshotList.Items.Add(Instance.Snapshots[i]);
-                else
-                    SnapshotList.Items[i] = Instance.Snapshots[i];
-            }
-
-            SnapshotList.EndUpdate();
-
             SnapshotTimeline.Items = Instance.Snapshots;
             SnapshotTimeline.Invalidate();
 
-            DiffSelection.Enabled = (SnapshotList.SelectedIndices.Count >= 2);
+            DiffSelection.Enabled = SnapshotTimeline.HasSelection;
         }
 
         private void CaptureSnapshot_Click (object sender, EventArgs e) {
@@ -188,10 +174,6 @@ namespace HeapProfiler {
                 });
         }
 
-        private void SnapshotList_SelectedIndexChanged (object sender, EventArgs e) {
-            DiffSelection.Enabled = (SnapshotList.SelectedIndices.Count >= 2);
-        }
-
         private void MainWindow_FormClosing (object sender, FormClosingEventArgs e) {
             SavePersistedValues();
 
@@ -200,10 +182,9 @@ namespace HeapProfiler {
         }
 
         private void DiffSelection_Click (object sender, EventArgs e) {
-            int i1 = SnapshotList.SelectedIndices[0], 
-                i2 = SnapshotList.SelectedIndices[SnapshotList.SelectedIndices.Count - 1];
+            var indices = SnapshotTimeline.Selection;
 
-            ShowDiff(i1, i2);
+            ShowDiff(indices.First, indices.Second);
         }
 
         protected void ShowDiff (int index1, int index2) {
@@ -394,6 +375,10 @@ namespace HeapProfiler {
             );
 
             ResumeLayout(true);
+        }
+
+        private void SnapshotTimeline_SelectionChanged (object sender, EventArgs e) {
+            DiffSelection.Enabled = SnapshotTimeline.HasSelection;
         }
     }
 }
