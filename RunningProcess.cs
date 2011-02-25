@@ -73,12 +73,7 @@ namespace HeapProfiler {
             Futures.Add(Scheduler.Start(
                 MainTask(), TaskExecutionPolicy.RunAsBackgroundTask
             ));
-            Futures.Add(Scheduler.Start(
-                SnapshotPreprocessTask(), TaskExecutionPolicy.RunAsBackgroundTask
-            ));
-            Futures.Add(Scheduler.Start(
-                SymbolPreloadTask(), TaskExecutionPolicy.RunAsBackgroundTask
-            ));
+            StartHelperTasks();
 
             DiffCache.ItemEvicted += DiffCache_ItemEvicted;
         }
@@ -105,7 +100,20 @@ namespace HeapProfiler {
                 });
             }
 
+            StartHelperTasks();
+
+            SnapshotPreprocessQueue.EnqueueMultiple(snapshots);
+
             DiffCache.ItemEvicted += DiffCache_ItemEvicted;
+        }
+
+        protected void StartHelperTasks () {
+            Futures.Add(Scheduler.Start(
+                SnapshotPreprocessTask(), TaskExecutionPolicy.RunAsBackgroundTask
+            ));
+            Futures.Add(Scheduler.Start(
+                SymbolPreloadTask(), TaskExecutionPolicy.RunAsBackgroundTask
+            ));
         }
 
         void DiffCache_ItemEvicted (KeyValuePair<Pair<string>, string> item) {
@@ -186,7 +194,7 @@ namespace HeapProfiler {
                 RegexOptions.Compiled | RegexOptions.ExplicitCapture | RegexOptions.IgnoreCase
             );
             string line = null;
-            bool scanningForStart = true;
+            bool scanningForStart = true, scanningForMemory = false;
 
             using (var f = File.OpenRead(filename))
             using (var sr = new StreamReader(f))
@@ -198,16 +206,23 @@ namespace HeapProfiler {
                         break;
                     else
                         continue;
+                } else if (scanningForMemory) {
+                    if (line.StartsWith("// Memory=")) {
+                        var mem = new MemoryStatistics(line);
+                        Console.WriteLine(mem.GetFileText());
+                        scanningForMemory = false;
+                        break;
+                    }
                 } else {
                     Match m;
                     if (!moduleRegex.TryMatch(line, out m)) {
                         if (line.Contains("Process modules enumerated"))
-                            break;
+                            scanningForMemory = true;
                         else
                             continue;
+                    } else {
+                        result.Add(Path.GetFullPath(m.Groups["module"].Value).ToLowerInvariant());
                     }
-
-                    result.Add(Path.GetFullPath(m.Groups["module"].Value).ToLowerInvariant());
                 }
             }
 

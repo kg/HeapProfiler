@@ -24,6 +24,7 @@ using System.IO;
 using System.Diagnostics;
 using Squared.Task.Data.Mapper;
 using System.Web.Script.Serialization;
+using Squared.Util.Bind;
 
 namespace HeapProfiler {
     public class ModuleInfo {
@@ -224,10 +225,25 @@ namespace HeapProfiler {
     }
 
     public class MemoryStatistics {
-        public readonly long NonpagedSystem, Paged, PagedSystem, Private, Virtual, WorkingSet;
-        public readonly long PeakPaged, PeakVirtual, PeakWorking;
+        public long NonpagedSystem, Paged, PagedSystem, Private, Virtual, WorkingSet;
+        public long PeakPaged, PeakVirtual, PeakWorking;
 
         public MemoryStatistics () {
+        }
+
+        public MemoryStatistics (string json) {
+            var prefix = "// Memory=";
+            if (json.StartsWith(prefix))
+                json = json.Substring(prefix.Length);
+
+            var jss = new JavaScriptSerializer();
+            var dict = jss.Deserialize<Dictionary<string, object>>(json);
+
+            var cn = Mapper<MemoryStatistics>.ColumnNames;
+            var t = this.GetType();
+
+            foreach (var name in cn)
+                BoundMember.New(this, t.GetField(name)).Value = dict[name];
         }
 
         public MemoryStatistics (Process process) {
