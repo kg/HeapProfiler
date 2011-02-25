@@ -339,7 +339,7 @@ namespace HeapProfiler {
                         )
                     );
                     try {
-                        File.Copy(snap.Filename, destPath);
+                        File.Copy(snap.Filename, destPath, true);
                     } catch (Exception ex) {
                         MessageBox.Show("Save failed: " + ex.ToString());
                         return;

@@ -18,12 +18,12 @@ Original Author: Kevin Gadd (kevin.gadd@gmail.com)
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 using System.Drawing;
 using System.IO;
 using System.Diagnostics;
 using Squared.Task.Data.Mapper;
+using System.Web.Script.Serialization;
 
 namespace HeapProfiler {
     public class ModuleInfo {
@@ -248,10 +248,15 @@ namespace HeapProfiler {
             var cn = Mapper<MemoryStatistics>.ColumnNames;
             var cv = Mapper<MemoryStatistics>.GetColumnValues(this);
 
-            sb.AppendLine("// HeapProfiler Memory Statistics");
+            var dict = new Dictionary<string, object>();
+            var jss = new JavaScriptSerializer();
+
             for (int i = 0; i < cn.Length; i++) {
-                sb.AppendFormat("// {0}={1:x}{2}", cn[i], cv[i], Environment.NewLine);
+                dict[cn[i]] = cv[i];
             }
+
+            sb.Append("// Memory=");
+            jss.Serialize(dict, sb);
 
             return sb.ToString();
         }
