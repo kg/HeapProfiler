@@ -48,6 +48,8 @@ namespace HeapProfiler {
                 BoundMember.New(() => WorkingDirectory.Text)
             };
 
+            SnapshotTimeline.ItemValueGetter = GetPagedMemory;
+
             LoadPersistedValues();
         }
 
@@ -267,7 +269,12 @@ namespace HeapProfiler {
         }
 
         protected IEnumerator<object> AutoCaptureTask () {
-            var sleep = new Sleep(5.0);
+            var sleep = new Sleep(0.1);
+
+            while ((Instance == null) || (!Instance.Running))
+                yield return sleep;
+
+            sleep = new Sleep(5.0);
 
             while (AutoCapture.Checked && Instance.Running) {
                 yield return Instance.CaptureSnapshot();
