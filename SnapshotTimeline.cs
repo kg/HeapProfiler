@@ -283,6 +283,13 @@ namespace HeapProfiler {
                 Math.Min(index1, index2),
                 Math.Max(index1, index2)
             );
+            if (newSelection.First == newSelection.Second) {
+                if (newSelection.Second > 0)
+                    newSelection.First = newSelection.Second - 1;
+                else if (newSelection.First < (Items.Count - 1))
+                    newSelection.Second = newSelection.First + 1;
+            }
+
             Selection = newSelection;
 
             SetToolTip(newSelection);
