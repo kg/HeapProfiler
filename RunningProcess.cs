@@ -117,7 +117,7 @@ namespace HeapProfiler {
             var allModules = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var snapshot in newSnaps)
                 foreach (var module in snapshot.Modules)
-                    allModules.Add(module);
+                    allModules.Add(module.Filename);
 
             SymbolPreloadQueue.EnqueueMultiple(allModules);
 

@@ -23,6 +23,7 @@ using System.Text;
 using System.Drawing;
 using Microsoft.Win32;
 using System.Runtime.InteropServices;
+using System.Collections.ObjectModel;
 
 namespace HeapProfiler {
     class ReferenceComparer<T> : IEqualityComparer<T>
@@ -561,6 +562,23 @@ namespace HeapProfiler {
                 } else
                     return null;
             }
+        }
+    }
+
+    public abstract class KeyedCollection2<TKey, TValue> :
+        KeyedCollection<TKey, TValue> where TValue : class {
+
+        public bool TryGetValue (TKey key, out TValue value) {
+            if (base.Dictionary != null)
+                return base.Dictionary.TryGetValue(key, out value);
+
+            if (base.Contains(key)) {
+                value = base[key];
+                return true;
+            }
+
+            value = default(TValue);
+            return false;
         }
     }
 }
