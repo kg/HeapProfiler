@@ -187,7 +187,7 @@ namespace HeapProfiler {
                         * pixelsPerMinute / minuteInTicks) - _ScrollOffset;
 
                     using (var brush = new SolidBrush(selected ? SystemColors.HighlightText : ForeColor))
-                        g.FillEllipse(brush, x - 1.5f, y - 1.5f, 3f, 3f);
+                        g.FillEllipse(brush, x - 2.5f, y - 2.5f, 5f, 5f);
 
                     points.Add(new PointF(x, y));
 

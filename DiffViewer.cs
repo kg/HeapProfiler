@@ -55,6 +55,10 @@ namespace HeapProfiler {
             @"\t(?'module'[^!]+)!(?'function'[^+]+)\+(?'offset'[0-9A-Fa-f]+)(\s*:\s*(?'offset2'[0-9A-Fa-f]+))?(\s*\(\s*(?'path'[^,]+),\s*(?'line'[0-9]*)\))?",
             RegexOptions.Compiled | RegexOptions.ExplicitCapture
         );
+        public static Regex AllocationRegex = new Regex(
+            @"(?'size'[0-9A-Fa-f]+)(\s*bytes\s*\+\s*)(?'overhead'[0-9A-Fa-f]+)(\s*at\s*)(?'offset'[0-9A-Fa-f]+)(\s*by\s*BackTrace)(?'trace_id'\w*)",
+            RegexOptions.Compiled | RegexOptions.ExplicitCapture
+        );
 
         public Dictionary<string, ModuleInfo> Modules = new Dictionary<string, ModuleInfo>();
         public HashSet<string> FunctionNames = new HashSet<string>();
