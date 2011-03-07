@@ -364,15 +364,6 @@ namespace HeapProfiler {
         ) {
         }
 
-        private HeapSnapshot (DateTime time) {
-            When = time;
-        }
-
-        // Used for binary searching, not for creating a valid snapshot :/
-        public static HeapSnapshot FromTime (DateTime time) {
-            return new HeapSnapshot(time);
-        }
-
         static int IndexFromFilename (string filename) {
             var parts = Path.GetFileNameWithoutExtension(filename)
                 .Split(new[] { '_' }, 2);

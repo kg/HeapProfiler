@@ -224,9 +224,18 @@ namespace HeapProfiler {
             }
         }
 
-        struct TimeComparer : IComparer<TItem> {
+        class SnapshotTimeFinder : IComparer<TItem> {
+            public readonly DateTime When;
+
+            public SnapshotTimeFinder (DateTime when) {
+                When = when;
+            }
+
             public int Compare (TItem x, TItem y) {
-                return x.When.CompareTo(y.When);
+                if ((y != null) || (x == null))
+                    throw new InvalidOperationException("BinarySearch should be doing Comparer(currentItem, valueToFind), and valueToFind should be null.");
+
+                return x.When.CompareTo(When);
             }
         }
 
@@ -250,8 +259,7 @@ namespace HeapProfiler {
             );
 
             var index = Items.BinarySearch(
-                TItem.FromTime(time),
-                new TimeComparer()
+                null, new SnapshotTimeFinder(time)
             );
 
             if (index < 0) {
