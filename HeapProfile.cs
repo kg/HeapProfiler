@@ -25,8 +25,37 @@ using System.Diagnostics;
 using Squared.Task.Data.Mapper;
 using System.Web.Script.Serialization;
 using Squared.Util.Bind;
+using Squared.Util.RegexExtensions;
+using System.Text.RegularExpressions;
 
 namespace HeapProfiler {
+    public static class Regexes {
+        public static Regex DiffModule = new Regex(
+            @"DBGHELP: (?'module'.*?)( - )(?'symbol_type'[^\n\r]*)",
+            RegexOptions.Compiled | RegexOptions.ExplicitCapture
+        );
+        public static Regex SnapshotModule = new Regex(
+            "//\\s*([A-Fa-f0-9]+)\\s+([A-Fa-f0-9]+)\\s+(?'module'[^\r\n]+)",
+            RegexOptions.Compiled | RegexOptions.ExplicitCapture
+        );
+        public static Regex BytesDelta = new Regex(
+            @"(?'type'\+|\-)(\s+)(?'delta_bytes'[0-9A-Fa-f]+)(\s+)\((\s*)(?'new_bytes'[0-9A-Fa-f]*)(\s*)-(\s*)(?'old_bytes'[0-9A-Fa-f]*)\)(\s*)(?'new_count'[0-9A-Fa-f]+) allocs\t(BackTrace(?'trace_id'\w*))",
+            RegexOptions.Compiled | RegexOptions.ExplicitCapture
+        );
+        public static Regex CountDelta = new Regex(
+            @"(?'type'\+|\-)(\s+)(?'delta_count'[0-9A-Fa-f]+)(\s+)\((\s*)(?'new_count'[0-9A-Fa-f]*)(\s*)-(\s*)(?'old_count'[0-9A-Fa-f]*)\)\t(BackTrace(?'trace_id'\w*))\tallocations",
+            RegexOptions.Compiled | RegexOptions.ExplicitCapture
+        );
+        public static Regex TracebackFrame = new Regex(
+            @"\t(?'module'[^!]+)!(?'function'[^+]+)\+(?'offset'[0-9A-Fa-f]+)(\s*:\s*(?'offset2'[0-9A-Fa-f]+))?(\s*\(\s*(?'path'[^,]+),\s*(?'line'[0-9]*)\))?",
+            RegexOptions.Compiled | RegexOptions.ExplicitCapture
+        );
+        public static Regex Allocation = new Regex(
+            @"(?'size'[0-9A-Fa-f]+)(\s*bytes\s*\+\s*)(?'overhead'[0-9A-Fa-f]+)(\s*at\s*)(?'offset'[0-9A-Fa-f]+)(\s*by\s*BackTrace)(?'trace_id'\w*)",
+            RegexOptions.Compiled | RegexOptions.ExplicitCapture
+        );
+    }
+
     public class ModuleInfo {
         public bool Filtered = false;
         public string ModuleName;
@@ -277,6 +306,91 @@ namespace HeapProfiler {
             jss.Serialize(dict, sb);
 
             return sb.ToString();
+        }
+    }
+
+    public class HeapSnapshot {
+        public readonly int Index;
+        public readonly DateTime When;
+        public readonly string Filename;
+        public readonly HashSet<string> Modules;
+        public readonly MemoryStatistics Memory;
+
+        public HeapSnapshot (int index, DateTime when, string filename) {
+            Index = index;
+            When = when;
+            Filename = filename;
+            Modules = new HashSet<string>();
+            Memory = new MemoryStatistics();
+
+            string line = null;
+            bool scanningForStart = true, scanningForMemory = false;
+
+            using (var f = File.OpenRead(filename))
+            using (var sr = new StreamReader(f))
+            while ((line = sr.ReadLine()) != null) {
+                if (scanningForStart) {
+                    if (line.Contains("Loaded modules"))
+                        scanningForStart = false;
+                    else if (line.Contains("Start of data for heap"))
+                        break;
+                    else
+                        continue;
+                } else if (scanningForMemory) {
+                    if (line.StartsWith("// Memory=")) {
+                        Memory = new MemoryStatistics(line);
+                        scanningForMemory = false;
+                        break;
+                    }
+                } else {
+                    Match m;
+                    if (!Regexes.SnapshotModule.TryMatch(line, out m)) {
+                        if (line.Contains("Process modules enumerated"))
+                            scanningForMemory = true;
+                        else
+                            continue;
+                    } else {
+                        Modules.Add(Path.GetFullPath(m.Groups["module"].Value).ToLowerInvariant());
+                    }
+                }
+            }
+        }
+
+        public HeapSnapshot (string filename)
+            : this(
+            IndexFromFilename(filename), 
+            DateTimeFromFilename(filename), 
+            filename
+        ) {
+        }
+
+        private HeapSnapshot (DateTime time) {
+            When = time;
+        }
+
+        // Used for binary searching, not for creating a valid snapshot :/
+        public static HeapSnapshot FromTime (DateTime time) {
+            return new HeapSnapshot(time);
+        }
+
+        static int IndexFromFilename (string filename) {
+            var parts = Path.GetFileNameWithoutExtension(filename)
+                .Split(new[] { '_' }, 2);
+            return int.Parse(parts[0]);
+        }
+
+        static DateTime DateTimeFromFilename (string filename) {
+            var parts = Path.GetFileNameWithoutExtension(filename)
+                .Split(new[] { '_' }, 2);
+
+            return DateTime.ParseExact(
+                parts[1].Replace("_", ":"), "u",
+                System.Globalization.DateTimeFormatInfo.InvariantInfo
+            );
+        }
+
+        public override string ToString () {
+            return String.Format("#{0} - {1}", Index, When.ToLongTimeString());
         }
     }
 }

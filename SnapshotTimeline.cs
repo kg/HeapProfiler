@@ -7,7 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Windows.Forms;
 
-using TItem = HeapProfiler.RunningProcess.Snapshot;
+using TItem = HeapProfiler.HeapSnapshot;
 using Squared.Util;
 
 namespace HeapProfiler {
@@ -250,7 +250,7 @@ namespace HeapProfiler {
             );
 
             var index = Items.BinarySearch(
-                new TItem { When = time },
+                TItem.FromTime(time),
                 new TimeComparer()
             );
 

@@ -32,33 +32,12 @@ using System.Text.RegularExpressions;
 using Squared.Util.RegexExtensions;
 using System.Globalization;
 
-using Snapshot = HeapProfiler.RunningProcess.Snapshot;
+using Snapshot = HeapProfiler.HeapSnapshot;
 using Squared.Util;
 
 namespace HeapProfiler {
     public partial class DiffViewer : TaskForm {
         const int ProgressInterval = 200;
-
-        public static Regex ModuleRegex = new Regex(
-            @"DBGHELP: (?'module'.*?)( - )(?'symbol_type'[^\n\r]*)", 
-            RegexOptions.Compiled | RegexOptions.ExplicitCapture
-        );
-        public static Regex BytesDeltaRegex = new Regex(
-            @"(?'type'\+|\-)(\s+)(?'delta_bytes'[0-9A-Fa-f]+)(\s+)\((\s*)(?'new_bytes'[0-9A-Fa-f]*)(\s*)-(\s*)(?'old_bytes'[0-9A-Fa-f]*)\)(\s*)(?'new_count'[0-9A-Fa-f]+) allocs\t(BackTrace(?'trace_id'\w*))",
-            RegexOptions.Compiled | RegexOptions.ExplicitCapture
-        );
-        public static Regex CountDeltaRegex = new Regex(
-            @"(?'type'\+|\-)(\s+)(?'delta_count'[0-9A-Fa-f]+)(\s+)\((\s*)(?'new_count'[0-9A-Fa-f]*)(\s*)-(\s*)(?'old_count'[0-9A-Fa-f]*)\)\t(BackTrace(?'trace_id'\w*))\tallocations",
-            RegexOptions.Compiled | RegexOptions.ExplicitCapture
-        );
-        public static Regex TracebackRegex = new Regex(
-            @"\t(?'module'[^!]+)!(?'function'[^+]+)\+(?'offset'[0-9A-Fa-f]+)(\s*:\s*(?'offset2'[0-9A-Fa-f]+))?(\s*\(\s*(?'path'[^,]+),\s*(?'line'[0-9]*)\))?",
-            RegexOptions.Compiled | RegexOptions.ExplicitCapture
-        );
-        public static Regex AllocationRegex = new Regex(
-            @"(?'size'[0-9A-Fa-f]+)(\s*bytes\s*\+\s*)(?'overhead'[0-9A-Fa-f]+)(\s*at\s*)(?'offset'[0-9A-Fa-f]+)(\s*by\s*BackTrace)(?'trace_id'\w*)",
-            RegexOptions.Compiled | RegexOptions.ExplicitCapture
-        );
 
         public Dictionary<string, ModuleInfo> Modules = new Dictionary<string, ModuleInfo>();
         public HashSet<string> FunctionNames = new HashSet<string>();
@@ -155,22 +134,22 @@ namespace HeapProfiler {
             var tracebacks = new Dictionary<string, TracebackInfo>(stringComparer);
 
             // Regex.Groups[string] does an inefficient lookup, so we do that lookup once here
-            int groupModule = ModuleRegex.GroupNumberFromName("module");
-            int groupSymbolType = ModuleRegex.GroupNumberFromName("symbol_type");
-            int groupTraceId = BytesDeltaRegex.GroupNumberFromName("trace_id");
-            int groupType = BytesDeltaRegex.GroupNumberFromName("type");
-            int groupDeltaBytes = BytesDeltaRegex.GroupNumberFromName("delta_bytes");
-            int groupNewBytes = BytesDeltaRegex.GroupNumberFromName("new_bytes");
-            int groupOldBytes = BytesDeltaRegex.GroupNumberFromName("old_bytes");
-            int groupNewCount = BytesDeltaRegex.GroupNumberFromName("new_count");
-            int groupOldCount = CountDeltaRegex.GroupNumberFromName("old_count");
-            int groupCountDelta = CountDeltaRegex.GroupNumberFromName("delta_count");
-            int groupTracebackModule = TracebackRegex.GroupNumberFromName("module");
-            int groupTracebackFunction = TracebackRegex.GroupNumberFromName("function");
-            int groupTracebackOffset = TracebackRegex.GroupNumberFromName("offset");
-            int groupTracebackOffset2 = TracebackRegex.GroupNumberFromName("offset2");
-            int groupTracebackPath = TracebackRegex.GroupNumberFromName("path");
-            int groupTracebackLine = TracebackRegex.GroupNumberFromName("line");
+            int groupModule = Regexes.DiffModule.GroupNumberFromName("module");
+            int groupSymbolType = Regexes.DiffModule.GroupNumberFromName("symbol_type");
+            int groupTraceId = Regexes.BytesDelta.GroupNumberFromName("trace_id");
+            int groupType = Regexes.BytesDelta.GroupNumberFromName("type");
+            int groupDeltaBytes = Regexes.BytesDelta.GroupNumberFromName("delta_bytes");
+            int groupNewBytes = Regexes.BytesDelta.GroupNumberFromName("new_bytes");
+            int groupOldBytes = Regexes.BytesDelta.GroupNumberFromName("old_bytes");
+            int groupNewCount = Regexes.BytesDelta.GroupNumberFromName("new_count");
+            int groupOldCount = Regexes.CountDelta.GroupNumberFromName("old_count");
+            int groupCountDelta = Regexes.CountDelta.GroupNumberFromName("delta_count");
+            int groupTracebackModule = Regexes.TracebackFrame.GroupNumberFromName("module");
+            int groupTracebackFunction = Regexes.TracebackFrame.GroupNumberFromName("function");
+            int groupTracebackOffset = Regexes.TracebackFrame.GroupNumberFromName("offset");
+            int groupTracebackOffset2 = Regexes.TracebackFrame.GroupNumberFromName("offset2");
+            int groupTracebackPath = Regexes.TracebackFrame.GroupNumberFromName("path");
+            int groupTracebackLine = Regexes.TracebackFrame.GroupNumberFromName("line");
 
             for (int i = 0, j = 0; i < lines.Length; i++, j++) {
                 string line = lines[i];
@@ -195,7 +174,7 @@ namespace HeapProfiler {
             retryFromHere:
 
                 Match m;
-                if (ModuleRegex.TryMatch(line, out m)) {
+                if (Regexes.DiffModule.TryMatch(line, out m)) {
                     var moduleName = String.Intern(m.Groups[groupModule].Value);
 
                     var info = new ModuleInfo {
@@ -205,7 +184,7 @@ namespace HeapProfiler {
 
                     if (i < lines.Length - 1) {
                         line = lines[++i];
-                        if (!ModuleRegex.IsMatch(line)) {
+                        if (!Regexes.DiffModule.IsMatch(line)) {
                             info.SymbolPath = line.Trim();
                         } else {
                             goto retryFromHere;
@@ -213,7 +192,7 @@ namespace HeapProfiler {
                     }
 
                     modules[moduleName] = info;
-                } else if (BytesDeltaRegex.TryMatch(line, out m)) {
+                } else if (Regexes.BytesDelta.TryMatch(line, out m)) {
                     var traceId = String.Intern(m.Groups[groupTraceId].Value);
                     var info = new DeltaInfo {
                         Added = (m.Groups[groupType].Value == "+"),
@@ -226,7 +205,7 @@ namespace HeapProfiler {
                     if (i < lines.Length - 1) {
                         line = lines[++i];
 
-                        if (CountDeltaRegex.TryMatch(line, out m)) {
+                        if (Regexes.CountDelta.TryMatch(line, out m)) {
                             info.OldCount = int.Parse(m.Groups[groupOldCount].Value);
                             info.CountDelta = int.Parse(m.Groups[groupCountDelta].Value);
                         }
@@ -246,7 +225,7 @@ namespace HeapProfiler {
                                 continue;
                             else
                                 break;
-                        } else if (TracebackRegex.TryMatch(line, out m)) {
+                        } else if (Regexes.TracebackFrame.TryMatch(line, out m)) {
                             readingLeadingWhitespace = false;
 
                             var moduleName = String.Intern(m.Groups[groupTracebackModule].Value);

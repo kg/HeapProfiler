@@ -277,7 +277,7 @@
                         | System.Windows.Forms.AnchorStyles.Right)));
             this.SnapshotTimeline.BackColor = System.Drawing.SystemColors.Control;
             this.SnapshotTimeline.ForeColor = System.Drawing.SystemColors.WindowText;
-            this.SnapshotTimeline.ItemValueGetter = ((System.Func<HeapProfiler.RunningProcess.Snapshot, long>)(resources.GetObject("SnapshotTimeline.ItemValueGetter")));
+            this.SnapshotTimeline.ItemValueGetter = ((System.Func<HeapProfiler.HeapSnapshot, long>)(resources.GetObject("SnapshotTimeline.ItemValueGetter")));
             this.SnapshotTimeline.Location = new System.Drawing.Point(5, 21);
             this.SnapshotTimeline.Name = "SnapshotTimeline";
             this.SnapshotTimeline.ScrollOffset = 0;

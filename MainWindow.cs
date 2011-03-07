@@ -354,6 +354,9 @@ namespace HeapProfiler {
                 Instance = RunningProcess.FromSnapshots(
                     Scheduler, Activities, dialog.FileNames
                 );
+                Instance.StatusChanged += (s, _) => RefreshStatus();
+                Instance.SnapshotsChanged += (s, _) => RefreshSnapshots();
+
                 RefreshStatus();
                 RefreshSnapshots();
             }
@@ -388,21 +391,21 @@ namespace HeapProfiler {
             DiffSelection.Enabled = SnapshotTimeline.HasSelection;
         }
 
-        protected long GetPagedMemory (RunningProcess.Snapshot item) {
+        protected long GetPagedMemory (HeapSnapshot item) {
             if (item.Memory == null)
                 return 0;
 
             return item.Memory.Paged;
         }
 
-        protected long GetVirtualMemory (RunningProcess.Snapshot item) {
+        protected long GetVirtualMemory (HeapSnapshot item) {
             if (item.Memory == null)
                 return 0;
 
             return item.Memory.Virtual;
         }
 
-        protected long GetWorkingSet (RunningProcess.Snapshot item) {
+        protected long GetWorkingSet (HeapSnapshot item) {
             if (item.Memory == null)
                 return 0;
 
