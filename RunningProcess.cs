@@ -298,18 +298,25 @@ namespace HeapProfiler {
                 )
             );
 
+            TemporaryFiles.Add(targetFilename);
+
             using (Activities.AddItem("Capturing heap snapshot"))
                 yield return Program.RunProcess(psi);
 
-            File.AppendAllText(targetFilename, mem.GetFileText());
+            using (Activities.AddItem("Loading snapshot")) {
+                yield return Future.RunInThread(
+                    () => File.AppendAllText(targetFilename, mem.GetFileText())
+                );
 
-            var snap = new HeapSnapshot(
-                Snapshots.Count + 1, now, targetFilename
-            );
+                var fSnapshot = Future.RunInThread(
+                    () => new HeapSnapshot(
+                        Snapshots.Count + 1, now, targetFilename
+                    )
+                );
+                yield return fSnapshot;
 
-            Snapshots.Add(snap);
-
-            TemporaryFiles.Add(targetFilename);
+                Snapshots.Add(fSnapshot.Result);
+            }
 
             OnSnapshotsChanged();
         }
