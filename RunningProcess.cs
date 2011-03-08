@@ -45,8 +45,7 @@ namespace HeapProfiler {
 
         protected Process Process;
 
-        protected readonly HashSet<string> PreloadedSymbols = new HashSet<string>();
-        protected readonly BlockingQueue<string> SymbolPreloadQueue = new BlockingQueue<string>();
+        protected readonly Dictionary<HeapSnapshot.Frame, TracebackFrame> TracebackCache = new Dictionary<HeapSnapshot.Frame, TracebackFrame>();
         protected readonly LRUCache<Pair<string>, string> DiffCache = new LRUCache<Pair<string>, string>(32);
 
         protected RunningProcess (
@@ -114,20 +113,10 @@ namespace HeapProfiler {
             Snapshots.Clear();
             Snapshots.AddRange(newSnaps);
 
-            var allModules = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var snapshot in newSnaps)
-                foreach (var module in snapshot.Modules)
-                    allModules.Add(module.Filename);
-
-            SymbolPreloadQueue.EnqueueMultiple(allModules);
-
             OnSnapshotsChanged();
         }
 
         protected void StartHelperTasks () {
-            Futures.Add(Scheduler.Start(
-                SymbolPreloadTask(), TaskExecutionPolicy.RunAsBackgroundTask
-            ));
         }
 
         void DiffCache_ItemEvicted (KeyValuePair<Pair<string>, string> item) {
@@ -180,56 +169,6 @@ namespace HeapProfiler {
             ));
 
             OnStatusChanged();
-        }
-
-        protected IEnumerator<object> SymbolPreloadTask () {
-            while (true) {
-                var f = SymbolPreloadQueue.Dequeue();
-                using (f)
-                    yield return f;
-
-                int c = SymbolPreloadQueue.Count + 1;
-                int i = 0;
-
-                using (var a = Activities.AddItem("Loading symbols"))
-                do {
-                    if (i > c) {
-                        c = SymbolPreloadQueue.Count;
-                        a.Progress = i = 0;
-                        a.Maximum = c;
-                    } else if (c > 1) {
-                        a.Maximum = c;
-                        a.Progress = i;
-                    }
-
-                    if (f == null) {
-                        f = SymbolPreloadQueue.Dequeue();
-                        yield return f;
-                    }
-
-                    var filename = f.Result;
-                    if (!PreloadedSymbols.Contains(filename)) {
-                        var rtc = new RunToCompletion<RunProcessResult>(
-                            Program.RunProcessWithResult(new ProcessStartInfo(
-                                Settings.SymChkPath, String.Format(
-                                    "\"{0}\" /q /oi /op /oe", filename
-                                )
-                            ))
-                        );
-                        yield return rtc;
-
-                        /*
-                        Console.WriteLine(rtc.Result.StdOut);
-                        Console.WriteLine(rtc.Result.StdErr);
-                         */
-
-                        PreloadedSymbols.Add(filename);
-                    }
-
-                    f = null;
-                    i += 1;
-                } while (SymbolPreloadQueue.Count > 0);
-            }
         }
 
         public static RunningProcess Start (

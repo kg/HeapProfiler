@@ -318,17 +318,19 @@ namespace HeapProfiler {
     public class HeapSnapshot {
         public class Module {
             public readonly string Filename;
+            public readonly string ShortFilename;
             public readonly UInt32 Offset;
             public readonly UInt32 Size;
 
             public Module (string filename, UInt32 offset, UInt32 size) {
                 Filename = filename;
+                ShortFilename = Path.GetFileName(Filename);
                 Offset = offset;
                 Size = size;
             }
 
             public override string ToString () {
-                return String.Format("{0} @ {1:x8}", Path.GetFileName(Filename), Offset);
+                return String.Format("{0} @ {1:x8}", ShortFilename, Offset);
             }
         }
 
@@ -454,9 +456,39 @@ namespace HeapProfiler {
                 }
             }
 
+            public int CompareTo (ref Frame rhs) {
+                string fn1 = null, fn2 = null;
+                if (Module != null)
+                    fn1 = Module.Filename;
+                if (rhs.Module != null)
+                    fn2 = rhs.Module.Filename;
+
+                int result = String.CompareOrdinal(fn1, fn2);
+
+                if (result == 0)
+                    result = Offset.CompareTo(rhs.Offset);
+
+                return result;
+            }
+
+            public override bool Equals (object obj) {
+                if (obj is Frame) {
+                    var f = (Frame)obj;
+                    return CompareTo(ref f) == 0;
+                } else
+                    return base.Equals(obj);
+            }
+
+            public override int GetHashCode () {
+                if (Module != null)
+                    return Module.Filename.GetHashCode() ^ Offset.GetHashCode();
+                else
+                    return Offset.GetHashCode();
+            }
+
             public override string ToString () {
                 if (Module != null)
-                    return String.Format("{0}@{1:x8}", Path.GetFileName(Module.Filename), Offset);
+                    return String.Format("{0}@{1:x8}", Module.ShortFilename, Offset);
                 else
                     return String.Format("{0:x8}", Offset);
             }

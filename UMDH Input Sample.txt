@@ -1,0 +1,181 @@
+// Loaded modules: 
+//     Base Size Module
+//             1180000    27000 C:\mozilla\ff-debug\dist\bin\firefox.exe
+//            77480000   180000 C:\Windows\SysWOW64\ntdll.dll
+//            6E350000    60000 C:\Windows\syswow64\verifier.dll
+//            76BA0000   100000 C:\Windows\syswow64\kernel32.dll
+//            766B0000    46000 C:\Windows\syswow64\KERNELBASE.dll
+//            539B0000  2B56000 C:\mozilla\ff-debug\dist\bin\xul.dll
+//            6DC40000   182000 C:\mozilla\ff-debug\dist\bin\mozsqlite3.dll
+//            6DDE0000   172000 C:\Windows\system32\MSVCR100D.dll
+//            6D6E0000   556000 C:\mozilla\ff-debug\dist\bin\mozjs.dll
+//            6E3C0000    4F000 C:\mozilla\ff-debug\dist\bin\nspr4.dll
+//            75060000    A0000 C:\Windows\syswow64\ADVAPI32.dll
+//            76CA0000    AC000 C:\Windows\syswow64\msvcrt.dll
+//            76770000    19000 C:\Windows\SysWOW64\sechost.dll
+//            75100000    F0000 C:\Windows\syswow64\RPCRT4.dll
+//            74FF0000    60000 C:\Windows\syswow64\SspiCli.dll
+//            74FE0000     C000 C:\Windows\syswow64\CRYPTBASE.dll
+//            72280000     7000 C:\Windows\system32\WSOCK32.dll
+//            76790000    35000 C:\Windows\syswow64\WS2_32.dll
+//            76700000     6000 C:\Windows\syswow64\NSI.dll
+//            740A0000    32000 C:\Windows\system32\WINMM.dll
+//            76520000   100000 C:\Windows\syswow64\USER32.dll
+//            75250000    90000 C:\Windows\syswow64\GDI32.dll
+//            76760000     A000 C:\Windows\syswow64\LPK.dll
+//            75690000    9D000 C:\Windows\syswow64\USP10.dll
+//            6D620000    B7000 C:\Windows\system32\MSVCP100D.dll
+//            6E180000    39000 C:\mozilla\ff-debug\dist\bin\smime3.dll
+//            6D4A0000   177000 C:\mozilla\ff-debug\dist\bin\nss3.dll
+//            6E150000    2A000 C:\mozilla\ff-debug\dist\bin\nssutil3.dll
+//            6E3B0000     C000 C:\mozilla\ff-debug\dist\bin\plc4.dll
+//            6E340000     B000 C:\mozilla\ff-debug\dist\bin\plds4.dll
+//            6D440000    5C000 C:\mozilla\ff-debug\dist\bin\ssl3.dll
+//            6E330000     B000 C:\mozilla\ff-debug\dist\bin\mozalloc.dll
+//            73AC0000    EB000 C:\Windows\system32\dbghelp.dll
+//            75730000   C49000 C:\Windows\syswow64\SHELL32.dll
+//            76D50000    57000 C:\Windows\syswow64\SHLWAPI.dll
+//            76860000   15C000 C:\Windows\syswow64\ole32.dll
+//            72770000     9000 C:\Windows\system32\VERSION.dll
+//            73C60000    51000 C:\Windows\system32\WINSPOOL.DRV
+//            76AE0000    7B000 C:\Windows\syswow64\COMDLG32.dll
+//            71AE0000   19E000 C:\Windows\WinSxS\x86_microsoft.windows.common-controls_6595b64144ccf1df_6.0.7600.16661_none_420fe3fa2b8113bd\COMCTL32.dll
+//            751F0000    60000 C:\Windows\syswow64\IMM32.dll
+//            76FB0000    CC000 C:\Windows\syswow64\MSCTF.dll
+//            726C0000     5000 C:\Windows\system32\MSIMG32.dll
+//            77450000     5000 C:\Windows\syswow64\PSAPI.DLL
+//            767D0000    8F000 C:\Windows\syswow64\OLEAUT32.dll
+//            6E140000     B000 C:\mozilla\ff-debug\dist\bin\xpcom.dll
+//            729E0000    80000 C:\Windows\system32\uxtheme.dll
+//            72410000    13000 C:\Windows\system32\dwmapi.dll
+//            6CE20000   10A000 C:\Windows\system32\dwrite.dll
+//            76380000   19D000 C:\Windows\syswow64\SETUPAPI.dll
+//            75660000    27000 C:\Windows\syswow64\CFGMGR32.dll
+//            753E0000    12000 C:\Windows\syswow64\DEVOBJ.dll
+//            769C0000    83000 C:\Windows\syswow64\CLBCatQ.DLL
+//            739C0000    F5000 C:\Windows\system32\propsys.dll
+//            72A60000    21000 C:\Windows\system32\ntmarta.dll
+//            76710000    45000 C:\Windows\syswow64\WLDAP32.dll
+//            70FC0000    1C000 C:\Windows\system32\iphlpapi.dll
+//            72270000     7000 C:\Windows\system32\WINNSI.DLL
+//            72680000    3C000 C:\Windows\system32\mswsock.dll
+//            6EE00000     5000 C:\Windows\System32\wshtcpip.dll
+//            6E120000    12000 C:\mozilla\ff-debug\dist\bin\components\xpcomsample.dll
+//            6D330000   10A000 C:\mozilla\ff-debug\dist\bin\components\browsercomps.dll
+//            6E110000     C000 C:\Windows\system32\feclient.dll
+//            76B60000    2D000 C:\Windows\syswow64\WINTRUST.dll
+//            75540000   11C000 C:\Windows\syswow64\CRYPT32.dll
+//            76B90000     C000 C:\Windows\syswow64\MSASN1.dll
+//            6D300000    2C000 C:\Windows\system32\d3d10_1.dll
+//            6D2C0000    3A000 C:\Windows\system32\d3d10_1core.dll
+//            6D230000    83000 C:\Windows\system32\dxgi.dll
+//            58DF0000   56E000 C:\Windows\system32\nvwgf2um.dll
+//            6CFD0000    BA000 C:\Windows\system32\d2d1.dll
+//            6CD10000   102000 C:\Windows\system32\d3d10.dll
+//            6D1F0000    33000 C:\Windows\system32\d3d10core.dll
+//            6E410000    FB000 C:\Windows\system32\WindowsCodecs.dll
+//            72A90000    4B000 C:\Windows\system32\apphelp.dll
+//             73C0000    13000 C:\Program Files (x86)\Common Files\TortoiseOverlays\TortoiseOverlays.dll
+//            10000000    54000 C:\Program Files (x86)\TortoiseHg\ThgShellx86.dll
+//            73540000   240000 C:\Windows\system32\msi.dll
+//             78C0000     E000 C:\Program Files (x86)\TortoiseSVN\bin\TortoiseStub.dll
+//             F330000    CA000 C:\Program Files (x86)\TortoiseSVN\bin\TortoiseSVN.dll
+//            739B0000     5000 C:\Windows\system32\SHFOLDER.dll
+//            752E0000    F5000 C:\Windows\syswow64\WININET.dll
+//            75400000   136000 C:\Windows\syswow64\urlmon.dll
+//            76DB0000   1FA000 C:\Windows\syswow64\iertutil.dll
+//            6EEC0000    22000 C:\Program Files (x86)\TortoiseSVN\bin\libapr_tsvn.dll
+//            72530000    A3000 C:\Windows\WinSxS\x86_microsoft.vc90.crt_1fc8b3b9a1e18e3b_9.0.30729.4974_none_50940634bcb759cb\MSVCR90.dll
+//            6EE60000    2F000 C:\Program Files (x86)\TortoiseSVN\bin\libaprutil_tsvn.dll
+//             7B40000    12000 C:\Program Files (x86)\TortoiseSVN\bin\intl3_tsvn.dll
+//            73920000    8E000 C:\Windows\WinSxS\x86_microsoft.vc90.crt_1fc8b3b9a1e18e3b_9.0.30729.4974_none_50940634bcb759cb\MSVCP90.dll
+//             F400000    8E000 C:\Program Files (x86)\TortoiseGit\bin\TortoiseGit.dll
+//            73810000   10D000 C:\Program Files (x86)\TortoiseGit\bin\gitdll.dll
+//             B490000    12000 C:\Program Files (x86)\TortoiseGit\bin\zlib1.dll
+//             BAC0000    17000 C:\Users\kgadd\AppData\Roaming\Dropbox\bin\DropboxExt.14.dll
+//            7C3A0000    7B000 C:\Users\kgadd\AppData\Roaming\Dropbox\bin\MSVCP71.dll
+//            7C340000    56000 C:\Users\kgadd\AppData\Roaming\Dropbox\bin\MSVCR71.dll
+//            73790000    31000 C:\Windows\system32\EhStorShell.dll
+//            73800000     6000 C:\Windows\system32\IconCodecService.dll
+//            741B0000    16000 C:\Windows\system32\CRYPTSP.dll
+//            74170000    3B000 C:\Windows\system32\rsaenh.dll
+//            72760000     E000 C:\Windows\system32\RpcRtRemote.dll
+//            741D0000     B000 C:\Windows\system32\profapi.dll
+//            6EDA0000     6000 C:\Windows\System32\wship6.dll
+//            6D1A0000    4D000 C:\mozilla\ff-debug\dist\bin\softokn3.dll
+//            6D160000    37000 C:\mozilla\ff-debug\dist\bin\nssdbm3.dll
+//            6D0E0000    78000 C:\mozilla\ff-debug\dist\bin\freebl3.dll
+//            6CF40000    8A000 C:\mozilla\ff-debug\dist\bin\nssckbi.dll
+//             F7E0000    44000 C:\Windows\system32\DNSAPI.dll
+//            6EE10000    27000 C:\Program Files (x86)\Common Files\Microsoft Shared\Windows Live\WLIDNSP.DLL
+//            6EDB0000     6000 C:\Windows\system32\rasadhlp.dll
+//            6EDC0000    38000 C:\Windows\System32\fwpuclnt.dll
+//             78E0000    10000 C:\Windows\system32\NLAapi.dll
+//             78F0000     8000 C:\Windows\System32\winrnr.dll
+//             7900000    10000 C:\Windows\system32\napinsp.dll
+//             BB40000    12000 C:\Windows\system32\pnrpnsp.dll
+//            6EE40000     D000 C:\Windows\system32\wshbth.dll
+//            72E60000    79000 C:\Windows\system32\mscms.dll
+//            741E0000    17000 C:\Windows\system32\USERENV.dll
+//            72E20000    38000 C:\Windows\system32\icm32.dll
+//
+// Process modules enumerated.
+
+*- - - - - - - - - - Heap 0 Hogs - - - - - - - - - -
+
+1 bytes + 0 at 0 by BackTrace1
+	6E358E89
+	77551066
+	7750AC93
+	774B3070
+	6E36CB62
+	6D031AF7
+	6D02F78E
+	6CFF7A10
+	6CFEC71B
+	6CFE2B0A
+	54FBC1F1
+	54FC8208
+	53FFC60D
+	53FF2C6C
+	53FCD7C9
+	53D1C268
+	54E8A320
+	54E8C6A2
+	54E8AED1
+	53F736F1
+	54DFA80F
+	54DF7662
+	54DAE7CD
+	53ADC646
+	53AD87E5
+	53AD8343
+	54D17A98
+	54CD4A35
+	54CD3AA5
+	54EB2417
+	54BA7758
+	54BA57FF
+
+1 bytes + 0 at 0 by BackTrace2
+	6E35A6A7
+	6E358F6E
+	77551066
+	7750AC93
+	774B3070
+	6E36CB62
+	766C4958
+	6E36D198
+	757DD7BA
+	757AA0AB
+	757AA070
+	757AA112
+	757AB104
+	757AD3B1
+	757AD53F
+	6E36C66D
+	774B9960
+	774BD8C9
+	774D37EE
+	774D2187
+	774B9E89
