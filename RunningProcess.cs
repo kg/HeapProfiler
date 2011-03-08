@@ -45,7 +45,6 @@ namespace HeapProfiler {
 
         protected Process Process;
 
-        protected readonly Dictionary<HeapSnapshot.Frame, TracebackFrame> TracebackCache = new Dictionary<HeapSnapshot.Frame, TracebackFrame>();
         protected readonly LRUCache<Pair<string>, string> DiffCache = new LRUCache<Pair<string>, string>(32);
 
         protected RunningProcess (
@@ -114,6 +113,8 @@ namespace HeapProfiler {
             Snapshots.AddRange(newSnaps);
 
             OnSnapshotsChanged();
+
+            GC.Collect();
         }
 
         protected void StartHelperTasks () {

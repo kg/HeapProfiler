@@ -334,83 +334,9 @@ namespace HeapProfiler {
             }
         }
 
-        public class ModuleCollection : IEnumerable<Module> {
-            class ModuleFinder : IComparer<Module> {
-                public readonly UInt32 Offset;
-
-                public ModuleFinder (UInt32 offset) {
-                    Offset = offset;
-                }
-
-                public int Compare (Module x, Module y) {
-                    if ((y != null) || (x == null))
-                        throw new InvalidOperationException("BinarySearch should be doing Comparer(currentItem, valueToFind), and valueToFind should be null.");
-
-                    if ((Offset >= x.Offset) && (Offset - x.Offset) < x.Size)
-                        return 0;
-                    else if (Offset < x.Offset)
-                        return -1;
-                    else
-                        return 1;
-                }
-            }
-
-            private readonly List<Module> _Modules = new List<Module>();
-            private static readonly Comparison<Module> Comparer;
-            private bool _Dirty = false;
-
-            static ModuleCollection () {
-                Comparer = (lhs, rhs) => {
-                    if (rhs.Offset > lhs.Offset)
-                        return 1;
-                    else if (rhs.Offset < lhs.Offset)
-                        return -1;
-
-                    return 0;
-                };
-            }
-
-            public void Add (Module module) {
-                _Modules.Add(module);
-                _Dirty = true;
-            }
-
-            public bool TryGetModule (UInt32 offset, out Module module) {
-                if (_Dirty)
-                    Sort();
-
-                var finder = new ModuleFinder(offset);
-                var index = _Modules.BinarySearch(null, finder);
-
-                if (index >= 0) {
-                    module = _Modules[index];
-                    return true;
-                }
-
-                module = default(Module);
-                return false;
-            }
-
-            public IEnumerable<Module> Modules {
-                get {
-                    if (_Dirty)
-                        Sort();
-
-                    return _Modules;
-                }
-            }
-
-            protected void Sort () {
-                _Modules.Sort(Comparer);
-                _Dirty = false;
-            }
-
-            public IEnumerator<Module> GetEnumerator () {
-                return Modules.GetEnumerator();
-            }
-
-            System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator () {
-                return Modules.GetEnumerator();
+        public class ModuleCollection : KeyedCollection2<string, Module> {
+            protected override string GetKeyForItem (Module item) {
+                return item.ShortFilename;
             }
         }
 
@@ -433,72 +359,21 @@ namespace HeapProfiler {
             public readonly UInt32 Offset;
             public readonly UInt32 Size;
             public readonly UInt32 Overhead;
-            public readonly Traceback Traceback;
+            public readonly UInt32 TracebackID;
 
-            public Allocation (UInt32 offset, UInt32 size, UInt32 overhead, Traceback traceback) {
+            public Allocation (UInt32 offset, UInt32 size, UInt32 overhead, UInt32 tracebackID) {
                 Offset = offset;
                 Size = size;
                 Overhead = overhead;
-                Traceback = traceback;
-            }
-        }
-
-        public struct Frame {
-            public readonly Module Module;
-            public readonly UInt32 Offset;
-
-            public Frame (UInt32 offset, ModuleCollection modules) {
-                if (modules.TryGetModule(offset, out Module))
-                    Offset = offset - Module.Offset;
-                else {
-                    Offset = offset;
-                    Module = null;
-                }
-            }
-
-            public int CompareTo (ref Frame rhs) {
-                string fn1 = null, fn2 = null;
-                if (Module != null)
-                    fn1 = Module.Filename;
-                if (rhs.Module != null)
-                    fn2 = rhs.Module.Filename;
-
-                int result = String.CompareOrdinal(fn1, fn2);
-
-                if (result == 0)
-                    result = Offset.CompareTo(rhs.Offset);
-
-                return result;
-            }
-
-            public override bool Equals (object obj) {
-                if (obj is Frame) {
-                    var f = (Frame)obj;
-                    return CompareTo(ref f) == 0;
-                } else
-                    return base.Equals(obj);
-            }
-
-            public override int GetHashCode () {
-                if (Module != null)
-                    return Module.Filename.GetHashCode() ^ Offset.GetHashCode();
-                else
-                    return Offset.GetHashCode();
-            }
-
-            public override string ToString () {
-                if (Module != null)
-                    return String.Format("{0}@{1:x8}", Module.ShortFilename, Offset);
-                else
-                    return String.Format("{0:x8}", Offset);
+                TracebackID = tracebackID;
             }
         }
 
         public class Traceback {
             public readonly UInt32 ID;
-            public readonly Frame[] Frames;
+            public readonly UInt32[] Frames;
 
-            public Traceback (UInt32 id, Frame[] frames) {
+            public Traceback (UInt32 id, UInt32[] frames) {
                 ID = id;
                 Frames = frames;
             }
@@ -538,41 +413,39 @@ namespace HeapProfiler {
             int groupAllocId = Regexes.Allocation.GroupNumberFromName("id");
             
             Match m;
-            var frameList = new List<Frame>();
+            var frameList = new List<UInt32>();
 
             using (var f = File.OpenRead(filename))
             using (var sr = new StreamReader(f))
             while ((line = sr.ReadLine()) != null) {
                 if (scanningHeap != null) {
                     if (line.StartsWith("*-") && line.Contains("End of data for heap")) {
+                        scanningHeap.Allocations.TrimExcess();
                         scanningHeap = null;
                     } else if (Regexes.Allocation.TryMatch(line, out m)) {
-                        // This is only valid if every allocation is followed by an empty line
-                        frameList.Clear();
-                        while ((line = sr.ReadLine()) != null) {
-                            UInt32 frameOffset;
-                            if (line.StartsWith("\t") &&
-                                UInt32.TryParse(
-                                    line, NumberStyles.HexNumber | NumberStyles.AllowLeadingWhite,
-                                    CultureInfo.InvariantCulture.NumberFormat, out frameOffset
-                                ))
-                                frameList.Add(new Frame(frameOffset, Modules));
-                            else
-                                break;
-                        }
-
                         var tracebackId = UInt32.Parse(m.Groups[groupAllocId].Value, NumberStyles.HexNumber);
                         Traceback traceback;
-                        if (!Tracebacks.TryGetValue(tracebackId, out traceback))
+
+                        if (!Tracebacks.TryGetValue(tracebackId, out traceback)) {
+                            // This is only valid if every allocation is followed by an empty line
+                            frameList.Clear();
+                            while ((line = sr.ReadLine()) != null) {
+                                if (line.StartsWith("\t"))
+                                    frameList.Add(UInt32.Parse(line, NumberStyles.HexNumber | NumberStyles.AllowLeadingWhite));
+                                else
+                                    break;
+                            }
+
                             Tracebacks.Add(traceback = new Traceback(
                                 tracebackId, frameList.ToArray()
                             ));
+                        }
 
                         scanningHeap.Allocations.Add(new Allocation(
                             UInt32.Parse(m.Groups[groupAllocOffset].Value, NumberStyles.HexNumber),
                             UInt32.Parse(m.Groups[groupAllocSize].Value, NumberStyles.HexNumber),
                             UInt32.Parse(m.Groups[groupAllocOverhead].Value, NumberStyles.HexNumber),
-                            traceback
+                            tracebackId
                         ));
                     }
                 } else if (scanningForMemory) {

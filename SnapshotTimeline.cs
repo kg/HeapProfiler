@@ -181,7 +181,7 @@ namespace HeapProfiler {
                     var value = _ItemValueGetter(item);
 
                     lastY = y;
-                    y = (float)(height - (value / maxValue) * height);
+                    y = (float)(height - ((value / maxValue) * height - 2));
                     lastX = x;
                     x = (int)((item.When.Ticks - minTicks) 
                         * pixelsPerMinute / minuteInTicks) - _ScrollOffset;
