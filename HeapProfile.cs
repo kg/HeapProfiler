@@ -338,7 +338,7 @@ namespace HeapProfiler {
 
         public class ModuleCollection : KeyedCollection2<string, Module> {
             protected override string GetKeyForItem (Module item) {
-                return item.ShortFilename;
+                return item.Filename;
             }
         }
 
