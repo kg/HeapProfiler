@@ -409,12 +409,6 @@ namespace HeapProfiler {
                 LargestOccupiedSpan = Math.Max(LargestOccupiedSpan, currentPair.Second - currentPair.First);
                 EstimatedSize = currentPair.Second - Offset;
             }
-
-            public float Fragmentation {
-                get {
-                    return EmptySpans / (float)(OccupiedSpans + EmptySpans);
-                }
-            }
         }
 
         public class HeapCollection : KeyedCollection2<UInt32, Heap> {
@@ -569,15 +563,6 @@ namespace HeapProfiler {
             DateTimeFromFilename(filename), 
             filename
         ) {
-        }
-
-        public float TotalFragmentation {
-            get {
-                var occupied = (from heap in Heaps.Values select heap.OccupiedSpans).Sum();
-                var empty = (from heap in Heaps.Values select heap.EmptySpans).Sum();
-
-                return occupied / (float)(occupied + empty);
-            }
         }
 
         static int IndexFromFilename (string filename) {

@@ -20,6 +20,7 @@ namespace HeapProfiler {
         public const int MarginWidth = 20;
         public const double GridLineRatio = 0.4;
         public const int MaxGridLines = 16;
+        public const long MaximumThreshold = 256;
 
         public List<TItem> Items = new List<TItem>();
 
@@ -126,14 +127,14 @@ namespace HeapProfiler {
             int height = ClientSize.Height - ScrollBar.Height;
 
             int pixelsPerMinute = PixelsPerMinute * ZoomRatio / 100;
-            long maxValue = 1024;
+            long maxValue = MaximumThreshold;
             long minTicks = 0, maxTicks = 0;
             int contentWidth;
 
             var minuteInTicks = Squared.Util.Time.SecondInTicks * 60;
 
             if (Items.Count > 0) {
-                maxValue = Math.Max(1024, (from s in Items select _ItemValueGetter(s)).Max());
+                maxValue = Math.Max(MaximumThreshold, (from s in Items select _ItemValueGetter(s)).Max());
                 minTicks = (from s in Items select s.When.Ticks).Min();
                 maxTicks = (from s in Items select s.When.Ticks).Max();
                 _ContentWidth = contentWidth = (int)(

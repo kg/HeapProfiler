@@ -437,15 +437,6 @@ namespace HeapProfiler {
             return item.Memory.WorkingSet;
         }
 
-        protected long GetHeapFragmentation (HeapSnapshot item) {
-            if (item.Memory == null)
-                return 0;
-            else if (item.Heaps.Count == 0)
-                return 0;
-
-            return (long)Math.Floor(item.TotalFragmentation * 10000);
-        }
-
         protected long GetLargestFreeHeapBlock (HeapSnapshot item) {
             if (item.Memory == null)
                 return 0;
@@ -464,13 +455,17 @@ namespace HeapProfiler {
             return (long)(from heap in item.Heaps select heap.LargestOccupiedSpan).Max();
         }
 
-        protected string FormatSizeBytes (long bytes) {
-            return FileSize.Format(bytes);
+        protected long GetAverageHeapBlockSize (HeapSnapshot item) {
+            if (item.Memory == null)
+                return 0;
+            else if (item.Heaps.Count == 0)
+                return 0;
+
+            return (long)(from heap in item.Heaps select (heap.TotalOverhead + heap.TotalRequested) / Math.Max(heap.OccupiedSpans, 1)).Average();
         }
 
-        protected string FormatPercentage (long percentageTimes100) {
-            var percent = percentageTimes100 / 100.0;
-            return String.Format("{0}%", percent);
+        protected string FormatSizeBytes (long bytes) {
+            return FileSize.Format(bytes);
         }
 
         private void ViewPagedMemoryMenu_Click (object sender, EventArgs e) {
@@ -488,11 +483,6 @@ namespace HeapProfiler {
             SnapshotTimeline.ItemValueFormatter = FormatSizeBytes;
         }
 
-        private void ViewHeapFragmentationMenu_Click (object sender, EventArgs e) {
-            SnapshotTimeline.ItemValueGetter = GetHeapFragmentation;
-            SnapshotTimeline.ItemValueFormatter = FormatPercentage;
-        }
-
         private void ViewLargestFreeHeapMenu_Click (object sender, EventArgs e) {
             SnapshotTimeline.ItemValueGetter = GetLargestFreeHeapBlock;
             SnapshotTimeline.ItemValueFormatter = FormatSizeBytes;
@@ -503,14 +493,19 @@ namespace HeapProfiler {
             SnapshotTimeline.ItemValueFormatter = FormatSizeBytes;
         }
 
+        private void ViewAverageHeapBlockSizeMenu_Click (object sender, EventArgs e) {
+            SnapshotTimeline.ItemValueGetter = GetAverageHeapBlockSize;
+            SnapshotTimeline.ItemValueFormatter = FormatSizeBytes;
+        }
+
         private void SnapshotTimeline_ItemValueGetterChanged (object sender, EventArgs e) {
             var getter = SnapshotTimeline.ItemValueGetter;
             ViewPagedMemoryMenu.Checked = (getter == GetPagedMemory);
             ViewVirtualMemoryMenu.Checked = (getter == GetVirtualMemory);
             ViewWorkingSetMenu.Checked = (getter == GetWorkingSet);
-            ViewHeapFragmentationMenu.Checked = (getter == GetHeapFragmentation);
             ViewLargestFreeHeapMenu.Checked = (getter == GetLargestFreeHeapBlock);
             ViewLargestOccupiedHeapMenu.Checked = (getter == GetLargestOccupiedHeapBlock);
+            ViewAverageHeapBlockSizeMenu.Checked = (getter == GetAverageHeapBlockSize);
         }
     }
 }
