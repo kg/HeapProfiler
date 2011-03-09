@@ -21,6 +21,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Drawing;
 using System.IO;
+using System.Linq;
 using System.Diagnostics;
 using Squared.Task.Data.Mapper;
 using System.Web.Script.Serialization;
@@ -29,6 +30,7 @@ using Squared.Util.RegexExtensions;
 using System.Text.RegularExpressions;
 using System.Collections.ObjectModel;
 using System.Globalization;
+using Squared.Util;
 
 namespace HeapProfiler {
     public static class Regexes {
@@ -344,8 +346,74 @@ namespace HeapProfiler {
             public readonly UInt32 ID;
             public readonly List<Allocation> Allocations = new List<Allocation>();
 
+            public UInt32 Offset, EstimatedSize, EstimatedFree;
+            public UInt32 TotalOverhead, TotalRequested;
+            public UInt32 LargestFreeSpan, LargestOccupiedSpan;
+            public int OccupiedSpans;
+            public int EmptySpans;
+
             public Heap (UInt32 id) {
                 ID = id;
+            }
+
+            internal void ComputeStatistics () {
+                Offset = ID;
+                OccupiedSpans = EmptySpans = 0;
+                EstimatedSize = EstimatedFree = 0;
+                LargestFreeSpan = LargestOccupiedSpan = 0;
+                TotalOverhead = TotalRequested = 0;
+
+                if (Allocations.Count == 0)
+                    return;
+
+                var currentPair = new Pair<UInt32>(Allocations[0].Offset, Allocations[0].NextOffset);
+                // Detect free space at the front of the heap
+                if (currentPair.First > Offset) {
+                    EmptySpans += 1;
+                    EstimatedFree += currentPair.First - Offset;
+                    LargestFreeSpan = Math.Max(LargestFreeSpan, currentPair.First - Offset);
+                }
+
+                var a = Allocations[0];
+                TotalRequested += a.Size;
+                TotalOverhead += a.Overhead;
+
+                for (int i = 1; i < Allocations.Count; i++) {
+                    a = Allocations[i];
+
+                    if (a.Offset > currentPair.Second) {
+                        // There's empty space between this allocation and the last one, so begin tracking a new occupied span
+                        //  and update the statistics
+                        var emptySize = a.Offset - currentPair.Second;
+
+                        OccupiedSpans += 1;
+                        EmptySpans += 1;
+
+                        EstimatedFree += emptySize;
+
+                        LargestFreeSpan = Math.Max(LargestFreeSpan, emptySize);
+                        LargestOccupiedSpan = Math.Max(LargestOccupiedSpan, currentPair.Second - currentPair.First);
+
+                        currentPair.First = a.Offset;
+                        currentPair.Second = a.NextOffset;
+                    } else {
+                        currentPair.Second = a.NextOffset;
+                    }
+
+                    TotalRequested += a.Size;
+                    TotalOverhead += a.Overhead;
+                }
+
+                // We aren't given the size of the heap, so we treat the end of the last allocation as the end of the heap.
+                OccupiedSpans += 1;
+                LargestOccupiedSpan = Math.Max(LargestOccupiedSpan, currentPair.Second - currentPair.First);
+                EstimatedSize = currentPair.Second - Offset;
+            }
+
+            public float Fragmentation {
+                get {
+                    return EmptySpans / (float)(OccupiedSpans + EmptySpans);
+                }
             }
         }
 
@@ -366,6 +434,12 @@ namespace HeapProfiler {
                 Size = size;
                 Overhead = overhead;
                 TracebackID = tracebackID;
+            }
+
+            public UInt32 NextOffset {
+                get {
+                    return Offset + Size + Overhead;
+                }
             }
         }
 
@@ -480,6 +554,13 @@ namespace HeapProfiler {
                     }
                 }
             }
+
+            foreach (var heap in Heaps) {
+                heap.Allocations.Sort(
+                    (lhs, rhs) => lhs.Offset.CompareTo(rhs.Offset)
+                );
+                heap.ComputeStatistics();
+            }
         }
 
         public HeapSnapshot (string filename)
@@ -488,6 +569,15 @@ namespace HeapProfiler {
             DateTimeFromFilename(filename), 
             filename
         ) {
+        }
+
+        public float TotalFragmentation {
+            get {
+                var occupied = (from heap in Heaps.Values select heap.OccupiedSpans).Sum();
+                var empty = (from heap in Heaps.Values select heap.EmptySpans).Sum();
+
+                return occupied / (float)(occupied + empty);
+            }
         }
 
         static int IndexFromFilename (string filename) {

@@ -56,7 +56,9 @@
             this.ViewPagedMemoryMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.ViewVirtualMemoryMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.ViewWorkingSetMenu = new System.Windows.Forms.ToolStripMenuItem();
-            this.heapFragmentationToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.ViewHeapFragmentationMenu = new System.Windows.Forms.ToolStripMenuItem();
+            this.ViewLargestFreeHeapMenu = new System.Windows.Forms.ToolStripMenuItem();
+            this.ViewLargestOccupiedHeapMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.Activities = new HeapProfiler.ActivityIndicator();
             this.GroupExecutable.SuspendLayout();
             this.GroupSnapshots.SuspendLayout();
@@ -67,10 +69,10 @@
             // 
             this.SelectExecutable.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.SelectExecutable.Font = new System.Drawing.Font("Tahoma", 7.8F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.SelectExecutable.Location = new System.Drawing.Point(541, 17);
-            this.SelectExecutable.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
+            this.SelectExecutable.Location = new System.Drawing.Point(406, 14);
+            this.SelectExecutable.Margin = new System.Windows.Forms.Padding(2);
             this.SelectExecutable.Name = "SelectExecutable";
-            this.SelectExecutable.Size = new System.Drawing.Size(40, 27);
+            this.SelectExecutable.Size = new System.Drawing.Size(30, 22);
             this.SelectExecutable.TabIndex = 1;
             this.SelectExecutable.Text = "...";
             this.ToolTips.SetToolTip(this.SelectExecutable, "Select Executable");
@@ -81,10 +83,10 @@
             // 
             this.SelectWorkingDirectory.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.SelectWorkingDirectory.Font = new System.Drawing.Font("Tahoma", 7.8F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.SelectWorkingDirectory.Location = new System.Drawing.Point(645, 76);
-            this.SelectWorkingDirectory.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
+            this.SelectWorkingDirectory.Location = new System.Drawing.Point(484, 62);
+            this.SelectWorkingDirectory.Margin = new System.Windows.Forms.Padding(2);
             this.SelectWorkingDirectory.Name = "SelectWorkingDirectory";
-            this.SelectWorkingDirectory.Size = new System.Drawing.Size(40, 27);
+            this.SelectWorkingDirectory.Size = new System.Drawing.Size(30, 22);
             this.SelectWorkingDirectory.TabIndex = 7;
             this.SelectWorkingDirectory.Text = "...";
             this.ToolTips.SetToolTip(this.SelectWorkingDirectory, "Select Executable");
@@ -104,11 +106,11 @@
             this.GroupExecutable.Controls.Add(this.SelectExecutable);
             this.GroupExecutable.Controls.Add(this.ExecutablePath);
             this.GroupExecutable.Controls.Add(this.LaunchProcess);
-            this.GroupExecutable.Location = new System.Drawing.Point(11, 39);
-            this.GroupExecutable.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
+            this.GroupExecutable.Location = new System.Drawing.Point(8, 32);
+            this.GroupExecutable.Margin = new System.Windows.Forms.Padding(2);
             this.GroupExecutable.Name = "GroupExecutable";
-            this.GroupExecutable.Padding = new System.Windows.Forms.Padding(3, 2, 3, 2);
-            this.GroupExecutable.Size = new System.Drawing.Size(692, 135);
+            this.GroupExecutable.Padding = new System.Windows.Forms.Padding(2);
+            this.GroupExecutable.Size = new System.Drawing.Size(519, 110);
             this.GroupExecutable.TabIndex = 1;
             this.GroupExecutable.TabStop = false;
             this.GroupExecutable.Text = "Executable";
@@ -120,10 +122,10 @@
                         | System.Windows.Forms.AnchorStyles.Right)));
             this.WorkingDirectory.AutoCompleteMode = System.Windows.Forms.AutoCompleteMode.SuggestAppend;
             this.WorkingDirectory.AutoCompleteSource = System.Windows.Forms.AutoCompleteSource.FileSystemDirectories;
-            this.WorkingDirectory.Location = new System.Drawing.Point(139, 79);
-            this.WorkingDirectory.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
+            this.WorkingDirectory.Location = new System.Drawing.Point(104, 64);
+            this.WorkingDirectory.Margin = new System.Windows.Forms.Padding(2);
             this.WorkingDirectory.Name = "WorkingDirectory";
-            this.WorkingDirectory.Size = new System.Drawing.Size(500, 22);
+            this.WorkingDirectory.Size = new System.Drawing.Size(376, 20);
             this.WorkingDirectory.TabIndex = 6;
             this.WorkingDirectory.DragDrop += new System.Windows.Forms.DragEventHandler(this.WorkingDirectory_DragDrop);
             this.WorkingDirectory.DragOver += new System.Windows.Forms.DragEventHandler(this.WorkingDirectory_DragOver);
@@ -131,10 +133,9 @@
             // label2
             // 
             this.label2.AutoSize = true;
-            this.label2.Location = new System.Drawing.Point(5, 82);
-            this.label2.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
+            this.label2.Location = new System.Drawing.Point(4, 67);
             this.label2.Name = "label2";
-            this.label2.Size = new System.Drawing.Size(125, 17);
+            this.label2.Size = new System.Drawing.Size(95, 13);
             this.label2.TabIndex = 5;
             this.label2.Text = "&Working Directory:";
             // 
@@ -142,19 +143,18 @@
             // 
             this.Arguments.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
                         | System.Windows.Forms.AnchorStyles.Right)));
-            this.Arguments.Location = new System.Drawing.Point(139, 49);
-            this.Arguments.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
+            this.Arguments.Location = new System.Drawing.Point(104, 40);
+            this.Arguments.Margin = new System.Windows.Forms.Padding(2);
             this.Arguments.Name = "Arguments";
-            this.Arguments.Size = new System.Drawing.Size(545, 22);
+            this.Arguments.Size = new System.Drawing.Size(410, 20);
             this.Arguments.TabIndex = 4;
             // 
             // label1
             // 
             this.label1.AutoSize = true;
-            this.label1.Location = new System.Drawing.Point(5, 53);
-            this.label1.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
+            this.label1.Location = new System.Drawing.Point(4, 43);
             this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(80, 17);
+            this.label1.Size = new System.Drawing.Size(60, 13);
             this.label1.TabIndex = 3;
             this.label1.Text = "A&rguments:";
             // 
@@ -162,9 +162,10 @@
             // 
             this.ExecutableStatus.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.ExecutableStatus.AutoSize = true;
-            this.ExecutableStatus.Location = new System.Drawing.Point(5, 111);
+            this.ExecutableStatus.Location = new System.Drawing.Point(4, 90);
+            this.ExecutableStatus.Margin = new System.Windows.Forms.Padding(2, 0, 2, 0);
             this.ExecutableStatus.Name = "ExecutableStatus";
-            this.ExecutableStatus.Size = new System.Drawing.Size(128, 17);
+            this.ExecutableStatus.Size = new System.Drawing.Size(97, 13);
             this.ExecutableStatus.TabIndex = 8;
             this.ExecutableStatus.Text = "Status: Not Started";
             // 
@@ -175,10 +176,10 @@
                         | System.Windows.Forms.AnchorStyles.Right)));
             this.ExecutablePath.AutoCompleteMode = System.Windows.Forms.AutoCompleteMode.SuggestAppend;
             this.ExecutablePath.AutoCompleteSource = System.Windows.Forms.AutoCompleteSource.FileSystem;
-            this.ExecutablePath.Location = new System.Drawing.Point(9, 20);
-            this.ExecutablePath.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
+            this.ExecutablePath.Location = new System.Drawing.Point(7, 16);
+            this.ExecutablePath.Margin = new System.Windows.Forms.Padding(2);
             this.ExecutablePath.Name = "ExecutablePath";
-            this.ExecutablePath.Size = new System.Drawing.Size(525, 22);
+            this.ExecutablePath.Size = new System.Drawing.Size(395, 20);
             this.ExecutablePath.TabIndex = 0;
             this.ExecutablePath.TextChanged += new System.EventHandler(this.ExecutablePath_TextChanged);
             this.ExecutablePath.DragDrop += new System.Windows.Forms.DragEventHandler(this.ExecutablePath_DragDrop);
@@ -189,10 +190,10 @@
             this.LaunchProcess.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.LaunchProcess.Enabled = false;
             this.LaunchProcess.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.LaunchProcess.Location = new System.Drawing.Point(585, 17);
-            this.LaunchProcess.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
+            this.LaunchProcess.Location = new System.Drawing.Point(439, 14);
+            this.LaunchProcess.Margin = new System.Windows.Forms.Padding(2);
             this.LaunchProcess.Name = "LaunchProcess";
-            this.LaunchProcess.Size = new System.Drawing.Size(100, 27);
+            this.LaunchProcess.Size = new System.Drawing.Size(75, 22);
             this.LaunchProcess.TabIndex = 2;
             this.LaunchProcess.Text = "&Launch";
             this.LaunchProcess.UseVisualStyleBackColor = true;
@@ -208,11 +209,11 @@
             this.GroupSnapshots.Controls.Add(this.DiffSelection);
             this.GroupSnapshots.Controls.Add(this.CaptureSnapshot);
             this.GroupSnapshots.Controls.Add(this.SnapshotTimeline);
-            this.GroupSnapshots.Location = new System.Drawing.Point(11, 180);
-            this.GroupSnapshots.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
+            this.GroupSnapshots.Location = new System.Drawing.Point(8, 146);
+            this.GroupSnapshots.Margin = new System.Windows.Forms.Padding(2);
             this.GroupSnapshots.Name = "GroupSnapshots";
-            this.GroupSnapshots.Padding = new System.Windows.Forms.Padding(3, 2, 3, 2);
-            this.GroupSnapshots.Size = new System.Drawing.Size(692, 319);
+            this.GroupSnapshots.Padding = new System.Windows.Forms.Padding(2);
+            this.GroupSnapshots.Size = new System.Drawing.Size(519, 259);
             this.GroupSnapshots.TabIndex = 2;
             this.GroupSnapshots.TabStop = false;
             this.GroupSnapshots.Text = "Snapshots";
@@ -220,10 +221,10 @@
             // SaveAllSnapshots
             // 
             this.SaveAllSnapshots.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.SaveAllSnapshots.Location = new System.Drawing.Point(553, 121);
-            this.SaveAllSnapshots.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
+            this.SaveAllSnapshots.Location = new System.Drawing.Point(415, 98);
+            this.SaveAllSnapshots.Margin = new System.Windows.Forms.Padding(2);
             this.SaveAllSnapshots.Name = "SaveAllSnapshots";
-            this.SaveAllSnapshots.Size = new System.Drawing.Size(133, 27);
+            this.SaveAllSnapshots.Size = new System.Drawing.Size(100, 22);
             this.SaveAllSnapshots.TabIndex = 5;
             this.SaveAllSnapshots.Text = "&Save All...";
             this.SaveAllSnapshots.UseVisualStyleBackColor = true;
@@ -233,10 +234,9 @@
             // 
             this.AutoCapture.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.AutoCapture.Appearance = System.Windows.Forms.Appearance.Button;
-            this.AutoCapture.Location = new System.Drawing.Point(553, 54);
-            this.AutoCapture.Margin = new System.Windows.Forms.Padding(4);
+            this.AutoCapture.Location = new System.Drawing.Point(415, 44);
             this.AutoCapture.Name = "AutoCapture";
-            this.AutoCapture.Size = new System.Drawing.Size(133, 27);
+            this.AutoCapture.Size = new System.Drawing.Size(100, 22);
             this.AutoCapture.TabIndex = 4;
             this.AutoCapture.Text = "&Auto Capture";
             this.AutoCapture.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
@@ -247,10 +247,10 @@
             // 
             this.DiffSelection.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.DiffSelection.Enabled = false;
-            this.DiffSelection.Location = new System.Drawing.Point(553, 87);
-            this.DiffSelection.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
+            this.DiffSelection.Location = new System.Drawing.Point(415, 71);
+            this.DiffSelection.Margin = new System.Windows.Forms.Padding(2);
             this.DiffSelection.Name = "DiffSelection";
-            this.DiffSelection.Size = new System.Drawing.Size(133, 27);
+            this.DiffSelection.Size = new System.Drawing.Size(100, 22);
             this.DiffSelection.TabIndex = 2;
             this.DiffSelection.Text = "&Diff Selection";
             this.DiffSelection.UseVisualStyleBackColor = true;
@@ -261,10 +261,10 @@
             this.CaptureSnapshot.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.CaptureSnapshot.Enabled = false;
             this.CaptureSnapshot.Font = new System.Drawing.Font("Microsoft Sans Serif", 7.8F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.CaptureSnapshot.Location = new System.Drawing.Point(553, 21);
-            this.CaptureSnapshot.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
+            this.CaptureSnapshot.Location = new System.Drawing.Point(415, 17);
+            this.CaptureSnapshot.Margin = new System.Windows.Forms.Padding(2);
             this.CaptureSnapshot.Name = "CaptureSnapshot";
-            this.CaptureSnapshot.Size = new System.Drawing.Size(133, 27);
+            this.CaptureSnapshot.Size = new System.Drawing.Size(100, 22);
             this.CaptureSnapshot.TabIndex = 1;
             this.CaptureSnapshot.Text = "&Capture Now";
             this.CaptureSnapshot.UseVisualStyleBackColor = true;
@@ -276,14 +276,13 @@
                         | System.Windows.Forms.AnchorStyles.Left)
                         | System.Windows.Forms.AnchorStyles.Right)));
             this.SnapshotTimeline.BackColor = System.Drawing.SystemColors.Control;
+            this.SnapshotTimeline.Font = new System.Drawing.Font("Consolas", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.SnapshotTimeline.ForeColor = System.Drawing.SystemColors.WindowText;
-            this.SnapshotTimeline.ItemValueGetter = ((System.Func<HeapProfiler.HeapSnapshot, long>)(resources.GetObject("SnapshotTimeline.ItemValueGetter")));
-            this.SnapshotTimeline.Location = new System.Drawing.Point(5, 21);
+            this.SnapshotTimeline.Location = new System.Drawing.Point(4, 17);
+            this.SnapshotTimeline.Margin = new System.Windows.Forms.Padding(2);
             this.SnapshotTimeline.Name = "SnapshotTimeline";
-            this.SnapshotTimeline.ScrollOffset = 0;
-            this.SnapshotTimeline.Size = new System.Drawing.Size(541, 292);
+            this.SnapshotTimeline.Size = new System.Drawing.Size(406, 237);
             this.SnapshotTimeline.TabIndex = 6;
-            this.SnapshotTimeline.ZoomRatio = 100;
             this.SnapshotTimeline.SelectionChanged += new System.EventHandler(this.SnapshotTimeline_SelectionChanged);
             this.SnapshotTimeline.ItemValueGetterChanged += new System.EventHandler(this.SnapshotTimeline_ItemValueGetterChanged);
             // 
@@ -295,8 +294,7 @@
             this.viewToolStripMenuItem});
             this.MainMenu.Location = new System.Drawing.Point(0, 0);
             this.MainMenu.Name = "MainMenu";
-            this.MainMenu.Padding = new System.Windows.Forms.Padding(8, 2, 0, 2);
-            this.MainMenu.Size = new System.Drawing.Size(712, 28);
+            this.MainMenu.Size = new System.Drawing.Size(534, 24);
             this.MainMenu.TabIndex = 0;
             this.MainMenu.Text = "menuStrip1";
             // 
@@ -309,39 +307,39 @@
             this.toolStripMenuItem1,
             this.exitToolStripMenuItem});
             this.fileToolStripMenuItem.Name = "fileToolStripMenuItem";
-            this.fileToolStripMenuItem.Size = new System.Drawing.Size(44, 24);
+            this.fileToolStripMenuItem.Size = new System.Drawing.Size(37, 20);
             this.fileToolStripMenuItem.Text = "&File";
             // 
             // OpenDiffMenu
             // 
             this.OpenDiffMenu.Name = "OpenDiffMenu";
-            this.OpenDiffMenu.Size = new System.Drawing.Size(194, 24);
+            this.OpenDiffMenu.Size = new System.Drawing.Size(169, 22);
             this.OpenDiffMenu.Text = "Open &Diff...";
             this.OpenDiffMenu.Click += new System.EventHandler(this.OpenDiffMenu_Click);
             // 
             // OpenSnapshotsMenu
             // 
             this.OpenSnapshotsMenu.Name = "OpenSnapshotsMenu";
-            this.OpenSnapshotsMenu.Size = new System.Drawing.Size(194, 24);
+            this.OpenSnapshotsMenu.Size = new System.Drawing.Size(169, 22);
             this.OpenSnapshotsMenu.Text = "&Open Snapshots...";
             this.OpenSnapshotsMenu.Click += new System.EventHandler(this.OpenSnapshotsMenu_Click);
             // 
             // SaveSnapshotsMenu
             // 
             this.SaveSnapshotsMenu.Name = "SaveSnapshotsMenu";
-            this.SaveSnapshotsMenu.Size = new System.Drawing.Size(194, 24);
+            this.SaveSnapshotsMenu.Size = new System.Drawing.Size(169, 22);
             this.SaveSnapshotsMenu.Text = "&Save Snapshots...";
             this.SaveSnapshotsMenu.Click += new System.EventHandler(this.SaveAllSnapshots_Click);
             // 
             // toolStripMenuItem1
             // 
             this.toolStripMenuItem1.Name = "toolStripMenuItem1";
-            this.toolStripMenuItem1.Size = new System.Drawing.Size(191, 6);
+            this.toolStripMenuItem1.Size = new System.Drawing.Size(166, 6);
             // 
             // exitToolStripMenuItem
             // 
             this.exitToolStripMenuItem.Name = "exitToolStripMenuItem";
-            this.exitToolStripMenuItem.Size = new System.Drawing.Size(194, 24);
+            this.exitToolStripMenuItem.Size = new System.Drawing.Size(169, 22);
             this.exitToolStripMenuItem.Text = "E&xit";
             this.exitToolStripMenuItem.Click += new System.EventHandler(this.ExitMenu_Click);
             // 
@@ -351,21 +349,21 @@
             this.SymbolPathMenu,
             this.AssociateHeapdiffsMenu});
             this.OptionsMenu.Name = "OptionsMenu";
-            this.OptionsMenu.Size = new System.Drawing.Size(73, 24);
+            this.OptionsMenu.Size = new System.Drawing.Size(61, 20);
             this.OptionsMenu.Text = "&Options";
             this.OptionsMenu.DropDownOpening += new System.EventHandler(this.OptionsMenu_DropDownOpening);
             // 
             // SymbolPathMenu
             // 
             this.SymbolPathMenu.Name = "SymbolPathMenu";
-            this.SymbolPathMenu.Size = new System.Drawing.Size(359, 24);
+            this.SymbolPathMenu.Size = new System.Drawing.Size(296, 22);
             this.SymbolPathMenu.Text = "&Symbols...";
             this.SymbolPathMenu.Click += new System.EventHandler(this.SymbolPathMenu_Click);
             // 
             // AssociateHeapdiffsMenu
             // 
             this.AssociateHeapdiffsMenu.Name = "AssociateHeapdiffsMenu";
-            this.AssociateHeapdiffsMenu.Size = new System.Drawing.Size(359, 24);
+            this.AssociateHeapdiffsMenu.Size = new System.Drawing.Size(296, 22);
             this.AssociateHeapdiffsMenu.Text = "&Associate .heapdiff files with Heap Profiler";
             this.AssociateHeapdiffsMenu.Click += new System.EventHandler(this.AssociateHeapdiffsMenu_Click);
             // 
@@ -375,9 +373,11 @@
             this.ViewPagedMemoryMenu,
             this.ViewVirtualMemoryMenu,
             this.ViewWorkingSetMenu,
-            this.heapFragmentationToolStripMenuItem});
+            this.ViewHeapFragmentationMenu,
+            this.ViewLargestFreeHeapMenu,
+            this.ViewLargestOccupiedHeapMenu});
             this.viewToolStripMenuItem.Name = "viewToolStripMenuItem";
-            this.viewToolStripMenuItem.Size = new System.Drawing.Size(53, 24);
+            this.viewToolStripMenuItem.Size = new System.Drawing.Size(44, 20);
             this.viewToolStripMenuItem.Text = "&View";
             // 
             // ViewPagedMemoryMenu
@@ -385,54 +385,67 @@
             this.ViewPagedMemoryMenu.Checked = true;
             this.ViewPagedMemoryMenu.CheckState = System.Windows.Forms.CheckState.Checked;
             this.ViewPagedMemoryMenu.Name = "ViewPagedMemoryMenu";
-            this.ViewPagedMemoryMenu.Size = new System.Drawing.Size(215, 24);
+            this.ViewPagedMemoryMenu.Size = new System.Drawing.Size(229, 22);
             this.ViewPagedMemoryMenu.Text = "Paged Memory";
             this.ViewPagedMemoryMenu.Click += new System.EventHandler(this.ViewPagedMemoryMenu_Click);
             // 
             // ViewVirtualMemoryMenu
             // 
             this.ViewVirtualMemoryMenu.Name = "ViewVirtualMemoryMenu";
-            this.ViewVirtualMemoryMenu.Size = new System.Drawing.Size(215, 24);
+            this.ViewVirtualMemoryMenu.Size = new System.Drawing.Size(229, 22);
             this.ViewVirtualMemoryMenu.Text = "Virtual Memory";
             this.ViewVirtualMemoryMenu.Click += new System.EventHandler(this.ViewVirtualMemoryMenu_Click);
             // 
             // ViewWorkingSetMenu
             // 
             this.ViewWorkingSetMenu.Name = "ViewWorkingSetMenu";
-            this.ViewWorkingSetMenu.Size = new System.Drawing.Size(215, 24);
+            this.ViewWorkingSetMenu.Size = new System.Drawing.Size(229, 22);
             this.ViewWorkingSetMenu.Text = "Working Set";
             this.ViewWorkingSetMenu.Click += new System.EventHandler(this.ViewWorkingSetMenu_Click);
             // 
-            // heapFragmentationToolStripMenuItem
+            // ViewHeapFragmentationMenu
             // 
-            this.heapFragmentationToolStripMenuItem.Enabled = false;
-            this.heapFragmentationToolStripMenuItem.Name = "heapFragmentationToolStripMenuItem";
-            this.heapFragmentationToolStripMenuItem.Size = new System.Drawing.Size(215, 24);
-            this.heapFragmentationToolStripMenuItem.Text = "Heap Fragmentation";
+            this.ViewHeapFragmentationMenu.Name = "ViewHeapFragmentationMenu";
+            this.ViewHeapFragmentationMenu.Size = new System.Drawing.Size(229, 22);
+            this.ViewHeapFragmentationMenu.Text = "Heap Fragmentation";
+            this.ViewHeapFragmentationMenu.Click += new System.EventHandler(this.ViewHeapFragmentationMenu_Click);
+            // 
+            // ViewLargestFreeHeapMenu
+            // 
+            this.ViewLargestFreeHeapMenu.Name = "ViewLargestFreeHeapMenu";
+            this.ViewLargestFreeHeapMenu.Size = new System.Drawing.Size(229, 22);
+            this.ViewLargestFreeHeapMenu.Text = "Largest Free Heap Block";
+            this.ViewLargestFreeHeapMenu.Click += new System.EventHandler(this.ViewLargestFreeHeapMenu_Click);
+            // 
+            // ViewLargestOccupiedHeapMenu
+            // 
+            this.ViewLargestOccupiedHeapMenu.Name = "ViewLargestOccupiedHeapMenu";
+            this.ViewLargestOccupiedHeapMenu.Size = new System.Drawing.Size(229, 22);
+            this.ViewLargestOccupiedHeapMenu.Text = "Largest Occupied Heap Block";
+            this.ViewLargestOccupiedHeapMenu.Click += new System.EventHandler(this.ViewLargestOccupiedHeapMenu_Click);
             // 
             // Activities
             // 
             this.Activities.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)
                         | System.Windows.Forms.AnchorStyles.Right)));
-            this.Activities.Location = new System.Drawing.Point(11, 505);
-            this.Activities.Margin = new System.Windows.Forms.Padding(4);
+            this.Activities.Location = new System.Drawing.Point(8, 410);
             this.Activities.Name = "Activities";
-            this.Activities.Size = new System.Drawing.Size(692, 12);
+            this.Activities.Size = new System.Drawing.Size(519, 10);
             this.Activities.TabIndex = 3;
             this.Activities.PreferredSizeChanged += new System.EventHandler(this.Activities_PreferredSizeChanged);
             // 
             // MainWindow
             // 
-            this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
+            this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(712, 532);
+            this.ClientSize = new System.Drawing.Size(534, 432);
             this.Controls.Add(this.Activities);
             this.Controls.Add(this.GroupSnapshots);
             this.Controls.Add(this.GroupExecutable);
             this.Controls.Add(this.MainMenu);
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.MainMenuStrip = this.MainMenu;
-            this.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
+            this.Margin = new System.Windows.Forms.Padding(2);
             this.Name = "MainWindow";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "Heap Profiler";
@@ -482,7 +495,9 @@
         private System.Windows.Forms.ToolStripMenuItem ViewPagedMemoryMenu;
         private System.Windows.Forms.ToolStripMenuItem ViewVirtualMemoryMenu;
         private System.Windows.Forms.ToolStripMenuItem ViewWorkingSetMenu;
-        private System.Windows.Forms.ToolStripMenuItem heapFragmentationToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem ViewHeapFragmentationMenu;
+        private System.Windows.Forms.ToolStripMenuItem ViewLargestFreeHeapMenu;
+        private System.Windows.Forms.ToolStripMenuItem ViewLargestOccupiedHeapMenu;
     }
 }
 

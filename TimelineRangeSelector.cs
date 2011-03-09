@@ -71,6 +71,8 @@ namespace HeapProfiler {
             base.Dispose(disposing);
         }
 
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        [Browsable(false)]
         public Snapshot Begin {
             get {
                 if ((BeginIndex < 0) || (BeginIndex >= Items.Count))
@@ -87,6 +89,8 @@ namespace HeapProfiler {
             }
         }
 
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        [Browsable(false)]
         public Snapshot End {
             get {
                 if ((EndIndex < 0) || (EndIndex >= Items.Count))
@@ -103,6 +107,8 @@ namespace HeapProfiler {
             }
         }
 
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        [Browsable(false)]
         public Pair<int> Indices {
             get {
                 return new Pair<int>(BeginIndex, EndIndex);

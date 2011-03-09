@@ -15,8 +15,11 @@ namespace HeapProfiler {
         public event EventHandler SelectionChanged;
         public event EventHandler ItemValueGetterChanged;
 
+        public const int VerticalMargin = 2;
         public const int PixelsPerMinute = 120;
         public const int MarginWidth = 20;
+        public const double GridLineRatio = 0.4;
+        public const int MaxGridLines = 16;
 
         public List<TItem> Items = new List<TItem>();
 
@@ -26,12 +29,13 @@ namespace HeapProfiler {
         protected ToolTip ToolTip;
 
         protected Func<TItem, long> _ItemValueGetter;
+        protected Func<long, string> _ItemValueFormatter;
         protected int _ZoomRatio = 100;
         protected int _ContentWidth = 0; 
         protected int _ScrollOffset = 0;
+        protected string _ToolTipText = null;
         protected Point _MouseDownLocation;
         protected Pair<int> _Selection = new Pair<int>(-1, -1);
-        protected Pair<int> _ToolTipRange = new Pair<int>(-1, -1);
 
         public SnapshotTimeline () {
             SetStyle(
@@ -67,14 +71,14 @@ namespace HeapProfiler {
             ZoomOutButton.Click += new EventHandler(ZoomOutButton_Click);
 
             ToolTip = new ToolTip();
+            _ItemValueGetter = (s) => 0;
+            _ItemValueFormatter = (v) => String.Format("{0}", v);
 
             OnResize(EventArgs.Empty);
 
             Controls.Add(ScrollBar);
             Controls.Add(ZoomInButton);
             Controls.Add(ZoomOutButton);
-
-            _ItemValueGetter = (s) => 0;
         }
 
         void ZoomOutButton_Click (object sender, EventArgs e) {
@@ -122,14 +126,14 @@ namespace HeapProfiler {
             int height = ClientSize.Height - ScrollBar.Height;
 
             int pixelsPerMinute = PixelsPerMinute * ZoomRatio / 100;
-            double maxValue = 1024;
+            long maxValue = 1024;
             long minTicks = 0, maxTicks = 0;
             int contentWidth;
 
             var minuteInTicks = Squared.Util.Time.SecondInTicks * 60;
 
             if (Items.Count > 0) {
-                maxValue = Math.Max(1024, (double)((from s in Items select _ItemValueGetter(s)).Max()));
+                maxValue = Math.Max(1024, (from s in Items select _ItemValueGetter(s)).Max());
                 minTicks = (from s in Items select s.When.Ticks).Min();
                 maxTicks = (from s in Items select s.When.Ticks).Max();
                 _ContentWidth = contentWidth = (int)(
@@ -167,23 +171,45 @@ namespace HeapProfiler {
 
                 g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
 
+                float y = 0;
+                using (var textBrush = new SolidBrush(ForeColor))
+                {
+                    g.DrawLine(gridPen, 0, height - VerticalMargin, ClientSize.Width, height - VerticalMargin);
+                    g.DrawLine(gridPen, 0, VerticalMargin, Width, VerticalMargin);
+
+                    var lineHeight = g.MeasureString("AaBbYyZz", Font).Height;
+                    var numLines = (int)Math.Min(
+                        Math.Max(2, Math.Floor((height / lineHeight) * GridLineRatio)),
+                        MaxGridLines
+                    );
+                    for (int i = 0; i <= numLines; i++) {
+                        var value = (maxValue * i / numLines);
+                        var text = _ItemValueFormatter(value);
+                        y = (float)(height - VerticalMargin - ((value / (double)maxValue) * (height - VerticalMargin * 2)));
+
+                        g.DrawLine(gridPen, 0, y, ClientSize.Width, y);
+                        g.DrawString(text, Font, textBrush, new PointF(4, y)); 
+                    }
+                }
+
                 int x = 0, lastX = 0;
-                float y = 0, lastY = 0;
+                float lastY = 0;
+                y = 0;
 
                 var mousePoints = new List<PointF>();
                 var points = new List<PointF>();
 
                 for (int i = 0; (i < Items.Count) && (lastX <= ClientSize.Width); i++) {
-                    bool selected = HasSelection && 
-                        (i >= _Selection.First) && 
+                    bool selected = HasSelection &&
+                        (i >= _Selection.First) &&
                         (i <= _Selection.Second);
                     var item = Items[i];
                     var value = _ItemValueGetter(item);
 
                     lastY = y;
-                    y = (float)(height - ((value / maxValue) * height - 2));
+                    y = (float)(height - VerticalMargin - ((value / (double)maxValue) * (height - VerticalMargin * 2)));
                     lastX = x;
-                    x = (int)((item.When.Ticks - minTicks) 
+                    x = (int)((item.When.Ticks - minTicks)
                         * pixelsPerMinute / minuteInTicks) - _ScrollOffset;
 
                     using (var brush = new SolidBrush(selected ? SystemColors.HighlightText : ForeColor))
@@ -307,19 +333,59 @@ namespace HeapProfiler {
             var index1 = IndexFromPoint(mouseLocation, -1);
             var index2 = IndexFromPoint(mouseLocation, 1);
 
-            SetToolTip(Pair.New(index1, index2));
+            if ((index1 < 0) && (index2 < 0)) {
+                SetToolTip();
+                return;
+            }
+
+            if (index1 < 0)
+                SetToolTip(index2);
+            else
+                SetToolTip(index1);
+        }
+
+        protected void SetToolTip () {
+            if (_ToolTipText == null)
+                return;
+
+            _ToolTipText = null;
+            ToolTip.SetToolTip(this, null);
+        }
+
+        protected void SetToolTip (int index) {
+            var item = Items[index];
+            var value = _ItemValueGetter(item);
+            var formattedValue = _ItemValueFormatter(value);
+            var text = String.Format(
+                "{0}: {1}",
+                Items[index].When.ToLongTimeString(),
+                formattedValue
+            );
+
+            if (text == _ToolTipText)
+                return;
+
+            _ToolTipText = text;
+            ToolTip.SetToolTip(this, text);
         }
 
         protected void SetToolTip (Pair<int> range) {
-            if (range.CompareTo(_ToolTipRange) == 0)
+            if ((range.First < 0) || (range.Second < 0)) {
+                SetToolTip();
                 return;
+            }
 
-            _ToolTipRange = range;
-            ToolTip.SetToolTip(this, String.Format(
+            var text = String.Format(
                 "{0} - {1}",
                 Items[range.First].When.ToLongTimeString(),
                 Items[range.Second].When.ToLongTimeString()
-            ));
+            );
+
+            if (text == _ToolTipText)
+                return;
+
+            _ToolTipText = text;
+            ToolTip.SetToolTip(this, text);
         }
 
         protected override void OnMouseDown (MouseEventArgs e) {
@@ -377,6 +443,8 @@ namespace HeapProfiler {
             }
         }
 
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        [Browsable(false)]
         public int ContentWidth {
             get {
                 return _ContentWidth;
@@ -415,6 +483,8 @@ namespace HeapProfiler {
             return false;
         }
 
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        [Browsable(false)]
         public int ScrollOffset {
             get {
                 return _ScrollOffset;
@@ -435,6 +505,8 @@ namespace HeapProfiler {
             }
         }
 
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        [Browsable(false)]
         public int ZoomRatio {
             get {
                 return _ZoomRatio;
@@ -453,6 +525,8 @@ namespace HeapProfiler {
             }
         }
 
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        [Browsable(false)]
         public Pair<int> Selection {
             get {
                 return _Selection;
@@ -473,12 +547,16 @@ namespace HeapProfiler {
             }
         }
 
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        [Browsable(false)]
         public bool HasSelection {
             get {
                 return (_Selection.First != -1) && (_Selection.Second != -1);
             }
         }
 
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        [Browsable(false)]
         public Func<TItem, long> ItemValueGetter {
             get {
                 return _ItemValueGetter;
@@ -490,6 +568,21 @@ namespace HeapProfiler {
                     Invalidate();
                     if (ItemValueGetterChanged != null)
                         ItemValueGetterChanged(this, EventArgs.Empty);
+                }
+            }
+        }
+
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        [Browsable(false)]
+        public Func<long, string> ItemValueFormatter {
+            get {
+                return _ItemValueFormatter;
+            }
+            set {
+                if (value != _ItemValueFormatter) {
+                    _ItemValueFormatter = value;
+
+                    Invalidate();
                 }
             }
         }

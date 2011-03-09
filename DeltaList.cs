@@ -350,6 +350,8 @@ namespace HeapProfiler {
             Data[Items[index]] = newData;
         }
 
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        [Browsable(false)]
         public int SelectedIndex {
             get {
                 return _SelectedIndex;
@@ -369,6 +371,8 @@ namespace HeapProfiler {
             }
         }
 
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        [Browsable(false)]
         public int ScrollOffset {
             get {
                 return _ScrollOffset;

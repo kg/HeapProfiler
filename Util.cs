@@ -568,6 +568,12 @@ namespace HeapProfiler {
     public abstract class KeyedCollection2<TKey, TValue> :
         KeyedCollection<TKey, TValue> where TValue : class {
 
+        public IList<TValue> Values {
+            get {
+                return base.Items;
+            }
+        }
+
         public bool TryGetValue (TKey key, out TValue value) {
             if (base.Dictionary != null)
                 return base.Dictionary.TryGetValue(key, out value);

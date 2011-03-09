@@ -32,6 +32,10 @@ using Microsoft.Win32;
 
 namespace HeapProfiler {
     public partial class MainWindow : TaskForm {
+        public const int CaptureMemoryChangeThresholdPercentage = 5;
+        public const double CaptureCheckIntervalSeconds = 1.0;
+        public const double CaptureMaxIntervalSeconds = 60.0;
+
         public RunningProcess Instance = null;
 
         protected IFuture AutoCaptureFuture = null;
@@ -49,6 +53,7 @@ namespace HeapProfiler {
             };
 
             SnapshotTimeline.ItemValueGetter = GetPagedMemory;
+            SnapshotTimeline.ItemValueFormatter = FormatSizeBytes;
 
             LoadPersistedValues();
         }
@@ -274,13 +279,33 @@ namespace HeapProfiler {
             while ((Instance == null) || (!Instance.Running))
                 yield return sleep;
 
-            sleep = new Sleep(5.0);
+            sleep = new Sleep(CaptureCheckIntervalSeconds);
+
+            long captureInterval = (long)(CaptureMaxIntervalSeconds * Time.SecondInTicks);
+            long lastPaged = 0, lastWorking = 0, lastCaptureWhen = 0;
+            bool shouldCapture = false;
 
             while (AutoCapture.Checked && Instance.Running) {
-                yield return Instance.CaptureSnapshot();
+                Instance.Process.Refresh();
+                var pagedDelta = Math.Abs(Instance.Process.PagedMemorySize64 - lastPaged);
+                var workingDelta = Math.Abs(Instance.Process.WorkingSet64 - lastWorking);
+                var deltaPercent = Math.Max(
+                    pagedDelta * 100 / Math.Max(Instance.Process.PagedMemorySize64, lastPaged),
+                    workingDelta * 100 / Math.Max(Instance.Process.WorkingSet64, lastWorking)
+                );
+                var elapsed = Time.Ticks - lastCaptureWhen;
 
-                using (Activities.AddItem("Waiting for next automatic capture"))
-                    yield return sleep;
+                shouldCapture = (deltaPercent >= CaptureMemoryChangeThresholdPercentage) || 
+                    (elapsed > captureInterval);
+
+                if (shouldCapture) {
+                    lastPaged = Instance.Process.PagedMemorySize64;
+                    lastWorking = Instance.Process.WorkingSet64;
+                    lastCaptureWhen = Time.Ticks;
+                    yield return Instance.CaptureSnapshot();
+                }
+
+                yield return sleep;
             }
         }
 
@@ -412,16 +437,70 @@ namespace HeapProfiler {
             return item.Memory.WorkingSet;
         }
 
+        protected long GetHeapFragmentation (HeapSnapshot item) {
+            if (item.Memory == null)
+                return 0;
+            else if (item.Heaps.Count == 0)
+                return 0;
+
+            return (long)Math.Floor(item.TotalFragmentation * 10000);
+        }
+
+        protected long GetLargestFreeHeapBlock (HeapSnapshot item) {
+            if (item.Memory == null)
+                return 0;
+            else if (item.Heaps.Count == 0)
+                return 0;
+
+            return (long)(from heap in item.Heaps select heap.LargestFreeSpan).Max();
+        }
+
+        protected long GetLargestOccupiedHeapBlock (HeapSnapshot item) {
+            if (item.Memory == null)
+                return 0;
+            else if (item.Heaps.Count == 0)
+                return 0;
+
+            return (long)(from heap in item.Heaps select heap.LargestOccupiedSpan).Max();
+        }
+
+        protected string FormatSizeBytes (long bytes) {
+            return FileSize.Format(bytes);
+        }
+
+        protected string FormatPercentage (long percentageTimes100) {
+            var percent = percentageTimes100 / 100.0;
+            return String.Format("{0}%", percent);
+        }
+
         private void ViewPagedMemoryMenu_Click (object sender, EventArgs e) {
             SnapshotTimeline.ItemValueGetter = GetPagedMemory;
+            SnapshotTimeline.ItemValueFormatter = FormatSizeBytes;
         }
 
         private void ViewVirtualMemoryMenu_Click (object sender, EventArgs e) {
             SnapshotTimeline.ItemValueGetter = GetVirtualMemory;
+            SnapshotTimeline.ItemValueFormatter = FormatSizeBytes;
         }
 
         private void ViewWorkingSetMenu_Click (object sender, EventArgs e) {
             SnapshotTimeline.ItemValueGetter = GetWorkingSet;
+            SnapshotTimeline.ItemValueFormatter = FormatSizeBytes;
+        }
+
+        private void ViewHeapFragmentationMenu_Click (object sender, EventArgs e) {
+            SnapshotTimeline.ItemValueGetter = GetHeapFragmentation;
+            SnapshotTimeline.ItemValueFormatter = FormatPercentage;
+        }
+
+        private void ViewLargestFreeHeapMenu_Click (object sender, EventArgs e) {
+            SnapshotTimeline.ItemValueGetter = GetLargestFreeHeapBlock;
+            SnapshotTimeline.ItemValueFormatter = FormatSizeBytes;
+        }
+
+        private void ViewLargestOccupiedHeapMenu_Click (object sender, EventArgs e) {
+            SnapshotTimeline.ItemValueGetter = GetLargestOccupiedHeapBlock;
+            SnapshotTimeline.ItemValueFormatter = FormatSizeBytes;
         }
 
         private void SnapshotTimeline_ItemValueGetterChanged (object sender, EventArgs e) {
@@ -429,6 +508,9 @@ namespace HeapProfiler {
             ViewPagedMemoryMenu.Checked = (getter == GetPagedMemory);
             ViewVirtualMemoryMenu.Checked = (getter == GetVirtualMemory);
             ViewWorkingSetMenu.Checked = (getter == GetWorkingSet);
+            ViewHeapFragmentationMenu.Checked = (getter == GetHeapFragmentation);
+            ViewLargestFreeHeapMenu.Checked = (getter == GetLargestFreeHeapBlock);
+            ViewLargestOccupiedHeapMenu.Checked = (getter == GetLargestOccupiedHeapBlock);
         }
     }
 }

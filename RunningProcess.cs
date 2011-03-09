@@ -30,8 +30,6 @@ using System.Text.RegularExpressions;
 
 namespace HeapProfiler {
     public class RunningProcess : IDisposable {
-        public const int TraceDatabaseSizeMB = 128;
-
         public readonly TaskScheduler Scheduler;
         public readonly ActivityIndicator Activities;
         public readonly OwnedFutureSet Futures = new OwnedFutureSet();
@@ -43,7 +41,7 @@ namespace HeapProfiler {
         public event EventHandler StatusChanged;
         public event EventHandler SnapshotsChanged;
 
-        protected Process Process;
+        public Process Process;
 
         protected readonly LRUCache<Pair<string>, string> DiffCache = new LRUCache<Pair<string>, string>(32);
 
@@ -147,7 +145,7 @@ namespace HeapProfiler {
             using (Activities.AddItem("Enabling heap instrumentation"))
             yield return Program.RunProcess(new ProcessStartInfo(
                 Settings.GflagsPath, String.Format(
-                    "-i {0} +ust -tracedb {1}", shortName, TraceDatabaseSizeMB
+                    "-i \"{0}\" +ust", shortName
                 )
             ));
 
@@ -165,7 +163,7 @@ namespace HeapProfiler {
             using (Activities.AddItem("Disabling heap instrumentation"))
             yield return Program.RunProcess(new ProcessStartInfo(
                 Settings.GflagsPath, String.Format(
-                    "-i {0} -ust", shortName
+                    "-i \"{0}\" -ust", shortName
                 )
             ));
 
