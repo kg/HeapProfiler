@@ -587,4 +587,46 @@ namespace HeapProfiler {
             return false;
         }
     }
+
+    public interface IProgressListener {
+        string Status {
+            set;
+        }
+        int? Progress {
+            set;
+        }
+        int Maximum {
+            set;
+        }
+    }
+
+    public class CallbackProgressListener : IProgressListener {
+        public Action<string> OnSetStatus = null;
+        public Action<int?> OnSetProgress = null;
+        public Action<int> OnSetMaximum = null;
+
+        public string Status {
+            set { 
+                if (OnSetStatus != null)
+                    OnSetStatus(value);
+            }
+        }
+
+        public int? Progress {
+            set {
+                if (OnSetProgress != null)
+                    OnSetProgress(value);
+            }
+        }
+
+        public int Maximum {
+            set {
+                if (OnSetMaximum != null)
+                    OnSetMaximum(value);
+            }
+        }
+
+        protected void Dispose () {
+        }
+    }
 }

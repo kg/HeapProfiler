@@ -122,12 +122,7 @@ namespace HeapProfiler {
         }
 
         protected Color SelectItemColor (ref TItem item) {
-            int id;
-            if (!int.TryParse(
-                    item.Traceback.TraceId, NumberStyles.HexNumber, 
-                    CultureInfo.InvariantCulture.NumberFormat, out id
-                ))
-                id = item.Traceback.TraceId.GetHashCode();
+            var id = BitConverter.ToInt32(BitConverter.GetBytes(item.Traceback.TraceId), 0);
 
             int hue = (id & 0xFFFF) % (HSV.HueMax);
             int value = ((id & (0xFFFF << 16)) % (HSV.ValueMax * 70 / 100)) + (HSV.ValueMax * 25 / 100);

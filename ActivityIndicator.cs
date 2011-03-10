@@ -10,7 +10,7 @@ using System.Threading;
 
 namespace HeapProfiler {
     public partial class ActivityIndicator : UserControl {
-        public class Item : IDisposable {
+        public class Item : IDisposable, IProgressListener {
             readonly ActivityIndicator Owner;
             internal readonly Label Label;
             internal readonly ProgressBar ProgressBar;

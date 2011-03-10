@@ -30,6 +30,19 @@ using System.Text.RegularExpressions;
 
 namespace HeapProfiler {
     public class RunningProcess : IDisposable {
+        public const int SymbolResolveBatchSize = 1024;
+        public const int MaxFramesPerTraceback = 31;
+
+        public struct PendingSymbolResolve {
+            public readonly UInt32 Frame;
+            public readonly Future<TracebackFrame> Result;
+
+            public PendingSymbolResolve (UInt32 frame, Future<TracebackFrame> result) {
+                Frame = frame;
+                Result = result;
+            }
+        }
+
         public readonly TaskScheduler Scheduler;
         public readonly ActivityIndicator Activities;
         public readonly OwnedFutureSet Futures = new OwnedFutureSet();
@@ -43,6 +56,10 @@ namespace HeapProfiler {
 
         public Process Process;
 
+        protected readonly HashSet<HeapSnapshot.Module> SymbolModules = new HashSet<HeapSnapshot.Module>();
+        protected readonly Dictionary<UInt32, TracebackFrame> ResolvedSymbolCache = new Dictionary<UInt32, TracebackFrame>();
+        protected readonly Dictionary<UInt32, Future<TracebackFrame>> PendingSymbolResolves = new Dictionary<UInt32, Future<TracebackFrame>>();
+        protected readonly BlockingQueue<PendingSymbolResolve> SymbolResolveQueue = new BlockingQueue<PendingSymbolResolve>();
         protected readonly LRUCache<Pair<string>, string> DiffCache = new LRUCache<Pair<string>, string>(32);
 
         protected RunningProcess (
@@ -110,12 +127,178 @@ namespace HeapProfiler {
             Snapshots.Clear();
             Snapshots.AddRange(newSnaps);
 
+            SymbolModules.Clear();
+            using (var progress = Activities.AddItem("Scanning symbols"))
+            foreach (var snap in Snapshots) {
+                foreach (var module in snap.Modules)
+                    SymbolModules.Add(module);
+
+                yield return ResolveSymbolsForSnapshot(snap);
+            }
+
             OnSnapshotsChanged();
 
             GC.Collect();
         }
 
         protected void StartHelperTasks () {
+            Futures.Add(Scheduler.Start(
+                SymbolResolverTask(), TaskExecutionPolicy.RunAsBackgroundTask
+            ));
+        }
+
+        protected bool ResolveFrame (UInt32 frame, out TracebackFrame resolved, out Future<TracebackFrame> pendingResolve) {
+            if (ResolvedSymbolCache.TryGetValue(frame, out resolved)) {
+                pendingResolve = null;
+                return true;
+            }
+
+            if (!PendingSymbolResolves.TryGetValue(frame, out pendingResolve)) {
+                var f = PendingSymbolResolves[frame] = new Future<TracebackFrame>();
+                var item = new PendingSymbolResolve(frame, f);
+
+                SymbolResolveQueue.Enqueue(item);
+            }
+
+            return false;
+        }
+
+        protected IEnumerator<object> ResolveSymbolsForSnapshot (HeapSnapshot snapshot) {
+            TracebackFrame tf;
+            Future<TracebackFrame> ftf;
+            var yield = new Yield();
+
+            foreach (var traceback in snapshot.Tracebacks) {
+                foreach (var frame in traceback.Frames)
+                    ResolveFrame(frame, out tf, out ftf);
+
+                yield return yield;
+            }
+        }
+
+        protected IEnumerator<object> SymbolResolverTask () {
+            var yield = new Yield();
+            var batch = new List<PendingSymbolResolve>();
+            var nullProgress = new CallbackProgressListener();
+            int p = 0, c = 0;
+            ActivityIndicator.Item progress = null;
+
+            while (true) {
+                var count = SymbolResolveBatchSize - batch.Count;
+                SymbolResolveQueue.DequeueMultiple(batch, count);
+
+                if (batch.Count == 0) {
+                    p = c = 0;
+                    if (progress != null) {
+                        progress.Dispose();
+                        progress = null;
+                    }
+
+                    var f = SymbolResolveQueue.Dequeue();
+                    using (f)
+                        yield return f;
+
+                    batch.Add(f.Result);
+                } else {
+                    if (progress == null) {
+                        progress = Activities.AddItem("Resolving symbols");
+                        c = batch.Count + SymbolResolveQueue.Count;
+                    } else {
+                        c = p + SymbolResolveQueue.Count;
+                        progress.Maximum = c;
+                        progress.Progress = p;
+                    }
+
+                    string infile = Path.GetTempFileName(), outfile = Path.GetTempFileName();
+
+                    var psi = new ProcessStartInfo(
+                        Settings.UmdhPath, String.Format(
+                            "-d \"{0}\" -f:\"{1}\"", infile, outfile
+                        )
+                    );
+
+                    using (var sw = new StreamWriter(infile, false, Encoding.ASCII)) {
+                        sw.WriteLine("// Loaded modules:");
+                        sw.WriteLine("//     Base Size Module");
+
+                        foreach (var module in SymbolModules)
+                            sw.WriteLine(
+                                "//            {0:X8} {1:X8} {2}", 
+                                module.Offset, module.Size, module.Filename
+                            );
+
+                        sw.WriteLine("//");
+                        sw.WriteLine("// Process modules enumerated.");
+
+                        sw.WriteLine();
+                        sw.WriteLine("*- - - - - - - - - - Heap 0 Hogs - - - - - - - - - -");
+                        sw.WriteLine();
+
+                        for (int i = 0, j = 0; i < batch.Count; i++) {
+                            if ((i == 0) || (i % MaxFramesPerTraceback == 0)) {
+                                sw.WriteLine(
+                                    "{0:X8} bytes + {1:X8} at {2:X8} by BackTrace{3:X8}",
+                                    1, 0, j, j
+                                );
+                                j += 1;
+                            }
+
+                            sw.WriteLine("\t{0:X8}", batch[i].Frame);
+                        }
+                    }
+
+                    using (Finally.Do(() => {
+                        try {
+                            File.Delete(infile);
+                        } catch {
+                        }
+                    }))
+                    using (var rp = Scheduler.Start(Program.RunProcess(psi), TaskExecutionPolicy.RunAsBackgroundTask))
+                        yield return rp;
+
+                    using (Finally.Do(() => {
+                        try {
+                            File.Delete(outfile);
+                        } catch {
+                        }
+                    })) {
+                        var rtc = new RunToCompletion<HeapDiff>(
+                            HeapDiff.FromFile(outfile, nullProgress)
+                        );
+
+                        using (rtc)
+                            yield return rtc;
+
+                        int i = 0;
+                        foreach (var traceback in rtc.Result.Tracebacks) {
+                            foreach (var frame in traceback.Value.Frames) {
+                                var key = batch[i].Frame;
+                                batch[i].Result.Complete(frame);
+                                ResolvedSymbolCache[key] = frame;
+                                PendingSymbolResolves.Remove(key);
+                                i += 1;
+                            }
+
+                            yield return yield;
+                        }
+
+                        foreach (var frame in batch) {
+                            if (frame.Result.Completed)
+                                continue;
+
+                            Console.WriteLine("Frame {0:x8} could not be resolved!", frame.Frame);
+
+                            var tf = new TracebackFrame(frame.Frame);
+                            frame.Result.Complete(tf);
+                            ResolvedSymbolCache[frame.Frame] = tf;
+                            PendingSymbolResolves.Remove(frame.Frame);
+                        }
+                    }
+
+                    p += batch.Count;
+                    batch.Clear();
+                }
+            }
         }
 
         void DiffCache_ItemEvicted (KeyValuePair<Pair<string>, string> item) {
@@ -253,7 +436,16 @@ namespace HeapProfiler {
                 );
                 yield return fSnapshot;
 
-                Snapshots.Add(fSnapshot.Result);
+                var snap = fSnapshot.Result;
+
+                Snapshots.Add(snap);
+
+                using (var progress = Activities.AddItem("Scanning symbols")) {
+                    foreach (var module in snap.Modules)
+                        SymbolModules.Add(module);
+
+                    yield return ResolveSymbolsForSnapshot(snap);
+                }
             }
 
             OnSnapshotsChanged();
