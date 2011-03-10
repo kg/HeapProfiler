@@ -409,6 +409,12 @@ namespace HeapProfiler {
                 LargestOccupiedSpan = Math.Max(LargestOccupiedSpan, currentPair.Second - currentPair.First);
                 EstimatedSize = currentPair.Second - Offset;
             }
+
+            public float Fragmentation {
+                get {
+                    return EmptySpans / (float)Math.Max(1, Allocations.Count);
+                }
+            }
         }
 
         public class HeapCollection : KeyedCollection2<UInt32, Heap> {
@@ -579,6 +585,15 @@ namespace HeapProfiler {
                 parts[1].Replace("_", ":"), "u",
                 System.Globalization.DateTimeFormatInfo.InvariantInfo
             );
+        }
+
+        public float HeapFragmentation {
+            get {
+                if (Heaps.Count == 0)
+                    return 0.0f;
+
+                return (from heap in Heaps select heap.EmptySpans).Sum() / (float)Math.Max(1, (from heap in Heaps select heap.Allocations.Count).Sum());
+            }
         }
 
         public override string ToString () {

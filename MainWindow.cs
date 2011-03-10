@@ -446,6 +446,15 @@ namespace HeapProfiler {
             return (long)(from heap in item.Heaps select heap.LargestFreeSpan).Max();
         }
 
+        protected long GetAverageFreeHeapBlockSize (HeapSnapshot item) {
+            if (item.Memory == null)
+                return 0;
+            else if (item.Heaps.Count == 0)
+                return 0;
+
+            return (long)(from heap in item.Heaps select (heap.EstimatedFree) / Math.Max(heap.EmptySpans, 1)).Average();
+        }
+
         protected long GetLargestOccupiedHeapBlock (HeapSnapshot item) {
             if (item.Memory == null)
                 return 0;
@@ -455,7 +464,7 @@ namespace HeapProfiler {
             return (long)(from heap in item.Heaps select heap.LargestOccupiedSpan).Max();
         }
 
-        protected long GetAverageHeapBlockSize (HeapSnapshot item) {
+        protected long GetAverageOccupiedHeapBlockSize (HeapSnapshot item) {
             if (item.Memory == null)
                 return 0;
             else if (item.Heaps.Count == 0)
@@ -464,8 +473,19 @@ namespace HeapProfiler {
             return (long)(from heap in item.Heaps select (heap.TotalOverhead + heap.TotalRequested) / Math.Max(heap.OccupiedSpans, 1)).Average();
         }
 
+        protected long GetHeapFragmentation (HeapSnapshot item) {
+            if (item.Memory == null)
+                return 0;
+
+            return (long)(item.HeapFragmentation * 10000);
+        }
+
         protected string FormatSizeBytes (long bytes) {
             return FileSize.Format(bytes);
+        }
+
+        protected string FormatPercentage (long percentage) {
+            return String.Format("{0}%", (percentage / 100.0f));
         }
 
         private void ViewPagedMemoryMenu_Click (object sender, EventArgs e) {
@@ -494,8 +514,18 @@ namespace HeapProfiler {
         }
 
         private void ViewAverageHeapBlockSizeMenu_Click (object sender, EventArgs e) {
-            SnapshotTimeline.ItemValueGetter = GetAverageHeapBlockSize;
+            SnapshotTimeline.ItemValueGetter = GetAverageOccupiedHeapBlockSize;
             SnapshotTimeline.ItemValueFormatter = FormatSizeBytes;
+        }
+
+        private void ViewAverageFreeBlockSizeMenu_Click (object sender, EventArgs e) {
+            SnapshotTimeline.ItemValueGetter = GetAverageFreeHeapBlockSize;
+            SnapshotTimeline.ItemValueFormatter = FormatSizeBytes;
+        }
+
+        private void ViewHeapFragmentationMenu_Click (object sender, EventArgs e) {
+            SnapshotTimeline.ItemValueGetter = GetHeapFragmentation;
+            SnapshotTimeline.ItemValueFormatter = FormatPercentage;
         }
 
         private void SnapshotTimeline_ItemValueGetterChanged (object sender, EventArgs e) {
@@ -504,8 +534,10 @@ namespace HeapProfiler {
             ViewVirtualMemoryMenu.Checked = (getter == GetVirtualMemory);
             ViewWorkingSetMenu.Checked = (getter == GetWorkingSet);
             ViewLargestFreeHeapMenu.Checked = (getter == GetLargestFreeHeapBlock);
+            ViewAverageFreeBlockSizeMenu.Checked = (getter == GetAverageFreeHeapBlockSize);
             ViewLargestOccupiedHeapMenu.Checked = (getter == GetLargestOccupiedHeapBlock);
-            ViewAverageHeapBlockSizeMenu.Checked = (getter == GetAverageHeapBlockSize);
+            ViewAverageHeapBlockSizeMenu.Checked = (getter == GetAverageOccupiedHeapBlockSize);
+            ViewHeapFragmentationMenu.Checked = (getter == GetHeapFragmentation);
         }
     }
 }

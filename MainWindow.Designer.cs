@@ -59,7 +59,9 @@
             this.ViewLargestFreeHeapMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.ViewLargestOccupiedHeapMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.ViewAverageHeapBlockSizeMenu = new System.Windows.Forms.ToolStripMenuItem();
+            this.ViewHeapFragmentationMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.Activities = new HeapProfiler.ActivityIndicator();
+            this.ViewAverageFreeBlockSizeMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.GroupExecutable.SuspendLayout();
             this.GroupSnapshots.SuspendLayout();
             this.MainMenu.SuspendLayout();
@@ -374,8 +376,10 @@
             this.ViewVirtualMemoryMenu,
             this.ViewWorkingSetMenu,
             this.ViewLargestFreeHeapMenu,
+            this.ViewAverageFreeBlockSizeMenu,
             this.ViewLargestOccupiedHeapMenu,
-            this.ViewAverageHeapBlockSizeMenu});
+            this.ViewAverageHeapBlockSizeMenu,
+            this.ViewHeapFragmentationMenu});
             this.viewToolStripMenuItem.Name = "viewToolStripMenuItem";
             this.viewToolStripMenuItem.Size = new System.Drawing.Size(44, 20);
             this.viewToolStripMenuItem.Text = "&View";
@@ -385,44 +389,51 @@
             this.ViewPagedMemoryMenu.Checked = true;
             this.ViewPagedMemoryMenu.CheckState = System.Windows.Forms.CheckState.Checked;
             this.ViewPagedMemoryMenu.Name = "ViewPagedMemoryMenu";
-            this.ViewPagedMemoryMenu.Size = new System.Drawing.Size(229, 22);
+            this.ViewPagedMemoryMenu.Size = new System.Drawing.Size(226, 22);
             this.ViewPagedMemoryMenu.Text = "Paged Memory";
             this.ViewPagedMemoryMenu.Click += new System.EventHandler(this.ViewPagedMemoryMenu_Click);
             // 
             // ViewVirtualMemoryMenu
             // 
             this.ViewVirtualMemoryMenu.Name = "ViewVirtualMemoryMenu";
-            this.ViewVirtualMemoryMenu.Size = new System.Drawing.Size(229, 22);
+            this.ViewVirtualMemoryMenu.Size = new System.Drawing.Size(226, 22);
             this.ViewVirtualMemoryMenu.Text = "Virtual Memory";
             this.ViewVirtualMemoryMenu.Click += new System.EventHandler(this.ViewVirtualMemoryMenu_Click);
             // 
             // ViewWorkingSetMenu
             // 
             this.ViewWorkingSetMenu.Name = "ViewWorkingSetMenu";
-            this.ViewWorkingSetMenu.Size = new System.Drawing.Size(229, 22);
+            this.ViewWorkingSetMenu.Size = new System.Drawing.Size(226, 22);
             this.ViewWorkingSetMenu.Text = "Working Set";
             this.ViewWorkingSetMenu.Click += new System.EventHandler(this.ViewWorkingSetMenu_Click);
             // 
             // ViewLargestFreeHeapMenu
             // 
             this.ViewLargestFreeHeapMenu.Name = "ViewLargestFreeHeapMenu";
-            this.ViewLargestFreeHeapMenu.Size = new System.Drawing.Size(229, 22);
-            this.ViewLargestFreeHeapMenu.Text = "Largest Free Heap Block";
+            this.ViewLargestFreeHeapMenu.Size = new System.Drawing.Size(226, 22);
+            this.ViewLargestFreeHeapMenu.Text = "Largest Free Block";
             this.ViewLargestFreeHeapMenu.Click += new System.EventHandler(this.ViewLargestFreeHeapMenu_Click);
             // 
             // ViewLargestOccupiedHeapMenu
             // 
             this.ViewLargestOccupiedHeapMenu.Name = "ViewLargestOccupiedHeapMenu";
-            this.ViewLargestOccupiedHeapMenu.Size = new System.Drawing.Size(229, 22);
-            this.ViewLargestOccupiedHeapMenu.Text = "Largest Occupied Heap Block";
+            this.ViewLargestOccupiedHeapMenu.Size = new System.Drawing.Size(226, 22);
+            this.ViewLargestOccupiedHeapMenu.Text = "Largest Occupied Block";
             this.ViewLargestOccupiedHeapMenu.Click += new System.EventHandler(this.ViewLargestOccupiedHeapMenu_Click);
             // 
             // ViewAverageHeapBlockSizeMenu
             // 
             this.ViewAverageHeapBlockSizeMenu.Name = "ViewAverageHeapBlockSizeMenu";
-            this.ViewAverageHeapBlockSizeMenu.Size = new System.Drawing.Size(229, 22);
-            this.ViewAverageHeapBlockSizeMenu.Text = "Average Heap Block Size";
+            this.ViewAverageHeapBlockSizeMenu.Size = new System.Drawing.Size(226, 22);
+            this.ViewAverageHeapBlockSizeMenu.Text = "Average Occupied Block Size";
             this.ViewAverageHeapBlockSizeMenu.Click += new System.EventHandler(this.ViewAverageHeapBlockSizeMenu_Click);
+            // 
+            // ViewHeapFragmentationMenu
+            // 
+            this.ViewHeapFragmentationMenu.Name = "ViewHeapFragmentationMenu";
+            this.ViewHeapFragmentationMenu.Size = new System.Drawing.Size(226, 22);
+            this.ViewHeapFragmentationMenu.Text = "Heap Fragmentation";
+            this.ViewHeapFragmentationMenu.Click += new System.EventHandler(this.ViewHeapFragmentationMenu_Click);
             // 
             // Activities
             // 
@@ -433,6 +444,13 @@
             this.Activities.Size = new System.Drawing.Size(519, 10);
             this.Activities.TabIndex = 3;
             this.Activities.PreferredSizeChanged += new System.EventHandler(this.Activities_PreferredSizeChanged);
+            // 
+            // ViewAverageFreeBlockSizeMenu
+            // 
+            this.ViewAverageFreeBlockSizeMenu.Name = "ViewAverageFreeBlockSizeMenu";
+            this.ViewAverageFreeBlockSizeMenu.Size = new System.Drawing.Size(226, 22);
+            this.ViewAverageFreeBlockSizeMenu.Text = "Average Free Block Size";
+            this.ViewAverageFreeBlockSizeMenu.Click += new System.EventHandler(this.ViewAverageFreeBlockSizeMenu_Click);
             // 
             // MainWindow
             // 
@@ -498,6 +516,8 @@
         private System.Windows.Forms.ToolStripMenuItem ViewLargestFreeHeapMenu;
         private System.Windows.Forms.ToolStripMenuItem ViewLargestOccupiedHeapMenu;
         private System.Windows.Forms.ToolStripMenuItem ViewAverageHeapBlockSizeMenu;
+        private System.Windows.Forms.ToolStripMenuItem ViewHeapFragmentationMenu;
+        private System.Windows.Forms.ToolStripMenuItem ViewAverageFreeBlockSizeMenu;
     }
 }
 
