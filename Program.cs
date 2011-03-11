@@ -23,6 +23,7 @@ using System.Windows.Forms;
 using Squared.Task;
 using System.Diagnostics;
 using System.IO;
+using Squared.Task.IO;
 
 namespace HeapProfiler {
     static class Program {
@@ -146,20 +147,20 @@ namespace HeapProfiler {
             );
         }
 
-        public static IEnumerator<object> RunProcess (ProcessStartInfo psi) {
-            var rtc = new RunToCompletion<RunProcessResult>(RunProcessWithResult(psi));
+        public static IEnumerator<object> RunProcess (ProcessStartInfo psi, ProcessPriorityClass? priority = null) {
+            var rtc = new RunToCompletion<RunProcessResult>(RunProcessWithResult(psi, priority));
             yield return rtc;
 
-            if (rtc.Result.StdOut.Trim().Length > 0)
+            if ((rtc.Result.StdOut ?? "").Trim().Length > 0)
                 Console.WriteLine("{0} stdout:\n{1}", Path.GetFileNameWithoutExtension(psi.FileName), rtc.Result.StdOut);
-            if (rtc.Result.StdErr.Trim().Length > 0)
+            if ((rtc.Result.StdErr ?? "").Trim().Length > 0)
                 Console.WriteLine("{0} stderr:\n{1}", Path.GetFileNameWithoutExtension(psi.FileName), rtc.Result.StdErr);
 
             if (rtc.Result.ExitCode != 0)
                 throw new Exception(String.Format("Process exited with code {0}", rtc.Result.ExitCode));
         }
 
-        public static IEnumerator<object> RunProcessWithResult (ProcessStartInfo psi) {
+        public static IEnumerator<object> RunProcessWithResult (ProcessStartInfo psi, ProcessPriorityClass? priority = null) {
             psi.UseShellExecute = false;
             psi.CreateNoWindow = true;
             psi.RedirectStandardOutput = true;
@@ -170,13 +171,18 @@ namespace HeapProfiler {
             yield return fProcess;
 
             using (var process = fProcess.Result)
+            using (var stdout = new AsyncTextReader(
+                new StreamDataAdapter(process.StandardOutput.BaseStream, false)
+            ))
+            using (var stderr = new AsyncTextReader(
+                new StreamDataAdapter(process.StandardError.BaseStream, false)
+            ))
             try {
-                var fStdOut = Future.RunInThread(
-                    () => process.StandardOutput.ReadToEnd()
-                );
-                var fStdErr = Future.RunInThread(
-                    () => process.StandardError.ReadToEnd()
-                );
+                if (priority.HasValue)
+                    process.PriorityClass = priority.Value;
+
+                var fStdOut = stdout.ReadToEnd();
+                var fStdErr = stderr.ReadToEnd();
 
                 yield return WaitForProcessExit(process);
 

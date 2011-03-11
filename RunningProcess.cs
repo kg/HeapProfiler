@@ -27,11 +27,23 @@ using System.Windows.Forms;
 using Squared.Util;
 using Squared.Util.RegexExtensions;
 using System.Text.RegularExpressions;
+using System.Threading;
+using Squared.Task.IO;
 
 namespace HeapProfiler {
     public class RunningProcess : IDisposable {
         public const int SymbolResolveBatchSize = 1024;
         public const int MaxFramesPerTraceback = 31;
+
+        public static class SymbolResolveState {
+            public static int Count = 0;
+            public static ActivityIndicator.CountedItem Progress;
+        }
+
+        public static class SnapshotLoadState {
+            public static int PendingLoads = 0;
+            public static ActivityIndicator.CountedItem Progress;
+        }
 
         public struct PendingSymbolResolve {
             public readonly UInt32 Frame;
@@ -49,7 +61,6 @@ namespace HeapProfiler {
         public readonly List<HeapSnapshot> Snapshots = new List<HeapSnapshot>();
         public readonly HashSet<string> TemporaryFiles = new HashSet<string>();
         public readonly ProcessStartInfo StartInfo;
-        public readonly IFuture LoadComplete;
 
         public event EventHandler StatusChanged;
         public event EventHandler SnapshotsChanged;
@@ -60,6 +71,7 @@ namespace HeapProfiler {
         protected readonly Dictionary<UInt32, TracebackFrame> ResolvedSymbolCache = new Dictionary<UInt32, TracebackFrame>();
         protected readonly Dictionary<UInt32, Future<TracebackFrame>> PendingSymbolResolves = new Dictionary<UInt32, Future<TracebackFrame>>();
         protected readonly BlockingQueue<PendingSymbolResolve> SymbolResolveQueue = new BlockingQueue<PendingSymbolResolve>();
+        protected readonly BlockingQueue<string> SnapshotLoadQueue = new BlockingQueue<string>();
         protected readonly LRUCache<Pair<string>, string> DiffCache = new LRUCache<Pair<string>, string>(32);
 
         protected RunningProcess (
@@ -77,8 +89,6 @@ namespace HeapProfiler {
             ));
             StartHelperTasks();
 
-            LoadComplete = new SignalFuture(true);
-
             DiffCache.ItemEvicted += DiffCache_ItemEvicted;
         }
 
@@ -90,60 +100,27 @@ namespace HeapProfiler {
             Scheduler = scheduler;
             Activities = activities;
 
-            LoadComplete = Scheduler.Start(
-                LoadSnapshots(snapshots),
-                TaskExecutionPolicy.RunAsBackgroundTask
-            );
-            Futures.Add(LoadComplete);
-
             StartHelperTasks();
+
+            SnapshotLoadQueue.EnqueueMultiple(snapshots);
 
             DiffCache.ItemEvicted += DiffCache_ItemEvicted;
         }
 
-        public IEnumerator<object> LoadSnapshots (IEnumerable<string> filenames) {
-            var newSnaps = new List<HeapSnapshot>();
-
-            int c = filenames.Count(), i = 0;
-            using (var progress = Activities.AddItem("Loading snapshots"))
-            foreach (var filename in filenames) {
-                progress.Maximum = c;
-                progress.Progress = i;
-
-                var fSnapshot = Future.RunInThread(
-                    () => new HeapSnapshot(filename)
-                );
-
-                yield return fSnapshot;
-                newSnaps.Add(fSnapshot.Result);
-
-                i += 1;
-            }
-
-            // Resort the loaded snapshots, since it's possible for the user to load
-            //  a subset of a full capture, or load snapshots in the wrong order
-            newSnaps.Sort((lhs, rhs) => lhs.When.CompareTo(rhs.When));
-
-            Snapshots.Clear();
-            Snapshots.AddRange(newSnaps);
-
-            SymbolModules.Clear();
-            using (var progress = Activities.AddItem("Scanning symbols"))
-            foreach (var snap in Snapshots) {
-                foreach (var module in snap.Modules)
-                    SymbolModules.Add(module);
-
-                yield return ResolveSymbolsForSnapshot(snap);
-            }
-
-            OnSnapshotsChanged();
-
-            GC.Collect();
-        }
-
         protected void StartHelperTasks () {
+            var numWorkers = Math.Max(1, Environment.ProcessorCount / 2);
+
+            SymbolResolveState.Progress = new ActivityIndicator.CountedItem(Activities, "Resolving symbols");
+            SymbolResolveState.Count = 0;
+            SnapshotLoadState.Progress = new ActivityIndicator.CountedItem(Activities, "Loading snapshots");
+
+            for (int i = 0; i < numWorkers; i++)
+                Futures.Add(Scheduler.Start(
+                    SymbolResolverTask(), TaskExecutionPolicy.RunAsBackgroundTask
+                ));
+
             Futures.Add(Scheduler.Start(
-                SymbolResolverTask(), TaskExecutionPolicy.RunAsBackgroundTask
+                SnapshotIOTask(), TaskExecutionPolicy.RunAsBackgroundTask
             ));
         }
 
@@ -167,32 +144,44 @@ namespace HeapProfiler {
             TracebackFrame tf;
             Future<TracebackFrame> ftf;
             var yield = new Yield();
+            var sleep = new Sleep(0.01);
 
-            foreach (var traceback in snapshot.Tracebacks) {
+            SymbolResolveState.Count = 0;
+
+            for (int i = 0, c = snapshot.Tracebacks.Count; i < c; i++) {
+                var traceback = snapshot.Tracebacks[i];
                 foreach (var frame in traceback.Frames)
                     ResolveFrame(frame, out tf, out ftf);
 
-                yield return yield;
+                if ((i % 25 == 0))
+                    yield return sleep;
+                else
+                    yield return yield;
             }
         }
 
         protected IEnumerator<object> SymbolResolverTask () {
             var yield = new Yield();
+            var sleep = new Sleep(0.1);
             var batch = new List<PendingSymbolResolve>();
             var nullProgress = new CallbackProgressListener();
-            int p = 0, c = 0;
-            ActivityIndicator.Item progress = null;
+            ActivityIndicator.CountedItem progress = null;
 
             while (true) {
+                while (SnapshotLoadQueue.Count > 0)
+                    yield return sleep;
+
                 var count = SymbolResolveBatchSize - batch.Count;
                 SymbolResolveQueue.DequeueMultiple(batch, count);
 
                 if (batch.Count == 0) {
-                    p = c = 0;
                     if (progress != null) {
-                        progress.Dispose();
+                        progress.Decrement();
                         progress = null;
                     }
+
+                    if (!SymbolResolveState.Progress.Active && (SymbolResolveQueue.Count <= 0))
+                        SymbolResolveState.Count = 0;
 
                     var f = SymbolResolveQueue.Dequeue();
                     using (f)
@@ -200,16 +189,47 @@ namespace HeapProfiler {
 
                     batch.Add(f.Result);
                 } else {
-                    if (progress == null) {
-                        progress = Activities.AddItem("Resolving symbols");
-                        c = batch.Count + SymbolResolveQueue.Count;
-                    } else {
-                        c = p + SymbolResolveQueue.Count;
-                        progress.Maximum = c;
-                        progress.Progress = p;
-                    }
+                    if (progress == null)
+                        progress = SymbolResolveState.Progress.Increment();
+
+                    var maximum = SymbolResolveState.Count + Math.Max(0, SymbolResolveQueue.Count);
+                    progress.Maximum = maximum;
+                    progress.Progress = Math.Min(maximum, SymbolResolveState.Count);
 
                     string infile = Path.GetTempFileName(), outfile = Path.GetTempFileName();
+
+                    var symbolModules = SymbolModules.ToArray();
+                    yield return Future.RunInThread(() => {
+                        using (var sw = new StreamWriter(infile, false, Encoding.ASCII)) {
+                            sw.WriteLine("// Loaded modules:");
+                            sw.WriteLine("//     Base Size Module");
+
+                            foreach (var module in symbolModules)
+                                sw.WriteLine(
+                                    "//            {0:X8} {1:X8} {2}", 
+                                    module.Offset, module.Size, module.Filename
+                                );
+
+                            sw.WriteLine("//");
+                            sw.WriteLine("// Process modules enumerated.");
+
+                            sw.WriteLine();
+                            sw.WriteLine("*- - - - - - - - - - Heap 0 Hogs - - - - - - - - - -");
+                            sw.WriteLine();
+
+                            for (int i = 0, j = 0; i < batch.Count; i++) {
+                                if ((i == 0) || (i % MaxFramesPerTraceback == 0)) {
+                                    sw.WriteLine(
+                                        "{0:X8} bytes + {1:X8} at {2:X8} by BackTrace{3:X8}",
+                                        1, 0, j, j
+                                    );
+                                    j += 1;
+                                }
+
+                                sw.WriteLine("\t{0:X8}", batch[i].Frame);
+                            }
+                        }
+                    });
 
                     var psi = new ProcessStartInfo(
                         Settings.UmdhPath, String.Format(
@@ -217,43 +237,16 @@ namespace HeapProfiler {
                         )
                     );
 
-                    using (var sw = new StreamWriter(infile, false, Encoding.ASCII)) {
-                        sw.WriteLine("// Loaded modules:");
-                        sw.WriteLine("//     Base Size Module");
-
-                        foreach (var module in SymbolModules)
-                            sw.WriteLine(
-                                "//            {0:X8} {1:X8} {2}", 
-                                module.Offset, module.Size, module.Filename
-                            );
-
-                        sw.WriteLine("//");
-                        sw.WriteLine("// Process modules enumerated.");
-
-                        sw.WriteLine();
-                        sw.WriteLine("*- - - - - - - - - - Heap 0 Hogs - - - - - - - - - -");
-                        sw.WriteLine();
-
-                        for (int i = 0, j = 0; i < batch.Count; i++) {
-                            if ((i == 0) || (i % MaxFramesPerTraceback == 0)) {
-                                sw.WriteLine(
-                                    "{0:X8} bytes + {1:X8} at {2:X8} by BackTrace{3:X8}",
-                                    1, 0, j, j
-                                );
-                                j += 1;
-                            }
-
-                            sw.WriteLine("\t{0:X8}", batch[i].Frame);
-                        }
-                    }
-
                     using (Finally.Do(() => {
                         try {
                             File.Delete(infile);
                         } catch {
                         }
                     }))
-                    using (var rp = Scheduler.Start(Program.RunProcess(psi), TaskExecutionPolicy.RunAsBackgroundTask))
+                    using (var rp = Scheduler.Start(
+                        Program.RunProcess(psi, ProcessPriorityClass.Idle), 
+                        TaskExecutionPolicy.RunAsBackgroundTask
+                    ))
                         yield return rp;
 
                     using (Finally.Do(() => {
@@ -295,10 +288,69 @@ namespace HeapProfiler {
                         }
                     }
 
-                    p += batch.Count;
+                    Interlocked.Add(ref SymbolResolveState.Count, batch.Count);
                     batch.Clear();
                 }
             }
+        }
+
+        protected IEnumerator<object> SnapshotIOTask () {
+            ActivityIndicator.CountedItem progress = null;
+            var sleep = new Sleep(0.05);
+
+            while (true) {
+                if (SnapshotLoadQueue.Count <= 0) {
+                    if (progress != null) {
+                        progress.Decrement();
+                        progress = null;
+                    }
+                }
+
+                var f = SnapshotLoadQueue.Dequeue();
+                using (f)
+                    yield return f;
+
+                if (progress == null)
+                    progress = SnapshotLoadState.Progress.Increment();
+
+                using (var fda = new FileDataAdapter(f.Result, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)) {
+                    var bytes = new byte[fda.BaseStream.Length];
+                    yield return fda.Read(bytes, 0, bytes.Length);
+
+                    Interlocked.Increment(ref SnapshotLoadState.PendingLoads);
+                    progress.Increment();
+
+                    while (SnapshotLoadState.PendingLoads >= Environment.ProcessorCount - 1)
+                        yield return sleep;
+
+                    var stream = new MemoryStream(bytes, false);
+                    yield return new Start(LoadSnapshotFromStream(f.Result, stream, progress));
+                }
+            }
+        }
+
+        protected IEnumerator<object> LoadSnapshotFromStream (string filename, Stream stream, ActivityIndicator.CountedItem progress) {
+            var fSnapshot = Future.RunInThread(
+                () => new HeapSnapshot(filename, stream)
+            );
+            yield return fSnapshot;
+
+            // Resort the loaded snapshots, since it's possible for the user to load
+            //  a subset of a full capture, or load snapshots in the wrong order
+            Snapshots.Add(fSnapshot.Result);
+            Snapshots.Sort((lhs, rhs) => lhs.When.CompareTo(rhs.When));
+
+            OnSnapshotsChanged();
+
+            foreach (var module in fSnapshot.Result.Modules)
+                SymbolModules.Add(module);
+
+            yield return new Start(
+                ResolveSymbolsForSnapshot(fSnapshot.Result), TaskExecutionPolicy.RunAsBackgroundTask
+            );
+
+            Interlocked.Decrement(ref SnapshotLoadState.PendingLoads);
+            progress.Decrement();
         }
 
         void DiffCache_ItemEvicted (KeyValuePair<Pair<string>, string> item) {
@@ -424,31 +476,11 @@ namespace HeapProfiler {
             using (Activities.AddItem("Capturing heap snapshot"))
                 yield return Program.RunProcess(psi);
 
-            using (Activities.AddItem("Loading snapshot")) {
-                yield return Future.RunInThread(
-                    () => File.AppendAllText(targetFilename, mem.GetFileText())
-                );
+            yield return Future.RunInThread(
+                () => File.AppendAllText(targetFilename, mem.GetFileText())
+            );
 
-                var fSnapshot = Future.RunInThread(
-                    () => new HeapSnapshot(
-                        Snapshots.Count + 1, now, targetFilename
-                    )
-                );
-                yield return fSnapshot;
-
-                var snap = fSnapshot.Result;
-
-                Snapshots.Add(snap);
-
-                using (var progress = Activities.AddItem("Scanning symbols")) {
-                    foreach (var module in snap.Modules)
-                        SymbolModules.Add(module);
-
-                    yield return ResolveSymbolsForSnapshot(snap);
-                }
-            }
-
-            OnSnapshotsChanged();
+            SnapshotLoadQueue.Enqueue(targetFilename);
         }
 
         public IEnumerator<object> DiffSnapshots (string file1, string file2) {

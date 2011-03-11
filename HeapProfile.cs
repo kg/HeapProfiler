@@ -685,7 +685,7 @@ namespace HeapProfiler {
         public readonly TracebackCollection Tracebacks = new TracebackCollection();
         public readonly MemoryStatistics Memory;
 
-        public HeapSnapshot (int index, DateTime when, string filename) {
+        public HeapSnapshot (int index, DateTime when, string filename, Stream stream) {
             Index = index;
             When = when;
             Filename = filename;
@@ -707,8 +707,8 @@ namespace HeapProfiler {
             Match m;
             var frameList = new List<UInt32>();
 
-            using (var f = File.OpenRead(filename))
-            using (var sr = new StreamReader(f))
+            using (stream)
+            using (var sr = new StreamReader(stream))
             while ((line = sr.ReadLine()) != null) {
                 if (scanningHeap != null) {
                     if (line.StartsWith("*-") && line.Contains("End of data for heap")) {
@@ -779,6 +779,21 @@ namespace HeapProfiler {
                 );
                 heap.ComputeStatistics();
             }
+        }
+
+        public HeapSnapshot (int index, DateTime when, string filename)
+            : this(
+            index, when, 
+            filename, File.OpenRead(filename)
+        ) {
+        }
+
+        public HeapSnapshot (string filename, Stream stream)
+            : this(
+            IndexFromFilename(filename),
+            DateTimeFromFilename(filename),
+            filename, stream
+        ) {
         }
 
         public HeapSnapshot (string filename)

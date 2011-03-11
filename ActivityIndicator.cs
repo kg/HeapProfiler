@@ -10,6 +10,73 @@ using System.Threading;
 
 namespace HeapProfiler {
     public partial class ActivityIndicator : UserControl {
+        public const int RefreshDelay = 10;
+
+        public class CountedItem : IProgressListener, IDisposable {
+            public string Description;
+
+            internal readonly ActivityIndicator Parent;
+            internal Item Item = null;
+            internal int Count = 0;
+
+            public CountedItem (ActivityIndicator parent, string description) {
+                Parent = parent;
+                Description = description;
+            }
+
+            public CountedItem Increment () {
+                Count += 1;
+                if (Count == 1)
+                    Item = Parent.AddItem(Description);
+
+                return this;
+            }
+
+            public void Decrement () {
+                Count -= 1;
+                if (Count <= 0) {
+                    Count = 0;
+                    if (Item != null) {
+                        Item.Dispose();
+                        Item = null;
+                    }
+                }
+            }
+
+            public bool Active {
+                get {
+                    return (Count > 0);
+                }
+            }
+
+            public string Status {
+                set {
+                    if (Item != null)
+                        Item.Status = value;
+
+                    Description = value;
+                }
+            }
+
+            public int? Progress {
+                set {
+                    if (Item != null)
+                        Item.Progress = value;
+                }
+            }
+
+            public int Maximum {
+                set {
+                    if (Item != null)
+                        Item.Maximum = value;
+                }
+            }
+
+            void IDisposable.Dispose () {
+                Decrement();
+            }
+        }
+
         public class Item : IDisposable, IProgressListener {
             readonly ActivityIndicator Owner;
             internal readonly Label Label;
@@ -202,7 +269,7 @@ namespace HeapProfiler {
                     WaitHandle,
                     (s, t) => {
                         BeginInvoke((Action)DoPendingRelayout);
-                    }, null, 25, true
+                    }, null, RefreshDelay, true
                 );
             }
         }
@@ -214,7 +281,7 @@ namespace HeapProfiler {
                     WaitHandle,
                     (s, t) => {
                         BeginInvoke((Action)DoOnPreferredSizeChanged);
-                    }, null, 25, true
+                    }, null, RefreshDelay, true
                 );
             }
         }
