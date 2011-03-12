@@ -74,6 +74,7 @@ namespace HeapProfiler {
         protected readonly BlockingQueue<PendingSymbolResolve> SymbolResolveQueue = new BlockingQueue<PendingSymbolResolve>();
         protected readonly BlockingQueue<string> SnapshotLoadQueue = new BlockingQueue<string>();
         protected readonly LRUCache<Pair<string>, string> DiffCache = new LRUCache<Pair<string>, string>(32);
+        protected readonly object SymbolResolveLock = new object();
 
         protected int MaxPendingLoads = Math.Min(Environment.ProcessorCount, MaxConcurrentLoads);
         protected int TotalFrameResolveFailures = 0;
@@ -129,22 +130,19 @@ namespace HeapProfiler {
         }
 
         protected bool ResolveFrame (UInt32 frame, out TracebackFrame resolved, out Future<TracebackFrame> pendingResolve) {
-            lock (ResolvedSymbolCache)
-            lock (PendingSymbolResolves) {
-                if (ResolvedSymbolCache.TryGetValue(frame, out resolved)) {
-                    pendingResolve = null;
-                    return true;
-                }
-
-                if (!PendingSymbolResolves.TryGetValue(frame, out pendingResolve)) {
-                    var f = PendingSymbolResolves[frame] = new Future<TracebackFrame>();
-                    var item = new PendingSymbolResolve(frame, f);
-
-                    SymbolResolveQueue.Enqueue(item);
-                }
-
-                return false;
+            if (ResolvedSymbolCache.TryGetValue(frame, out resolved)) {
+                pendingResolve = null;
+                return true;
             }
+
+            if (!PendingSymbolResolves.TryGetValue(frame, out pendingResolve)) {
+                var f = PendingSymbolResolves[frame] = new Future<TracebackFrame>();
+                var item = new PendingSymbolResolve(frame, f);
+
+                SymbolResolveQueue.Enqueue(item);
+            }
+
+            return false;
         }
 
         protected IEnumerator<object> ResolveSymbolsForSnapshot (HeapSnapshot snapshot) {
@@ -156,6 +154,8 @@ namespace HeapProfiler {
             yield return Future.RunInThread(() => {
                 for (int i = 0, c = snapshot.Tracebacks.Count; i < c; i++) {
                     var traceback = snapshot.Tracebacks[i];
+
+                    lock (SymbolResolveLock)
                     foreach (var frame in traceback.Frames)
                         ResolveFrame(frame, out tf, out ftf);
                 }
@@ -270,8 +270,7 @@ namespace HeapProfiler {
                                 var frame = traceback.Value.Frames[0];
                                 batch[index].Result.Complete(frame);
 
-                                lock (ResolvedSymbolCache)
-                                lock (PendingSymbolResolves) {
+                                lock (SymbolResolveLock) {
                                     ResolvedSymbolCache[key] = frame;
                                     PendingSymbolResolves.Remove(key);
                                 }
@@ -287,8 +286,7 @@ namespace HeapProfiler {
 
                                 frame.Result.Complete(tf);
 
-                                lock (ResolvedSymbolCache) 
-                                lock (PendingSymbolResolves) {
+                                lock (SymbolResolveLock) {
                                     ResolvedSymbolCache[frame.Frame] = tf;
                                     PendingSymbolResolves.Remove(frame.Frame);
                                 }
