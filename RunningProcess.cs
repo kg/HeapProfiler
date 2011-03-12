@@ -32,7 +32,7 @@ using Squared.Task.IO;
 
 namespace HeapProfiler {
     public class RunningProcess : IDisposable {
-        public const int SymbolResolveBatchSize = 256;
+        public const int SymbolResolveBatchSize = 512;
         public const int MaxFramesPerTraceback = 31;
         public const int MaxConcurrentLoads = 4;
 
@@ -76,6 +76,7 @@ namespace HeapProfiler {
         protected readonly LRUCache<Pair<string>, string> DiffCache = new LRUCache<Pair<string>, string>(32);
 
         protected int MaxPendingLoads = Math.Min(Environment.ProcessorCount, MaxConcurrentLoads);
+        protected int TotalFrameResolveFailures = 0;
 
         protected RunningProcess (
             TaskScheduler scheduler,
@@ -218,16 +219,14 @@ namespace HeapProfiler {
                             sw.WriteLine("*- - - - - - - - - - Heap 0 Hogs - - - - - - - - - -");
                             sw.WriteLine();
 
-                            for (int i = 0, j = 0; i < batch.Count; i++) {
-                                if ((i == 0) || (i % MaxFramesPerTraceback == 0)) {
-                                    sw.WriteLine(
-                                        "{0:X8} bytes + {1:X8} at {2:X8} by BackTrace{3:X8}",
-                                        1, 0, j, j
-                                    );
-                                    j += 1;
-                                }
+                            for (int i = 1; i < batch.Count; i++) {
+                                sw.WriteLine(
+                                    "{0:X8} bytes + {1:X8} at {2:X8} by BackTrace{3:X8}",
+                                    1, 0, i, i
+                                );
 
                                 sw.WriteLine("\t{0:X8}", batch[i].Frame);
+                                sw.WriteLine();
                             }
                         }
                     });
@@ -264,19 +263,17 @@ namespace HeapProfiler {
                             yield return rtc;
 
                         yield return Future.RunInThread(() => {
-                            int i = 0;
                             foreach (var traceback in rtc.Result.Tracebacks) {
-                                foreach (var frame in traceback.Value.Frames) {
-                                    var key = batch[i].Frame;
+                                var index = (int)(traceback.Key) - 1;
 
-                                    lock (ResolvedSymbolCache)
-                                    lock (PendingSymbolResolves) {
-                                        ResolvedSymbolCache[key] = frame;
-                                        PendingSymbolResolves.Remove(key);
-                                    }
+                                var key = batch[index].Frame;
+                                var frame = traceback.Value.Frames[0];
+                                batch[index].Result.Complete(frame);
 
-                                    batch[i].Result.Complete(frame);
-                                    i += 1;
+                                lock (ResolvedSymbolCache)
+                                lock (PendingSymbolResolves) {
+                                    ResolvedSymbolCache[key] = frame;
+                                    PendingSymbolResolves.Remove(key);
                                 }
                             }
 
@@ -284,23 +281,23 @@ namespace HeapProfiler {
                                 if (frame.Result.Completed)
                                     continue;
 
-                                Console.WriteLine("Frame {0:x8} could not be resolved!", frame.Frame);
+                                Interlocked.Increment(ref TotalFrameResolveFailures);
 
                                 var tf = new TracebackFrame(frame.Frame);
+
+                                frame.Result.Complete(tf);
 
                                 lock (ResolvedSymbolCache) 
                                 lock (PendingSymbolResolves) {
                                     ResolvedSymbolCache[frame.Frame] = tf;
                                     PendingSymbolResolves.Remove(frame.Frame);
                                 }
-
-                                frame.Result.Complete(tf);
                             }
                         });
-                    }
 
-                    Interlocked.Add(ref SymbolResolveState.Count, batch.Count);
-                    batch.Clear();
+                        Interlocked.Add(ref SymbolResolveState.Count, batch.Count);
+                        batch.Clear();
+                    }
                 }
             }
         }
@@ -327,31 +324,28 @@ namespace HeapProfiler {
                 while (SnapshotLoadState.PendingLoads >= MaxPendingLoads)
                     yield return sleep;
 
-                using (var fda = new FileDataAdapter(f.Result, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)) {
-                    var length = (int)fda.BaseStream.Length;
-                    var bytes = new byte[length];
-                    yield return fda.Read(bytes, 0, length);
+                using (var fda = new FileDataAdapter(
+                    f.Result, FileMode.Open, 
+                    FileAccess.Read, FileShare.Read, 1024 * 128
+                )) {
+                    var fBytes = fda.ReadToEnd();
+                    yield return fBytes;
 
                     var fText = Future.RunInThread(
-                        (Func<byte[], string>)StringFromRawBytes, bytes
+                        () => Encoding.ASCII.GetString(fBytes.Result)
                     );
                     yield return fText;
-                    bytes = null;
+                    fBytes = null;
 
                     Interlocked.Increment(ref SnapshotLoadState.PendingLoads);
                     progress.Increment();
 
-                    var task = LoadSnapshotFromString(f.Result, (string)fText.Result, progress);
-                    yield return new Start(task, TaskExecutionPolicy.RunAsBackgroundTask);
-
+                    yield return new Start(LoadSnapshotFromString(
+                        f.Result, fText.Result, progress
+                    ), TaskExecutionPolicy.RunAsBackgroundTask);
                     fText = null;
                 }
             }
-        }
-
-        protected static unsafe string StringFromRawBytes (byte[] bytes) {
-            fixed (byte * pBytes = bytes)
-                return new String((sbyte*)pBytes, 0, bytes.Length);
         }
 
         protected IEnumerator<object> LoadSnapshotFromString (string filename, string text, ActivityIndicator.CountedItem progress) {
@@ -371,7 +365,8 @@ namespace HeapProfiler {
                 SymbolModules.Add(module);
 
             yield return new Start(
-                ResolveSymbolsForSnapshot(fSnapshot.Result), TaskExecutionPolicy.RunAsBackgroundTask
+                ResolveSymbolsForSnapshot(fSnapshot.Result),
+                TaskExecutionPolicy.RunAsBackgroundTask
             );
 
             Interlocked.Decrement(ref SnapshotLoadState.PendingLoads);

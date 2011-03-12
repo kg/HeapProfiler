@@ -673,13 +673,11 @@ namespace HeapProfiler {
     public static class LineReaderRegexExtensions {
         public static bool IsMatch (this Regex regex, ref LineReader.Line line) {
             var result = regex.IsMatch(line.Buffer, line.Start);
-            RegexLeak.Fix(regex);
             return result;
         }
 
         public static bool TryMatch (this Regex regex, ref LineReader.Line line, out Match match) {
             var result = regex.TryMatch(line.Buffer, line.Start, line.Length, out match);
-            RegexLeak.Fix(regex);
             return result;
         }
     }

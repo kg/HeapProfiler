@@ -32,6 +32,7 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using Squared.Util;
 using Squared.Task;
+using Squared.Task.IO;
 
 namespace HeapProfiler {
     public class Regexes {
@@ -52,7 +53,7 @@ namespace HeapProfiler {
             RegexOptions.Compiled | RegexOptions.ExplicitCapture
         );
         public Regex TracebackFrame = new Regex(
-            @"^\t(?'module'[^!]+)!(?'function'[^+]+)\+(?'offset'[0-9A-Fa-f]+)(\s*:\s*(?'offset2'[0-9A-Fa-f]+))?(\s*\(\s*(?'path'[^,]+),\s*(?'line'[0-9]*)\))?",
+            @"^\t(?'module'[^!]+)!(?'function'.+)\+(?'offset'[0-9A-Fa-f]+)(\s*:\s*(?'offset2'[0-9A-Fa-f]+))?(\s*\(\s*(?'path'[^,]+),\s*(?'line'[0-9]*)\))?",
             RegexOptions.Compiled | RegexOptions.ExplicitCapture
         );
         public Regex Allocation = new Regex(
@@ -350,12 +351,26 @@ namespace HeapProfiler {
         public static IEnumerator<object> FromFile (string filename, IProgressListener progress) {
             progress.Status = "Loading diff...";
 
+            Future<string> fText;
+
             // We could stream the lines in from the IO thread while we parse them, but this
             //  part of the load is usually pretty quick even on a regular hard disk, and
             //  loading the whole diff at once eliminates some context switches
-            var fText = Future.RunInThread(() => File.ReadAllText(filename));
-            yield return fText;
+            using (var fda = new FileDataAdapter(
+                filename, FileMode.Open,
+                FileAccess.Read, FileShare.Read, 1024 * 128
+            )) {
+                var fBytes = fda.ReadToEnd();
+                yield return fBytes;
 
+                fText = Future.RunInThread(
+                    () => Encoding.ASCII.GetString(fBytes.Result)
+                );
+                yield return fText;
+                fBytes = null;
+            }
+
+            yield return fText;
             var lr = new LineReader(fText.Result);
             LineReader.Line line;
 
