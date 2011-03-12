@@ -34,32 +34,32 @@ using Squared.Util;
 using Squared.Task;
 
 namespace HeapProfiler {
-    public static class Regexes {
-        public static Regex DiffModule = new Regex(
+    public class Regexes {
+        public Regex DiffModule = new Regex(
             @"^DBGHELP: (?'module'.*?)( - )(?'symbol_type'[^\n\r]*)",
             RegexOptions.Compiled | RegexOptions.ExplicitCapture
         );
-        public static Regex SnapshotModule = new Regex(
+        public Regex SnapshotModule = new Regex(
             "^//\\s*(?'offset'[A-Fa-f0-9]+)\\s+(?'size'[A-Fa-f0-9]+)\\s+(?'module'[^\r\n]+)",
             RegexOptions.Compiled | RegexOptions.ExplicitCapture
         );
-        public static Regex BytesDelta = new Regex(
+        public Regex BytesDelta = new Regex(
             @"^(?'type'\+|\-)(\s+)(?'delta_bytes'[0-9A-Fa-f]+)(\s+)\((\s*)(?'new_bytes'[0-9A-Fa-f]*)(\s*)-(\s*)(?'old_bytes'[0-9A-Fa-f]*)\)(\s*)(?'new_count'[0-9A-Fa-f]+) allocs\t(BackTrace(?'trace_id'\w*))",
             RegexOptions.Compiled | RegexOptions.ExplicitCapture
         );
-        public static Regex CountDelta = new Regex(
+        public Regex CountDelta = new Regex(
             @"^(?'type'\+|\-)(\s+)(?'delta_count'[0-9A-Fa-f]+)(\s+)\((\s*)(?'new_count'[0-9A-Fa-f]*)(\s*)-(\s*)(?'old_count'[0-9A-Fa-f]*)\)\t(BackTrace(?'trace_id'\w*))\tallocations",
             RegexOptions.Compiled | RegexOptions.ExplicitCapture
         );
-        public static Regex TracebackFrame = new Regex(
+        public Regex TracebackFrame = new Regex(
             @"^\t(?'module'[^!]+)!(?'function'[^+]+)\+(?'offset'[0-9A-Fa-f]+)(\s*:\s*(?'offset2'[0-9A-Fa-f]+))?(\s*\(\s*(?'path'[^,]+),\s*(?'line'[0-9]*)\))?",
             RegexOptions.Compiled | RegexOptions.ExplicitCapture
         );
-        public static Regex Allocation = new Regex(
+        public Regex Allocation = new Regex(
             @"^(?'size'[0-9A-Fa-f]+)(\s*bytes\s*\+\s*)(?'overhead'[0-9A-Fa-f]+)(\s*at\s*)(?'offset'[0-9A-Fa-f]+)(\s*by\s*BackTrace)(?'id'[A-Fa-f0-9]*)",
             RegexOptions.Compiled | RegexOptions.ExplicitCapture
         );
-        public static Regex HeapHeader = new Regex(
+        public Regex HeapHeader = new Regex(
             @"^\*([- ]+)Start of data for heap \@ (?'id'[0-9A-Fa-f]+)",
             RegexOptions.Compiled | RegexOptions.ExplicitCapture
         );
@@ -227,8 +227,8 @@ namespace HeapProfiler {
     public class TracebackInfo {
         public UInt32 TraceId;
         public TracebackFrame[] Frames;
-        public HashSet<string> Functions;
-        public HashSet<string> Modules;
+        public NameTable Functions;
+        public NameTable Modules;
 
         public override string ToString () {
             var sb = new StringBuilder();
@@ -331,13 +331,13 @@ namespace HeapProfiler {
 
         public readonly string Filename;
         public readonly Dictionary<string, ModuleInfo> Modules;
-        public readonly HashSet<string> FunctionNames;
+        public readonly NameTable FunctionNames;
         public readonly List<DeltaInfo> Deltas;
         public readonly Dictionary<UInt32, TracebackInfo> Tracebacks;
 
         protected HeapDiff (
             string filename, Dictionary<string, ModuleInfo> modules,
-            HashSet<string> functionNames, List<DeltaInfo> deltas,
+            NameTable functionNames, List<DeltaInfo> deltas,
             Dictionary<UInt32, TracebackInfo> tracebacks
         ) {
             Filename = filename;
@@ -353,46 +353,46 @@ namespace HeapProfiler {
             // We could stream the lines in from the IO thread while we parse them, but this
             //  part of the load is usually pretty quick even on a regular hard disk, and
             //  loading the whole diff at once eliminates some context switches
-            var fLines = Future.RunInThread(() => File.ReadAllLines(filename));
-            yield return fLines;
+            var fText = Future.RunInThread(() => File.ReadAllText(filename));
+            yield return fText;
 
-            var lines = fLines.Result;
+            var lr = new LineReader(fText.Result);
+            LineReader.Line line;
 
             progress.Status = "Parsing diff...";
 
-            // The default comparer for HashSet is the GenericComparer, so this is a lot faster
-            var stringComparer = StringComparer.Ordinal;
-
-            var modules = new Dictionary<string, ModuleInfo>(stringComparer);
-            var functionNames = new HashSet<string>(stringComparer);
+            var modules = new Dictionary<string, ModuleInfo>(StringComparer.Ordinal);
+            var moduleNames = new NameTable(StringComparer.Ordinal);
+            var symbolTypes = new NameTable(StringComparer.Ordinal);
+            var functionNames = new NameTable(StringComparer.Ordinal);
             var deltas = new List<DeltaInfo>();
             var tracebacks = new Dictionary<UInt32, TracebackInfo>();
 
+            var regexes = new Regexes();
+
             // Regex.Groups[string] does an inefficient lookup, so we do that lookup once here
-            int groupModule = Regexes.DiffModule.GroupNumberFromName("module");
-            int groupSymbolType = Regexes.DiffModule.GroupNumberFromName("symbol_type");
-            int groupTraceId = Regexes.BytesDelta.GroupNumberFromName("trace_id");
-            int groupType = Regexes.BytesDelta.GroupNumberFromName("type");
-            int groupDeltaBytes = Regexes.BytesDelta.GroupNumberFromName("delta_bytes");
-            int groupNewBytes = Regexes.BytesDelta.GroupNumberFromName("new_bytes");
-            int groupOldBytes = Regexes.BytesDelta.GroupNumberFromName("old_bytes");
-            int groupNewCount = Regexes.BytesDelta.GroupNumberFromName("new_count");
-            int groupOldCount = Regexes.CountDelta.GroupNumberFromName("old_count");
-            int groupCountDelta = Regexes.CountDelta.GroupNumberFromName("delta_count");
-            int groupTracebackModule = Regexes.TracebackFrame.GroupNumberFromName("module");
-            int groupTracebackFunction = Regexes.TracebackFrame.GroupNumberFromName("function");
-            int groupTracebackOffset = Regexes.TracebackFrame.GroupNumberFromName("offset");
-            int groupTracebackOffset2 = Regexes.TracebackFrame.GroupNumberFromName("offset2");
-            int groupTracebackPath = Regexes.TracebackFrame.GroupNumberFromName("path");
-            int groupTracebackLine = Regexes.TracebackFrame.GroupNumberFromName("line");
+            int groupModule = regexes.DiffModule.GroupNumberFromName("module");
+            int groupSymbolType = regexes.DiffModule.GroupNumberFromName("symbol_type");
+            int groupTraceId = regexes.BytesDelta.GroupNumberFromName("trace_id");
+            int groupType = regexes.BytesDelta.GroupNumberFromName("type");
+            int groupDeltaBytes = regexes.BytesDelta.GroupNumberFromName("delta_bytes");
+            int groupNewBytes = regexes.BytesDelta.GroupNumberFromName("new_bytes");
+            int groupOldBytes = regexes.BytesDelta.GroupNumberFromName("old_bytes");
+            int groupNewCount = regexes.BytesDelta.GroupNumberFromName("new_count");
+            int groupOldCount = regexes.CountDelta.GroupNumberFromName("old_count");
+            int groupCountDelta = regexes.CountDelta.GroupNumberFromName("delta_count");
+            int groupTracebackModule = regexes.TracebackFrame.GroupNumberFromName("module");
+            int groupTracebackFunction = regexes.TracebackFrame.GroupNumberFromName("function");
+            int groupTracebackOffset = regexes.TracebackFrame.GroupNumberFromName("offset");
+            int groupTracebackOffset2 = regexes.TracebackFrame.GroupNumberFromName("offset2");
+            int groupTracebackPath = regexes.TracebackFrame.GroupNumberFromName("path");
+            int groupTracebackLine = regexes.TracebackFrame.GroupNumberFromName("line");
 
-            for (int i = 0, j = 0; i < lines.Length; i++, j++) {
-                string line = lines[i];
-
-                // Use j for the progress interval check instead of i, because of the inner line scan loops
-                if (j % ProgressInterval == 0) {
-                    progress.Maximum = lines.Length;
-                    progress.Progress = i;
+            int i = 0;
+            while (lr.ReadLine(out line)) {
+                if (i % ProgressInterval == 0) {
+                    progress.Maximum = lr.Length;
+                    progress.Progress = lr.Position;
 
                     // Suspend processing until any messages in the windows message queue have been processed
                     yield return new Yield();
@@ -401,25 +401,25 @@ namespace HeapProfiler {
             retryFromHere:
 
                 Match m;
-                if (Regexes.DiffModule.TryMatch(line, out m)) {
-                    var moduleName = String.Intern(m.Groups[groupModule].Value);
+                if (regexes.DiffModule.TryMatch(ref line, out m)) {
+                    var moduleName = moduleNames[m.Groups[groupModule].Value];
+                    var symbolType = symbolTypes[m.Groups[groupSymbolType].Value];
 
                     var info = new ModuleInfo {
                         ModuleName = moduleName,
-                        SymbolType = String.Intern(m.Groups[groupSymbolType].Value),
+                        SymbolType = symbolType,
                     };
 
-                    if (i < lines.Length - 1) {
-                        line = lines[++i];
-                        if (!Regexes.DiffModule.IsMatch(line)) {
-                            info.SymbolPath = line.Trim();
+                    if (lr.ReadLine(out line)) {
+                        if (!regexes.DiffModule.IsMatch(ref line)) {
+                            info.SymbolPath = line.ToString().Trim();
                         } else {
                             goto retryFromHere;
                         }
                     }
 
                     modules[moduleName] = info;
-                } else if (Regexes.BytesDelta.TryMatch(line, out m)) {
+                } else if (regexes.BytesDelta.TryMatch(ref line, out m)) {
                     var traceId = UInt32.Parse(m.Groups[groupTraceId].Value, NumberStyles.HexNumber);
                     var info = new DeltaInfo {
                         Added = (m.Groups[groupType].Value == "+"),
@@ -429,10 +429,8 @@ namespace HeapProfiler {
                         NewCount = int.Parse(m.Groups[groupNewCount].Value),
                     };
 
-                    if (i < lines.Length - 1) {
-                        line = lines[++i];
-
-                        if (Regexes.CountDelta.TryMatch(line, out m)) {
+                    if (lr.ReadLine(out line)) {
+                        if (regexes.CountDelta.TryMatch(ref line, out m)) {
                             info.OldCount = int.Parse(m.Groups[groupOldCount].Value);
                             info.CountDelta = int.Parse(m.Groups[groupCountDelta].Value);
                         }
@@ -441,26 +439,23 @@ namespace HeapProfiler {
                     bool readingLeadingWhitespace = true;
 
                     var frames = new List<TracebackFrame>();
-                    var itemModules = new HashSet<string>(stringComparer);
-                    var itemFunctions = new HashSet<string>(stringComparer);
+                    var itemModules = new NameTable(StringComparer.Ordinal);
+                    var itemFunctions = new NameTable(StringComparer.Ordinal);
 
-                    while (i++ < lines.Length) {
-                        line = lines[i];
-
-                        if (line.Trim().Length == 0) {
+                    while (lr.ReadLine(out line)) {
+                        if (line.ToString().Trim().Length == 0) {
                             if (readingLeadingWhitespace)
                                 continue;
                             else
                                 break;
-                        } else if (Regexes.TracebackFrame.TryMatch(line, out m)) {
+                        } else if (regexes.TracebackFrame.TryMatch(ref line, out m)) {
                             readingLeadingWhitespace = false;
 
-                            var moduleName = String.Intern(m.Groups[groupTracebackModule].Value);
+                            var moduleName = moduleNames[m.Groups[groupTracebackModule].Value];
                             itemModules.Add(moduleName);
 
-                            var functionName = String.Intern(m.Groups[groupTracebackFunction].Value);
+                            var functionName = functionNames[m.Groups[groupTracebackFunction].Value];
                             itemFunctions.Add(functionName);
-                            functionNames.Add(functionName);
 
                             if (!modules.ContainsKey(moduleName)) {
                                 modules[moduleName] = new ModuleInfo {
@@ -685,45 +680,49 @@ namespace HeapProfiler {
         public readonly TracebackCollection Tracebacks = new TracebackCollection();
         public readonly MemoryStatistics Memory;
 
-        public HeapSnapshot (int index, DateTime when, string filename, Stream stream) {
+        public HeapSnapshot (int index, DateTime when, string filename, string text) {
             Index = index;
             When = when;
             Filename = filename;
             Memory = new MemoryStatistics();
 
-            string line = null;
             bool scanningForStart = true, scanningForMemory = false;
             Heap scanningHeap = null;
 
-            int groupModule = Regexes.SnapshotModule.GroupNumberFromName("module");
-            int groupModuleOffset = Regexes.SnapshotModule.GroupNumberFromName("offset");
-            int groupModuleSize = Regexes.SnapshotModule.GroupNumberFromName("size");
-            int groupHeaderId = Regexes.HeapHeader.GroupNumberFromName("id");
-            int groupAllocOffset = Regexes.Allocation.GroupNumberFromName("offset");
-            int groupAllocSize = Regexes.Allocation.GroupNumberFromName("size");
-            int groupAllocOverhead = Regexes.Allocation.GroupNumberFromName("overhead");
-            int groupAllocId = Regexes.Allocation.GroupNumberFromName("id");
+            var regexes = new Regexes();
+
+            int groupModule = regexes.SnapshotModule.GroupNumberFromName("module");
+            int groupModuleOffset = regexes.SnapshotModule.GroupNumberFromName("offset");
+            int groupModuleSize = regexes.SnapshotModule.GroupNumberFromName("size");
+            int groupHeaderId = regexes.HeapHeader.GroupNumberFromName("id");
+            int groupAllocOffset = regexes.Allocation.GroupNumberFromName("offset");
+            int groupAllocSize = regexes.Allocation.GroupNumberFromName("size");
+            int groupAllocOverhead = regexes.Allocation.GroupNumberFromName("overhead");
+            int groupAllocId = regexes.Allocation.GroupNumberFromName("id");
             
             Match m;
             var frameList = new List<UInt32>();
 
-            using (stream)
-            using (var sr = new StreamReader(stream))
-            while ((line = sr.ReadLine()) != null) {
+            var lr = new LineReader(text);
+            LineReader.Line line;
+
+            while (lr.ReadLine(out line)) {
                 if (scanningHeap != null) {
                     if (line.StartsWith("*-") && line.Contains("End of data for heap")) {
                         scanningHeap.Allocations.TrimExcess();
                         scanningHeap = null;
-                    } else if (Regexes.Allocation.TryMatch(line, out m)) {
+                    } else if (regexes.Allocation.TryMatch(ref line, out m)) {
                         var tracebackId = UInt32.Parse(m.Groups[groupAllocId].Value, NumberStyles.HexNumber);
                         Traceback traceback;
 
                         if (!Tracebacks.TryGetValue(tracebackId, out traceback)) {
                             // This is only valid if every allocation is followed by an empty line
                             frameList.Clear();
-                            while ((line = sr.ReadLine()) != null) {
+                            while (lr.ReadLine(out line)) {
                                 if (line.StartsWith("\t"))
-                                    frameList.Add(UInt32.Parse(line, NumberStyles.HexNumber | NumberStyles.AllowLeadingWhite));
+                                    frameList.Add(UInt32.Parse(
+                                        line.ToString(), NumberStyles.HexNumber | NumberStyles.AllowLeadingWhite
+                                    ));
                                 else
                                     break;
                             }
@@ -741,11 +740,11 @@ namespace HeapProfiler {
                         ));
                     }
                 } else if (scanningForMemory) {
-                    if (Regexes.HeapHeader.TryMatch(line, out m)) {
+                    if (regexes.HeapHeader.TryMatch(ref line, out m)) {
                         scanningHeap = new Heap(UInt32.Parse(m.Groups[groupHeaderId].Value, NumberStyles.HexNumber));
                         Heaps.Add(scanningHeap);
                     } else if (line.StartsWith("// Memory=")) {
-                        Memory = new MemoryStatistics(line);
+                        Memory = new MemoryStatistics(line.ToString());
                         scanningForMemory = false;
                         break;
                     }
@@ -757,7 +756,7 @@ namespace HeapProfiler {
                     else
                         continue;
                 } else {
-                    if (!Regexes.SnapshotModule.TryMatch(line, out m)) {
+                    if (!regexes.SnapshotModule.TryMatch(ref line, out m)) {
                         if (line.Contains("Process modules enumerated"))
                             scanningForMemory = true;
                         else
@@ -781,26 +780,11 @@ namespace HeapProfiler {
             }
         }
 
-        public HeapSnapshot (int index, DateTime when, string filename)
-            : this(
-            index, when, 
-            filename, File.OpenRead(filename)
-        ) {
-        }
-
-        public HeapSnapshot (string filename, Stream stream)
+        public HeapSnapshot (string filename, string text)
             : this(
             IndexFromFilename(filename),
             DateTimeFromFilename(filename),
-            filename, stream
-        ) {
-        }
-
-        public HeapSnapshot (string filename)
-            : this(
-            IndexFromFilename(filename), 
-            DateTimeFromFilename(filename), 
-            filename
+            filename, text
         ) {
         }
 

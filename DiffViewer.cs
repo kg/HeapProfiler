@@ -38,7 +38,7 @@ using Squared.Util;
 namespace HeapProfiler {
     public partial class DiffViewer : TaskForm {
         public Dictionary<string, ModuleInfo> Modules = new Dictionary<string, ModuleInfo>();
-        public HashSet<string> FunctionNames = new HashSet<string>();
+        public NameTable FunctionNames = new NameTable();
         public List<DeltaInfo> Deltas = new List<DeltaInfo>();
         public Dictionary<UInt32, TracebackInfo> Tracebacks = new Dictionary<UInt32, TracebackInfo>();
 
@@ -304,7 +304,7 @@ namespace HeapProfiler {
         private void TracebackFilter_TextChanged (object sender, EventArgs e) {
             string newFilter = null;
             if (FunctionNames.Contains(TracebackFilter.Text))
-                newFilter = String.Intern(TracebackFilter.Text);
+                newFilter = TracebackFilter.Text;
 
             var newColor =
                 (TracebackFilter.Text.Length > 0) ?

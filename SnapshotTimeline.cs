@@ -21,6 +21,7 @@ namespace HeapProfiler {
         public const double GridLineRatio = 0.4;
         public const int MaxGridLines = 16;
         public const long MaximumThreshold = 256;
+        public const int MinSelectionDistance = 3;
 
         public List<TItem> Items = new List<TItem>();
 
@@ -35,7 +36,8 @@ namespace HeapProfiler {
         protected int _ContentWidth = 0; 
         protected int _ScrollOffset = 0;
         protected string _ToolTipText = null;
-        protected Point _MouseDownLocation;
+        protected Point? _MouseDownLocation;
+        protected Point _MouseMoveLocation;
         protected Pair<int> _Selection = new Pair<int>(-1, -1);
 
         public SnapshotTimeline () {
@@ -197,10 +199,13 @@ namespace HeapProfiler {
                 float lastY = 0;
                 y = 0;
 
-                var mousePoints = new List<PointF>();
-                var points = new List<PointF>();
+                List<PointF> points = new List<PointF>(), 
+                    mousePoints = new List<PointF>();
 
-                for (int i = 0; (i < Items.Count) && (lastX <= ClientSize.Width); i++) {
+                for (
+                    int i = Math.Max(0, IndexFromPoint(new Point(0, 0), -1)); 
+                    (i < Items.Count) && (lastX <= ClientSize.Width); i++
+                ) {
                     bool selected = HasSelection &&
                         (i >= _Selection.First) &&
                         (i <= _Selection.Second);
@@ -248,6 +253,26 @@ namespace HeapProfiler {
                         g.DrawPolygon(pen, poly);
                     }
                 }
+
+                DateTime mouseTime;
+                if (TimeFromPoint(_MouseMoveLocation, out mouseTime)) {
+                    using (var pen = new Pen(Color.FromArgb(127, SystemColors.HighlightText))) {
+                        pen.Width = 2.0f;
+                        g.DrawLine(pen, _MouseMoveLocation.X, 0, _MouseMoveLocation.X, height);
+                    }
+
+                    var mouseIndex = IndexFromTime(mouseTime, -1);
+                    if (!_MouseDownLocation.HasValue)
+                    using (var pen = new Pen(SystemColors.HighlightText)) {
+                        pen.Width = 2.0f;
+                        var item = Items[mouseIndex];
+                        x = (int)((item.When.Ticks - minTicks) * pixelsPerMinute / minuteInTicks) - _ScrollOffset;
+                        g.DrawLine(
+                            pen, 
+                            x, 0, x, height
+                        );
+                    }
+                }
             }
         }
 
@@ -266,12 +291,15 @@ namespace HeapProfiler {
             }
         }
 
-        public int IndexFromPoint (Point location, int direction) {
+        public bool TimeFromPoint (Point location, out DateTime time) {
             var absoluteX = (location.X + _ScrollOffset);
-            if (absoluteX < 0)
-                return 0;
-            else if (absoluteX >= (_ContentWidth - MarginWidth))
-                return Items.Count - 1;
+            if (absoluteX < 0) {
+                time = new DateTime(DateTime.MinValue.Ticks, DateTimeKind.Utc);
+                return false;
+            } else if (absoluteX >= (_ContentWidth - MarginWidth)) {
+                time = new DateTime(DateTime.MaxValue.Ticks, DateTimeKind.Utc);
+                return false;
+            }
 
             int pixelsPerMinute = PixelsPerMinute * ZoomRatio / 100;
             long minTicks = 0;
@@ -280,11 +308,26 @@ namespace HeapProfiler {
             if (Items.Count > 0)
                 minTicks = (from s in Items select s.When.Ticks).Min();
 
-            var time = new DateTime(
+            time = new DateTime(
                 (absoluteX * minuteInTicks / pixelsPerMinute) + minTicks,
                 DateTimeKind.Local
             );
+            return true;
+        }
 
+        public int IndexFromPoint (Point location, int direction) {
+            DateTime time;
+            if (!TimeFromPoint(location, out time)) {
+                if (time.Ticks <= DateTime.MinValue.Ticks)
+                    return 0;
+                else if (time.Ticks >= DateTime.MaxValue.Ticks)
+                    return Items.Count - 1;
+            }
+
+            return IndexFromTime(time, direction);
+        }
+
+        public int IndexFromTime (DateTime time, int direction) {
             var index = Items.BinarySearch(
                 null, new SnapshotTimeFinder(time)
             );
@@ -307,27 +350,34 @@ namespace HeapProfiler {
         }
 
         protected void UpdateSelection (Point mouseLocation) {
+            if (!_MouseDownLocation.HasValue)
+                return;
+
             int direction = 1;
-            if (mouseLocation.X < _MouseDownLocation.X)
+            if (mouseLocation.X < _MouseDownLocation.Value.X)
                 direction = -1;
 
-            var index1 = IndexFromPoint(_MouseDownLocation, -direction);
+            var index1 = IndexFromPoint(_MouseDownLocation.Value, -direction);
             var index2 = IndexFromPoint(mouseLocation, direction);
 
-            var newSelection = Pair.New(
-                Math.Min(index1, index2),
-                Math.Max(index1, index2)
-            );
-            if (newSelection.First == newSelection.Second) {
-                if (newSelection.Second > 0)
-                    newSelection.First = newSelection.Second - 1;
-                else if (newSelection.First < (Items.Count - 1))
-                    newSelection.Second = newSelection.First + 1;
+            if (Math.Abs(mouseLocation.X - _MouseDownLocation.Value.X) >= MinSelectionDistance) {
+                var newSelection = Pair.New(
+                    Math.Min(index1, index2),
+                    Math.Max(index1, index2)
+                );
+                if (newSelection.First == newSelection.Second) {
+                    if (newSelection.Second > 0)
+                        newSelection.First = newSelection.Second - 1;
+                    else if (newSelection.First < (Items.Count - 1))
+                        newSelection.Second = newSelection.First + 1;
+                }
+
+                Selection = newSelection;
+            } else {
+                Selection = Pair.New(index1, index1);
             }
 
-            Selection = newSelection;
-
-            SetToolTip(newSelection);
+            SetToolTip(Selection);
         }
 
         protected void UpdateToolTip (Point mouseLocation) {
@@ -391,7 +441,7 @@ namespace HeapProfiler {
 
         protected override void OnMouseDown (MouseEventArgs e) {
             if (e.Button == System.Windows.Forms.MouseButtons.Left) {
-                _MouseDownLocation = e.Location;
+                _MouseDownLocation = _MouseMoveLocation = e.Location;
                 UpdateSelection(e.Location);
             }
 
@@ -399,12 +449,23 @@ namespace HeapProfiler {
         }
 
         protected override void OnMouseMove (MouseEventArgs e) {
+            _MouseMoveLocation = e.Location;
+
             if (e.Button == System.Windows.Forms.MouseButtons.Left)
                 UpdateSelection(e.Location);
             else
                 UpdateToolTip(e.Location);
 
+            Invalidate();
+
             base.OnMouseMove(e);
+        }
+
+        protected override void OnMouseUp (MouseEventArgs e) {
+            _MouseDownLocation = null;
+            Invalidate();
+
+            base.OnMouseUp(e);
         }
 
         protected override void OnMouseWheel (MouseEventArgs e) {

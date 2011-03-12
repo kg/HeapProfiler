@@ -24,6 +24,8 @@ using System.Drawing;
 using Microsoft.Win32;
 using System.Runtime.InteropServices;
 using System.Collections.ObjectModel;
+using System.Text.RegularExpressions;
+using Squared.Util.RegexExtensions;
 
 namespace HeapProfiler {
     class ReferenceComparer<T> : IEqualityComparer<T>
@@ -568,6 +570,14 @@ namespace HeapProfiler {
     public abstract class KeyedCollection2<TKey, TValue> :
         KeyedCollection<TKey, TValue> where TValue : class {
 
+        public KeyedCollection2 ()
+            : base() {
+        }
+
+        public KeyedCollection2 (IEqualityComparer<TKey> keyComparer)
+            : base(keyComparer) {
+        }
+
         public IList<TValue> Values {
             get {
                 return base.Items;
@@ -627,6 +637,157 @@ namespace HeapProfiler {
         }
 
         protected void Dispose () {
+        }
+    }
+
+    public class NameTable : KeyedCollection2<string, string> {
+        public NameTable ()
+            : base() {
+        }
+
+        public NameTable (IEqualityComparer<string> keyComparer)
+            : base(keyComparer) {
+        }
+
+        protected override string GetKeyForItem (string item) {
+            return item;
+        }
+
+        new public string Add (string item) {
+            return this[item];
+        }
+
+        new public string this[string key] {
+            get {
+                string result;
+                if (!TryGetValue(key, out result)) {
+                    base.Add(key);
+                    result = key;
+                }
+
+                return result;
+            }
+        }
+    }
+
+    public static class LineReaderRegexExtensions {
+        public static bool IsMatch (this Regex regex, ref LineReader.Line line) {
+            var result = regex.IsMatch(line.Buffer, line.Start);
+            RegexLeak.Fix(regex);
+            return result;
+        }
+
+        public static bool TryMatch (this Regex regex, ref LineReader.Line line, out Match match) {
+            var result = regex.TryMatch(line.Buffer, line.Start, line.Length, out match);
+            RegexLeak.Fix(regex);
+            return result;
+        }
+    }
+
+    public class LineReader {
+        public struct Line {
+            public readonly LineReader Reader;
+            public readonly int Start, Length;
+
+            internal Line (LineReader reader) {
+                Reader = reader;
+                Start = Length = 0;
+            }
+
+            internal Line (LineReader reader, int start, int length) {
+                Reader = reader;
+                Start = start;
+                Length = length;
+            }
+
+            public bool StartsWith (string text) {
+                if (Length < text.Length)
+                    return false;
+
+                return String.Compare(
+                    Reader.Text, Start, 
+                    text, 0, 
+                    Math.Min(Length, text.Length), false
+                ) == 0;
+            }
+
+            public bool Contains (string text) {
+                if (Length < text.Length)
+                    return false;
+
+                return Reader.Text.IndexOf(
+                    text, Start, Length
+                ) >= 0;
+            }
+
+            public string Buffer {
+                get {
+                    return Reader.Text;
+                }
+            }
+
+            public override string ToString () {
+                if (Length <= 0)
+                    return null;
+
+                return Reader.Text.Substring(Start, Length);
+            }
+        }
+
+        public readonly string Text;
+
+        protected int _LinesRead = 0;
+        protected int _Position = 0;
+
+        public LineReader (string text) {
+            Text = text;
+        }
+
+        public bool ReadLine (out Line line) {
+            bool scanningEol = false;
+            int start = _Position;
+            int length = Text.Length;
+
+            while (_Position < length) {
+                var current = Text[_Position];
+
+                if ((current == '\r') || (current == '\n')) {
+                    scanningEol = true;
+                } else if (scanningEol) {
+                    line = new Line(this, start, _Position - start);
+                    _LinesRead += 1;
+                    return true;
+                }
+
+                _Position += 1;
+            }
+
+            if (_Position > start) {
+                line = new Line(this, start, length - start);
+                _LinesRead += 1;
+                return true;
+            } else {
+                line = new Line(this);
+                return false;
+            }
+        }
+
+        public int Length {
+            get {
+                return Text.Length;
+            }
+        }
+
+        public int Position {
+            get {
+                return _Position;
+            }
+        }
+
+        public int LinesRead {
+            get {
+                return _LinesRead;
+            }
         }
     }
 }

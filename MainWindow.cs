@@ -170,7 +170,10 @@ namespace HeapProfiler {
             SnapshotTimeline.Items = Instance.Snapshots;
             SnapshotTimeline.Invalidate();
 
-            DiffSelection.Enabled = SnapshotTimeline.HasSelection;
+            DiffSelection.Enabled = SnapshotTimeline.HasSelection &&
+                (SnapshotTimeline.Selection.First != SnapshotTimeline.Selection.Second);
+            ViewSelection.Enabled = SnapshotTimeline.HasSelection &&
+                (SnapshotTimeline.Selection.First == SnapshotTimeline.Selection.Second);
         }
 
         private void CaptureSnapshot_Click (object sender, EventArgs e) {
@@ -413,7 +416,10 @@ namespace HeapProfiler {
         }
 
         private void SnapshotTimeline_SelectionChanged (object sender, EventArgs e) {
-            DiffSelection.Enabled = SnapshotTimeline.HasSelection;
+            DiffSelection.Enabled = SnapshotTimeline.HasSelection && 
+                (SnapshotTimeline.Selection.First != SnapshotTimeline.Selection.Second);
+            ViewSelection.Enabled = SnapshotTimeline.HasSelection &&
+                (SnapshotTimeline.Selection.First == SnapshotTimeline.Selection.Second);
         }
 
         protected long GetPagedMemory (HeapSnapshot item) {
@@ -538,6 +544,10 @@ namespace HeapProfiler {
             ViewLargestOccupiedHeapMenu.Checked = (getter == GetLargestOccupiedHeapBlock);
             ViewAverageHeapBlockSizeMenu.Checked = (getter == GetAverageOccupiedHeapBlockSize);
             ViewHeapFragmentationMenu.Checked = (getter == GetHeapFragmentation);
+        }
+
+        private void ViewSelection_Click (object sender, EventArgs e) {
+
         }
     }
 }

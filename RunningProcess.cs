@@ -32,8 +32,9 @@ using Squared.Task.IO;
 
 namespace HeapProfiler {
     public class RunningProcess : IDisposable {
-        public const int SymbolResolveBatchSize = 1024;
+        public const int SymbolResolveBatchSize = 256;
         public const int MaxFramesPerTraceback = 31;
+        public const int MaxConcurrentLoads = 4;
 
         public static class SymbolResolveState {
             public static int Count = 0;
@@ -73,6 +74,8 @@ namespace HeapProfiler {
         protected readonly BlockingQueue<PendingSymbolResolve> SymbolResolveQueue = new BlockingQueue<PendingSymbolResolve>();
         protected readonly BlockingQueue<string> SnapshotLoadQueue = new BlockingQueue<string>();
         protected readonly LRUCache<Pair<string>, string> DiffCache = new LRUCache<Pair<string>, string>(32);
+
+        protected int MaxPendingLoads = Math.Min(Environment.ProcessorCount, MaxConcurrentLoads);
 
         protected RunningProcess (
             TaskScheduler scheduler,
@@ -125,39 +128,37 @@ namespace HeapProfiler {
         }
 
         protected bool ResolveFrame (UInt32 frame, out TracebackFrame resolved, out Future<TracebackFrame> pendingResolve) {
-            if (ResolvedSymbolCache.TryGetValue(frame, out resolved)) {
-                pendingResolve = null;
-                return true;
+            lock (ResolvedSymbolCache)
+            lock (PendingSymbolResolves) {
+                if (ResolvedSymbolCache.TryGetValue(frame, out resolved)) {
+                    pendingResolve = null;
+                    return true;
+                }
+
+                if (!PendingSymbolResolves.TryGetValue(frame, out pendingResolve)) {
+                    var f = PendingSymbolResolves[frame] = new Future<TracebackFrame>();
+                    var item = new PendingSymbolResolve(frame, f);
+
+                    SymbolResolveQueue.Enqueue(item);
+                }
+
+                return false;
             }
-
-            if (!PendingSymbolResolves.TryGetValue(frame, out pendingResolve)) {
-                var f = PendingSymbolResolves[frame] = new Future<TracebackFrame>();
-                var item = new PendingSymbolResolve(frame, f);
-
-                SymbolResolveQueue.Enqueue(item);
-            }
-
-            return false;
         }
 
         protected IEnumerator<object> ResolveSymbolsForSnapshot (HeapSnapshot snapshot) {
             TracebackFrame tf;
             Future<TracebackFrame> ftf;
-            var yield = new Yield();
-            var sleep = new Sleep(0.01);
 
             SymbolResolveState.Count = 0;
 
-            for (int i = 0, c = snapshot.Tracebacks.Count; i < c; i++) {
-                var traceback = snapshot.Tracebacks[i];
-                foreach (var frame in traceback.Frames)
-                    ResolveFrame(frame, out tf, out ftf);
-
-                if ((i % 25 == 0))
-                    yield return sleep;
-                else
-                    yield return yield;
-            }
+            yield return Future.RunInThread(() => {
+                for (int i = 0, c = snapshot.Tracebacks.Count; i < c; i++) {
+                    var traceback = snapshot.Tracebacks[i];
+                    foreach (var frame in traceback.Frames)
+                        ResolveFrame(frame, out tf, out ftf);
+                }
+            });
         }
 
         protected IEnumerator<object> SymbolResolverTask () {
@@ -262,30 +263,40 @@ namespace HeapProfiler {
                         using (rtc)
                             yield return rtc;
 
-                        int i = 0;
-                        foreach (var traceback in rtc.Result.Tracebacks) {
-                            foreach (var frame in traceback.Value.Frames) {
-                                var key = batch[i].Frame;
-                                batch[i].Result.Complete(frame);
-                                ResolvedSymbolCache[key] = frame;
-                                PendingSymbolResolves.Remove(key);
-                                i += 1;
+                        yield return Future.RunInThread(() => {
+                            int i = 0;
+                            foreach (var traceback in rtc.Result.Tracebacks) {
+                                foreach (var frame in traceback.Value.Frames) {
+                                    var key = batch[i].Frame;
+
+                                    lock (ResolvedSymbolCache)
+                                    lock (PendingSymbolResolves) {
+                                        ResolvedSymbolCache[key] = frame;
+                                        PendingSymbolResolves.Remove(key);
+                                    }
+
+                                    batch[i].Result.Complete(frame);
+                                    i += 1;
+                                }
                             }
 
-                            yield return yield;
-                        }
+                            foreach (var frame in batch) {
+                                if (frame.Result.Completed)
+                                    continue;
 
-                        foreach (var frame in batch) {
-                            if (frame.Result.Completed)
-                                continue;
+                                Console.WriteLine("Frame {0:x8} could not be resolved!", frame.Frame);
 
-                            Console.WriteLine("Frame {0:x8} could not be resolved!", frame.Frame);
+                                var tf = new TracebackFrame(frame.Frame);
 
-                            var tf = new TracebackFrame(frame.Frame);
-                            frame.Result.Complete(tf);
-                            ResolvedSymbolCache[frame.Frame] = tf;
-                            PendingSymbolResolves.Remove(frame.Frame);
-                        }
+                                lock (ResolvedSymbolCache) 
+                                lock (PendingSymbolResolves) {
+                                    ResolvedSymbolCache[frame.Frame] = tf;
+                                    PendingSymbolResolves.Remove(frame.Frame);
+                                }
+
+                                frame.Result.Complete(tf);
+                            }
+                        });
                     }
 
                     Interlocked.Add(ref SymbolResolveState.Count, batch.Count);
@@ -296,7 +307,7 @@ namespace HeapProfiler {
 
         protected IEnumerator<object> SnapshotIOTask () {
             ActivityIndicator.CountedItem progress = null;
-            var sleep = new Sleep(0.05);
+            var sleep = new Sleep(0.25);
 
             while (true) {
                 if (SnapshotLoadQueue.Count <= 0) {
@@ -313,25 +324,39 @@ namespace HeapProfiler {
                 if (progress == null)
                     progress = SnapshotLoadState.Progress.Increment();
 
+                while (SnapshotLoadState.PendingLoads >= MaxPendingLoads)
+                    yield return sleep;
+
                 using (var fda = new FileDataAdapter(f.Result, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)) {
-                    var bytes = new byte[fda.BaseStream.Length];
-                    yield return fda.Read(bytes, 0, bytes.Length);
+                    var length = (int)fda.BaseStream.Length;
+                    var bytes = new byte[length];
+                    yield return fda.Read(bytes, 0, length);
+
+                    var fText = Future.RunInThread(
+                        (Func<byte[], string>)StringFromRawBytes, bytes
+                    );
+                    yield return fText;
+                    bytes = null;
 
                     Interlocked.Increment(ref SnapshotLoadState.PendingLoads);
                     progress.Increment();
 
-                    while (SnapshotLoadState.PendingLoads >= Environment.ProcessorCount - 1)
-                        yield return sleep;
+                    var task = LoadSnapshotFromString(f.Result, (string)fText.Result, progress);
+                    yield return new Start(task, TaskExecutionPolicy.RunAsBackgroundTask);
 
-                    var stream = new MemoryStream(bytes, false);
-                    yield return new Start(LoadSnapshotFromStream(f.Result, stream, progress));
+                    fText = null;
                 }
             }
         }
 
-        protected IEnumerator<object> LoadSnapshotFromStream (string filename, Stream stream, ActivityIndicator.CountedItem progress) {
+        protected static unsafe string StringFromRawBytes (byte[] bytes) {
+            fixed (byte * pBytes = bytes)
+                return new String((sbyte*)pBytes, 0, bytes.Length);
+        }
+
+        protected IEnumerator<object> LoadSnapshotFromString (string filename, string text, ActivityIndicator.CountedItem progress) {
             var fSnapshot = Future.RunInThread(
-                () => new HeapSnapshot(filename, stream)
+                () => new HeapSnapshot(filename, text)
             );
             yield return fSnapshot;
 
