@@ -33,34 +33,31 @@ using Squared.Util.RegexExtensions;
 using System.Globalization;
 
 using Snapshot = HeapProfiler.HeapSnapshot;
+using Allocation = HeapProfiler.HeapSnapshot.Allocation;
 using Squared.Util;
 
 namespace HeapProfiler {
     public partial class HeapViewer : TaskForm {
-        public Dictionary<string, ModuleInfo> Modules = new Dictionary<string, ModuleInfo>();
+        protected Snapshot Snapshot = null;
         public NameTable FunctionNames = new NameTable();
-        public List<DeltaInfo> Deltas = new List<DeltaInfo>();
-        public Dictionary<UInt32, TracebackInfo> Tracebacks = new Dictionary<UInt32, TracebackInfo>();
 
-        public List<DeltaInfo> ListItems = new List<DeltaInfo>();
+        public List<Allocation> ListItems = new List<Allocation>();
 
         protected IFuture PendingLoad = null;
-        protected Pair<int> PendingLoadPair = new Pair<int>(-1, -1);
         protected RunningProcess Instance = null;
 
-        protected Pair<int> CurrentPair = new Pair<int>(-1, -1);
         protected string Filename;
         protected string FunctionFilter = null;
-        protected StringFormat DeltaListFormat;
+        protected StringFormat ListFormat;
         protected bool Updating = false;
 
         public HeapViewer (TaskScheduler scheduler, RunningProcess instance)
             : base (scheduler) {
             InitializeComponent();
 
-            DeltaListFormat = new StringFormat();
-            DeltaListFormat.Trimming = StringTrimming.None;
-            DeltaListFormat.FormatFlags = StringFormatFlags.NoWrap | StringFormatFlags.FitBlackBox;
+            ListFormat = new StringFormat();
+            ListFormat.Trimming = StringTrimming.None;
+            ListFormat.FormatFlags = StringFormatFlags.NoWrap | StringFormatFlags.FitBlackBox;
 
             Instance = instance;
             if (Instance != null) {
@@ -85,7 +82,7 @@ namespace HeapProfiler {
 
             SetBusy(true);
 
-            ModuleList.Items = Modules;
+            ModuleList.Items = Snapshot.Modules.Keys;
 
             SetBusy(false);
         }
@@ -96,32 +93,14 @@ namespace HeapProfiler {
 
             SetBusy(true);
 
+            LayoutView.Snapshot = Snapshot;
+            LayoutView.Invalidate();
+
             SetBusy(false);
         }
 
-        private void DiffViewer_Shown (object sender, EventArgs e) {
-            UseWaitCursor = true;
-        }
-
-        private void DiffViewer_FormClosed (object sender, FormClosedEventArgs e) {
+        private void HeapViewer_FormClosed (object sender, FormClosedEventArgs e) {
             Dispose();
-        }
-
-        private void SaveDiffMenu_Click (object sender, EventArgs e) {
-            using (var dialog = new SaveFileDialog()) {
-                dialog.Title = "Save Diff";
-                dialog.Filter = "Heap Diffs|*.heapdiff";
-                dialog.AddExtension = true;
-                dialog.CheckPathExists = true;
-                dialog.DefaultExt = ".heapdiff";
-
-                if (dialog.ShowDialog(this) != System.Windows.Forms.DialogResult.OK)
-                    return;
-
-                File.Copy(Filename, dialog.FileName, true);
-                Filename = dialog.FileName;
-                Text = "Diff Viewer - " + Filename;
-            }
         }
 
         private void CloseMenu_Click (object sender, EventArgs e) {
@@ -143,23 +122,30 @@ namespace HeapProfiler {
                 TracebackFilter.BackColor = newColor;
 
             if (newFilter != FunctionFilter) {
-                DeltaHistogram.FunctionFilter = DeltaList.FunctionFilter = FunctionFilter = newFilter;
+                // TODO
+                // DeltaHistogram.FunctionFilter = DeltaList.FunctionFilter = FunctionFilter = newFilter;
                 RefreshHeap();
             }
         }
 
         private void ViewListMenu_Click (object sender, EventArgs e) {
-            DeltaHistogram.Visible = ViewHistogramMenu.Checked = false;
-            DeltaList.Visible = ViewListMenu.Checked = true;
         }
 
         private void ViewHistogramMenu_Click (object sender, EventArgs e) {
-            DeltaList.Visible = ViewListMenu.Checked = false;
-            DeltaHistogram.Visible = ViewHistogramMenu.Checked = true;
         }
 
         private void ViewSplit_SizeChanged (object sender, EventArgs e) {
             TracebackFilter.Width = ViewSplit.Panel1.ClientSize.Width - FindIcon.Width;
+        }
+
+        private void Timeline_RangeChanged (object sender, EventArgs e) {
+            Snapshot = Timeline.Begin;
+            RefreshModules();
+            RefreshHeap();
+        }
+
+        public void SetSnapshot (int index) {
+            Timeline.Indices = Pair.New(index, index);
         }
     }
 }

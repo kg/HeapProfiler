@@ -10,9 +10,10 @@ using System.Windows.Forms;
 namespace HeapProfiler {
     public partial class ModuleSelector : UserControl {
         public event EventHandler FilterChanged;
+        public readonly HashSet<string> SelectedItems = new HashSet<string>();
 
         protected bool _Updating = false;
-        protected Dictionary<string, ModuleInfo> _Items = new Dictionary<string, ModuleInfo>();
+        protected IEnumerable<string> _Items = new string[0];
 
         public ModuleSelector () {
             InitializeComponent();
@@ -20,7 +21,7 @@ namespace HeapProfiler {
 
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         [Browsable(false)]
-        public Dictionary<string, ModuleInfo> Items {
+        public IEnumerable<string> Items {
             get {
                 return _Items;
             }
@@ -31,8 +32,10 @@ namespace HeapProfiler {
                 _Updating = true;
 
                 List.Items.Clear();
-                foreach (var key in value.Keys.OrderBy((s) => s))
-                    List.Items.Add(value[key]);
+                SelectedItems.Clear();
+
+                foreach (var key in value.OrderBy((s) => s))
+                    List.Items.Add(key);
                 for (int i = 0; i < List.Items.Count; i++)
                     List.SetItemChecked(i, true);
 
@@ -42,8 +45,12 @@ namespace HeapProfiler {
         }
 
         private void List_ItemCheck (object sender, ItemCheckEventArgs e) {
-            var m = (ModuleInfo)List.Items[e.Index];
-            m.Filtered = (e.NewValue == CheckState.Unchecked);
+            var m = (string)List.Items[e.Index];
+            if (e.NewValue == CheckState.Unchecked) {
+                SelectedItems.Remove(m);
+            } else {
+                SelectedItems.Add(m);
+            }
 
             if (!_Updating)
                 OnFilterChanged();

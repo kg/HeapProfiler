@@ -145,7 +145,7 @@ namespace HeapProfiler {
             using (var scratch = Scratch.Get(e.Graphics, e.ClipRectangle)) {
                 var g = scratch.Graphics;
                 var xOffset = (ClientSize.Width - width) / 2f;
-                var itemWidth = width / (float)(Items.Count - 1);
+                var itemWidth = width / (float)(Math.Max(Items.Count - 1, 1));
 
                 g.Clear(BackColor);
                 g.DrawRectangle(

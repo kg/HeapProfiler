@@ -40,7 +40,6 @@ namespace HeapProfiler {
         public Dictionary<string, ModuleInfo> Modules = new Dictionary<string, ModuleInfo>();
         public NameTable FunctionNames = new NameTable();
         public List<DeltaInfo> Deltas = new List<DeltaInfo>();
-        public Dictionary<UInt32, TracebackInfo> Tracebacks = new Dictionary<UInt32, TracebackInfo>();
 
         public List<DeltaInfo> ListItems = new List<DeltaInfo>();
 
@@ -51,16 +50,16 @@ namespace HeapProfiler {
         protected Pair<int> CurrentPair = new Pair<int>(-1, -1);
         protected string Filename;
         protected string FunctionFilter = null;
-        protected StringFormat DeltaListFormat;
+        protected StringFormat ListFormat;
         protected bool Updating = false;
 
         public DiffViewer (TaskScheduler scheduler, RunningProcess instance)
             : base (scheduler) {
             InitializeComponent();
 
-            DeltaListFormat = new StringFormat();
-            DeltaListFormat.Trimming = StringTrimming.None;
-            DeltaListFormat.FormatFlags = StringFormatFlags.NoWrap | StringFormatFlags.FitBlackBox;
+            ListFormat = new StringFormat();
+            ListFormat.Trimming = StringTrimming.None;
+            ListFormat.FormatFlags = StringFormatFlags.NoWrap | StringFormatFlags.FitBlackBox;
 
             Instance = instance;
             if (Instance != null) {
@@ -142,7 +141,6 @@ namespace HeapProfiler {
             Modules = rtc.Result.Modules;
             FunctionNames = rtc.Result.FunctionNames;
             Deltas = rtc.Result.Deltas;
-            Tracebacks = rtc.Result.Tracebacks;
 
             TracebackFilter.AutoCompleteCustomSource.Clear();
             TracebackFilter.AutoCompleteCustomSource.AddRange(FunctionNames.ToArray());
@@ -166,7 +164,7 @@ namespace HeapProfiler {
 
             SetBusy(true);
 
-            ModuleList.Items = Modules;
+            ModuleList.Items = Modules.Keys;
 
             SetBusy(false);
         }
@@ -189,7 +187,7 @@ namespace HeapProfiler {
 
                 bool filteredOut = (delta.Traceback.Modules.Count > 0);
                 foreach (var module in delta.Traceback.Modules) {
-                    filteredOut &= Modules[module].Filtered;
+                    filteredOut &= !ModuleList.SelectedItems.Contains(module);
 
                     if (!filteredOut)
                         break;

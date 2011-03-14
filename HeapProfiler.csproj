@@ -57,6 +57,9 @@
     <Compile Include="ActivityIndicator.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="HeapLayoutView.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
     <Compile Include="HeapViewer.cs">
       <SubType>Form</SubType>
     </Compile>

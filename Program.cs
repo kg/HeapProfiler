@@ -171,6 +171,12 @@ namespace HeapProfiler {
             var fProcess = StartProcess(psi);
             yield return fProcess;
 
+            if (priority.HasValue)
+            try {
+                fProcess.Result.PriorityClass = priority.Value;
+            } catch {
+            }
+
             using (var process = fProcess.Result)
             using (var stdout = new AsyncTextReader(
                 new StreamDataAdapter(process.StandardOutput.BaseStream, false), Encoding.ASCII, 1024 * 16
@@ -179,8 +185,6 @@ namespace HeapProfiler {
                 new StreamDataAdapter(process.StandardError.BaseStream, false), Encoding.ASCII, 1024 * 16
             ))
             try {
-                if (priority.HasValue)
-                    process.PriorityClass = priority.Value;
 
                 var fStdOut = stdout.ReadToEnd();
                 var fStdErr = stderr.ReadToEnd();

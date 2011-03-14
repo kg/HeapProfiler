@@ -322,8 +322,10 @@ namespace HeapProfiler {
                 while (SnapshotLoadState.PendingLoads >= MaxPendingLoads)
                     yield return sleep;
 
+                var filename = f.Result;
+
                 using (var fda = new FileDataAdapter(
-                    f.Result, FileMode.Open, 
+                    filename, FileMode.Open, 
                     FileAccess.Read, FileShare.Read, 1024 * 128
                 )) {
                     var fBytes = fda.ReadToEnd();
@@ -333,42 +335,49 @@ namespace HeapProfiler {
                         () => Encoding.ASCII.GetString(fBytes.Result)
                     );
                     yield return fText;
+
+                    var text = fText.Result;
                     fBytes = null;
+                    fText = null;
 
                     Interlocked.Increment(ref SnapshotLoadState.PendingLoads);
                     progress.Increment();
 
-                    yield return new Start(LoadSnapshotFromString(
-                        f.Result, fText.Result, progress
+                    var fSnapshot = Future.RunInThread(
+                        () => new HeapSnapshot(filename, text)
+                    );
+
+                    yield return new Start(FinishLoadingSnapshot(
+                        fSnapshot, progress
                     ), TaskExecutionPolicy.RunAsBackgroundTask);
-                    fText = null;
                 }
             }
         }
 
-        protected IEnumerator<object> LoadSnapshotFromString (string filename, string text, ActivityIndicator.CountedItem progress) {
-            var fSnapshot = Future.RunInThread(
-                () => new HeapSnapshot(filename, text)
-            );
-            yield return fSnapshot;
+        protected IEnumerator<object> FinishLoadingSnapshot (
+            Future<HeapSnapshot> future, ActivityIndicator.CountedItem progress
+        ) {
+            yield return future;
 
             // Resort the loaded snapshots, since it's possible for the user to load
             //  a subset of a full capture, or load snapshots in the wrong order
-            Snapshots.Add(fSnapshot.Result);
+            Snapshots.Add(future.Result);
             Snapshots.Sort((lhs, rhs) => lhs.When.CompareTo(rhs.When));
 
             OnSnapshotsChanged();
 
-            foreach (var module in fSnapshot.Result.Modules)
+            foreach (var module in future.Result.Modules)
                 SymbolModules.Add(module);
 
             yield return new Start(
-                ResolveSymbolsForSnapshot(fSnapshot.Result),
+                ResolveSymbolsForSnapshot(future.Result),
                 TaskExecutionPolicy.RunAsBackgroundTask
             );
 
-            Interlocked.Decrement(ref SnapshotLoadState.PendingLoads);
-            progress.Decrement();
+            if (progress != null) {
+                Interlocked.Decrement(ref SnapshotLoadState.PendingLoads);
+                progress.Decrement();
+            }
         }
 
         void DiffCache_ItemEvicted (KeyValuePair<Pair<string>, string> item) {
@@ -498,7 +507,22 @@ namespace HeapProfiler {
                 () => File.AppendAllText(targetFilename, mem.GetFileText())
             );
 
-            SnapshotLoadQueue.Enqueue(targetFilename);
+            var fText = Future.RunInThread(
+                () => File.ReadAllText(targetFilename)
+            );
+            yield return fText;
+
+            var text = fText.Result;
+            fText = null;
+
+            var fSnapshot = Future.RunInThread(
+                () => new HeapSnapshot(
+                    Snapshots.Count, now, targetFilename, text
+            ));
+
+            yield return FinishLoadingSnapshot(
+                fSnapshot, null
+            );
         }
 
         public IEnumerator<object> DiffSnapshots (string file1, string file2) {
