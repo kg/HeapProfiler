@@ -1,5 +1,5 @@
 ﻿namespace HeapProfiler {
-    partial class DiffViewer {
+    partial class HeapViewer {
         /// <summary>
         /// Required designer variable.
         /// </summary>
@@ -24,30 +24,23 @@
         /// </summary>
         private void InitializeComponent () {
             this.components = new System.ComponentModel.Container();
-            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(DiffViewer));
-            this.LoadingPanel = new System.Windows.Forms.GroupBox();
-            this.LoadingProgress = new System.Windows.Forms.ProgressBar();
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(HeapViewer));
             this.MainSplit = new System.Windows.Forms.SplitContainer();
             this.ModuleList = new HeapProfiler.ModuleSelector();
             this.ViewSplit = new System.Windows.Forms.SplitContainer();
             this.FindIcon = new System.Windows.Forms.PictureBox();
             this.TracebackFilter = new System.Windows.Forms.TextBox();
-            this.DeltaHistogram = new HeapProfiler.DeltaHistogram();
-            this.DeltaList = new HeapProfiler.DeltaList();
+            this.LayoutView = new HeapProfiler.HeapLayoutView();
             this.MainMenu = new System.Windows.Forms.MenuStrip();
             this.fileToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.SaveDiffMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripMenuItem1 = new System.Windows.Forms.ToolStripSeparator();
             this.CloseMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.viewToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.ViewListMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.ViewHistogramMenu = new System.Windows.Forms.ToolStripMenuItem();
+            this.ViewLayoutMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.ToolTips = new System.Windows.Forms.ToolTip(this.components);
-            this.StatusBar = new System.Windows.Forms.StatusStrip();
-            this.StatusLabel = new System.Windows.Forms.ToolStripStatusLabel();
-            this.AllocationTotals = new System.Windows.Forms.ToolStripStatusLabel();
             this.Timeline = new HeapProfiler.TimelineRangeSelector();
-            this.LoadingPanel.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.MainSplit)).BeginInit();
             this.MainSplit.Panel1.SuspendLayout();
             this.MainSplit.Panel2.SuspendLayout();
@@ -58,34 +51,7 @@
             this.ViewSplit.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.FindIcon)).BeginInit();
             this.MainMenu.SuspendLayout();
-            this.StatusBar.SuspendLayout();
             this.SuspendLayout();
-            // 
-            // LoadingPanel
-            // 
-            this.LoadingPanel.Anchor = System.Windows.Forms.AnchorStyles.None;
-            this.LoadingPanel.Controls.Add(this.LoadingProgress);
-            this.LoadingPanel.Location = new System.Drawing.Point(79, 220);
-            this.LoadingPanel.Margin = new System.Windows.Forms.Padding(5);
-            this.LoadingPanel.Name = "LoadingPanel";
-            this.LoadingPanel.Padding = new System.Windows.Forms.Padding(5);
-            this.LoadingPanel.Size = new System.Drawing.Size(623, 66);
-            this.LoadingPanel.TabIndex = 0;
-            this.LoadingPanel.TabStop = false;
-            this.LoadingPanel.Text = "Generating Diff...";
-            // 
-            // LoadingProgress
-            // 
-            this.LoadingProgress.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)
-                        | System.Windows.Forms.AnchorStyles.Left)
-                        | System.Windows.Forms.AnchorStyles.Right)));
-            this.LoadingProgress.Location = new System.Drawing.Point(11, 26);
-            this.LoadingProgress.Margin = new System.Windows.Forms.Padding(5);
-            this.LoadingProgress.MarqueeAnimationSpeed = 25;
-            this.LoadingProgress.Name = "LoadingProgress";
-            this.LoadingProgress.Size = new System.Drawing.Size(601, 31);
-            this.LoadingProgress.Style = System.Windows.Forms.ProgressBarStyle.Marquee;
-            this.LoadingProgress.TabIndex = 0;
             // 
             // MainSplit
             // 
@@ -104,20 +70,18 @@
             // MainSplit.Panel2
             // 
             this.MainSplit.Panel2.Controls.Add(this.ViewSplit);
-            this.MainSplit.Size = new System.Drawing.Size(779, 404);
+            this.MainSplit.Size = new System.Drawing.Size(779, 434);
             this.MainSplit.SplitterDistance = 162;
             this.MainSplit.SplitterWidth = 7;
             this.MainSplit.TabIndex = 1;
-            this.MainSplit.Visible = false;
             // 
             // ModuleList
             // 
             this.ModuleList.Dock = System.Windows.Forms.DockStyle.Fill;
             this.ModuleList.Location = new System.Drawing.Point(0, 0);
             this.ModuleList.Name = "ModuleList";
-            this.ModuleList.Size = new System.Drawing.Size(162, 404);
+            this.ModuleList.Size = new System.Drawing.Size(162, 434);
             this.ModuleList.TabIndex = 0;
-            this.ModuleList.FilterChanged += new System.EventHandler(this.ModuleList_FilterChanged);
             // 
             // ViewSplit
             // 
@@ -135,12 +99,11 @@
             // 
             // ViewSplit.Panel2
             // 
-            this.ViewSplit.Panel2.Controls.Add(this.DeltaHistogram);
-            this.ViewSplit.Panel2.Controls.Add(this.DeltaList);
-            this.ViewSplit.Size = new System.Drawing.Size(610, 404);
+            this.ViewSplit.Panel2.Controls.Add(this.LayoutView);
+            this.ViewSplit.Size = new System.Drawing.Size(610, 434);
             this.ViewSplit.SplitterDistance = 30;
             this.ViewSplit.SplitterWidth = 1;
-            this.ViewSplit.TabIndex = 2;
+            this.ViewSplit.TabIndex = 3;
             this.ViewSplit.SizeChanged += new System.EventHandler(this.ViewSplit_SizeChanged);
             // 
             // FindIcon
@@ -161,42 +124,26 @@
             this.TracebackFilter.AutoCompleteSource = System.Windows.Forms.AutoCompleteSource.CustomSource;
             this.TracebackFilter.Dock = System.Windows.Forms.DockStyle.Right;
             this.TracebackFilter.Font = new System.Drawing.Font("Consolas", 11.25F);
-            this.TracebackFilter.Location = new System.Drawing.Point(23, 0);
+            this.TracebackFilter.Location = new System.Drawing.Point(24, 0);
             this.TracebackFilter.Margin = new System.Windows.Forms.Padding(5);
             this.TracebackFilter.Name = "TracebackFilter";
-            this.TracebackFilter.Size = new System.Drawing.Size(587, 29);
+            this.TracebackFilter.Size = new System.Drawing.Size(586, 29);
             this.TracebackFilter.TabIndex = 4;
             this.ToolTips.SetToolTip(this.TracebackFilter, "Filter Tracebacks By Function");
             this.TracebackFilter.TextChanged += new System.EventHandler(this.TracebackFilter_TextChanged);
             // 
-            // DeltaHistogram
+            // LayoutView
             // 
-            this.DeltaHistogram.BackColor = System.Drawing.SystemColors.Window;
-            this.DeltaHistogram.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.DeltaHistogram.Font = new System.Drawing.Font("Consolas", 11.25F);
-            this.DeltaHistogram.ForeColor = System.Drawing.SystemColors.WindowText;
-            this.DeltaHistogram.Location = new System.Drawing.Point(0, 0);
-            this.DeltaHistogram.Margin = new System.Windows.Forms.Padding(5);
-            this.DeltaHistogram.Name = "DeltaHistogram";
-            this.DeltaHistogram.Size = new System.Drawing.Size(610, 373);
-            this.DeltaHistogram.TabIndex = 4;
-            this.DeltaHistogram.Visible = false;
-            // 
-            // DeltaList
-            // 
-            this.DeltaList.BackColor = System.Drawing.SystemColors.Window;
-            this.DeltaList.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.DeltaList.Font = new System.Drawing.Font("Consolas", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.DeltaList.ForeColor = System.Drawing.SystemColors.WindowText;
-            this.DeltaList.Location = new System.Drawing.Point(0, 0);
-            this.DeltaList.Margin = new System.Windows.Forms.Padding(5);
-            this.DeltaList.Name = "DeltaList";
-            this.DeltaList.Size = new System.Drawing.Size(610, 373);
-            this.DeltaList.TabIndex = 3;
+            this.LayoutView.BackColor = System.Drawing.SystemColors.Window;
+            this.LayoutView.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.LayoutView.ForeColor = System.Drawing.SystemColors.WindowText;
+            this.LayoutView.Location = new System.Drawing.Point(0, 0);
+            this.LayoutView.Name = "LayoutView";
+            this.LayoutView.Size = new System.Drawing.Size(610, 403);
+            this.LayoutView.TabIndex = 0;
             // 
             // MainMenu
             // 
-            this.MainMenu.Enabled = false;
             this.MainMenu.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.fileToolStripMenuItem,
             this.viewToolStripMenuItem});
@@ -210,29 +157,21 @@
             // fileToolStripMenuItem
             // 
             this.fileToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.SaveDiffMenu,
             this.toolStripMenuItem1,
             this.CloseMenu});
             this.fileToolStripMenuItem.Name = "fileToolStripMenuItem";
             this.fileToolStripMenuItem.Size = new System.Drawing.Size(44, 24);
             this.fileToolStripMenuItem.Text = "&File";
             // 
-            // SaveDiffMenu
-            // 
-            this.SaveDiffMenu.Name = "SaveDiffMenu";
-            this.SaveDiffMenu.Size = new System.Drawing.Size(138, 24);
-            this.SaveDiffMenu.Text = "&Save As...";
-            this.SaveDiffMenu.Click += new System.EventHandler(this.SaveDiffMenu_Click);
-            // 
             // toolStripMenuItem1
             // 
             this.toolStripMenuItem1.Name = "toolStripMenuItem1";
-            this.toolStripMenuItem1.Size = new System.Drawing.Size(135, 6);
+            this.toolStripMenuItem1.Size = new System.Drawing.Size(111, 6);
             // 
             // CloseMenu
             // 
             this.CloseMenu.Name = "CloseMenu";
-            this.CloseMenu.Size = new System.Drawing.Size(138, 24);
+            this.CloseMenu.Size = new System.Drawing.Size(114, 24);
             this.CloseMenu.Text = "&Close";
             this.CloseMenu.Click += new System.EventHandler(this.CloseMenu_Click);
             // 
@@ -240,56 +179,35 @@
             // 
             this.viewToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.ViewListMenu,
-            this.ViewHistogramMenu});
+            this.ViewHistogramMenu,
+            this.ViewLayoutMenu});
             this.viewToolStripMenuItem.Name = "viewToolStripMenuItem";
             this.viewToolStripMenuItem.Size = new System.Drawing.Size(53, 24);
             this.viewToolStripMenuItem.Text = "&View";
             // 
             // ViewListMenu
             // 
-            this.ViewListMenu.Checked = true;
-            this.ViewListMenu.CheckState = System.Windows.Forms.CheckState.Checked;
+            this.ViewListMenu.Enabled = false;
             this.ViewListMenu.Name = "ViewListMenu";
             this.ViewListMenu.Size = new System.Drawing.Size(171, 24);
-            this.ViewListMenu.Text = "Traceback &List";
+            this.ViewListMenu.Text = "&Traceback List";
             this.ViewListMenu.Click += new System.EventHandler(this.ViewListMenu_Click);
             // 
             // ViewHistogramMenu
             // 
+            this.ViewHistogramMenu.Enabled = false;
             this.ViewHistogramMenu.Name = "ViewHistogramMenu";
             this.ViewHistogramMenu.Size = new System.Drawing.Size(171, 24);
             this.ViewHistogramMenu.Text = "&Histogram";
             this.ViewHistogramMenu.Click += new System.EventHandler(this.ViewHistogramMenu_Click);
             // 
-            // StatusBar
+            // ViewLayoutMenu
             // 
-            this.StatusBar.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.StatusLabel,
-            this.AllocationTotals});
-            this.StatusBar.Location = new System.Drawing.Point(0, 485);
-            this.StatusBar.Name = "StatusBar";
-            this.StatusBar.Padding = new System.Windows.Forms.Padding(1, 0, 19, 0);
-            this.StatusBar.Size = new System.Drawing.Size(779, 22);
-            this.StatusBar.TabIndex = 3;
-            this.StatusBar.Text = "statusStrip1";
-            // 
-            // StatusLabel
-            // 
-            this.StatusLabel.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
-            this.StatusLabel.Name = "StatusLabel";
-            this.StatusLabel.Overflow = System.Windows.Forms.ToolStripItemOverflow.Never;
-            this.StatusLabel.Size = new System.Drawing.Size(0, 17);
-            this.StatusLabel.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // AllocationTotals
-            // 
-            this.AllocationTotals.AutoSize = false;
-            this.AllocationTotals.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
-            this.AllocationTotals.Name = "AllocationTotals";
-            this.AllocationTotals.Overflow = System.Windows.Forms.ToolStripItemOverflow.Never;
-            this.AllocationTotals.Size = new System.Drawing.Size(759, 17);
-            this.AllocationTotals.Spring = true;
-            this.AllocationTotals.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            this.ViewLayoutMenu.Checked = true;
+            this.ViewLayoutMenu.CheckState = System.Windows.Forms.CheckState.Checked;
+            this.ViewLayoutMenu.Name = "ViewLayoutMenu";
+            this.ViewLayoutMenu.Size = new System.Drawing.Size(171, 24);
+            this.ViewLayoutMenu.Text = "Heap &Layout";
             // 
             // Timeline
             // 
@@ -298,32 +216,28 @@
             this.Timeline.BackColor = System.Drawing.SystemColors.Control;
             this.Timeline.Enabled = false;
             this.Timeline.ForeColor = System.Drawing.SystemColors.ControlText;
-            this.Timeline.Location = new System.Drawing.Point(0, 438);
+            this.Timeline.Location = new System.Drawing.Point(0, 466);
             this.Timeline.Margin = new System.Windows.Forms.Padding(5);
             this.Timeline.Name = "Timeline";
             this.Timeline.Size = new System.Drawing.Size(779, 39);
             this.Timeline.TabIndex = 4;
             this.Timeline.RangeChanged += new System.EventHandler(this.Timeline_RangeChanged);
             // 
-            // DiffViewer
+            // HeapViewer
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(779, 507);
             this.Controls.Add(this.Timeline);
-            this.Controls.Add(this.StatusBar);
-            this.Controls.Add(this.LoadingPanel);
             this.Controls.Add(this.MainMenu);
             this.Controls.Add(this.MainSplit);
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.MainMenuStrip = this.MainMenu;
             this.Margin = new System.Windows.Forms.Padding(5);
-            this.Name = "DiffViewer";
+            this.Name = "HeapViewer";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
-            this.Text = "Diff Viewer";
-            this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.DiffViewer_FormClosed);
-            this.Shown += new System.EventHandler(this.DiffViewer_Shown);
-            this.LoadingPanel.ResumeLayout(false);
+            this.Text = "Heap Viewer";
+            this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.HeapViewer_FormClosed);
             this.MainSplit.Panel1.ResumeLayout(false);
             this.MainSplit.Panel2.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.MainSplit)).EndInit();
@@ -336,8 +250,6 @@
             ((System.ComponentModel.ISupportInitialize)(this.FindIcon)).EndInit();
             this.MainMenu.ResumeLayout(false);
             this.MainMenu.PerformLayout();
-            this.StatusBar.ResumeLayout(false);
-            this.StatusBar.PerformLayout();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -345,27 +257,21 @@
 
         #endregion
 
-        private System.Windows.Forms.ProgressBar LoadingProgress;
-        public System.Windows.Forms.GroupBox LoadingPanel;
         private System.Windows.Forms.SplitContainer MainSplit;
         private System.Windows.Forms.MenuStrip MainMenu;
         private System.Windows.Forms.ToolStripMenuItem fileToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem SaveDiffMenu;
         private System.Windows.Forms.ToolStripSeparator toolStripMenuItem1;
         private System.Windows.Forms.ToolStripMenuItem CloseMenu;
         private System.Windows.Forms.ToolStripMenuItem viewToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem ViewListMenu;
         private System.Windows.Forms.ToolStripMenuItem ViewHistogramMenu;
         private System.Windows.Forms.ToolTip ToolTips;
-        private System.Windows.Forms.StatusStrip StatusBar;
-        private System.Windows.Forms.ToolStripStatusLabel StatusLabel;
+        private System.Windows.Forms.ToolStripMenuItem ViewLayoutMenu;
         private TimelineRangeSelector Timeline;
-        private System.Windows.Forms.ToolStripStatusLabel AllocationTotals;
         private ModuleSelector ModuleList;
         private System.Windows.Forms.SplitContainer ViewSplit;
         private System.Windows.Forms.PictureBox FindIcon;
         private System.Windows.Forms.TextBox TracebackFilter;
-        private DeltaHistogram DeltaHistogram;
-        private DeltaList DeltaList;
+        private HeapLayoutView LayoutView;
     }
 }

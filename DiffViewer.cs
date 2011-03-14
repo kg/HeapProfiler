@@ -40,7 +40,6 @@ namespace HeapProfiler {
         public Dictionary<string, ModuleInfo> Modules = new Dictionary<string, ModuleInfo>();
         public NameTable FunctionNames = new NameTable();
         public List<DeltaInfo> Deltas = new List<DeltaInfo>();
-        public Dictionary<UInt32, TracebackInfo> Tracebacks = new Dictionary<UInt32, TracebackInfo>();
 
         public List<DeltaInfo> ListItems = new List<DeltaInfo>();
 
@@ -51,16 +50,16 @@ namespace HeapProfiler {
         protected Pair<int> CurrentPair = new Pair<int>(-1, -1);
         protected string Filename;
         protected string FunctionFilter = null;
-        protected StringFormat DeltaListFormat;
+        protected StringFormat ListFormat;
         protected bool Updating = false;
 
         public DiffViewer (TaskScheduler scheduler, RunningProcess instance)
             : base (scheduler) {
             InitializeComponent();
 
-            DeltaListFormat = new StringFormat();
-            DeltaListFormat.Trimming = StringTrimming.None;
-            DeltaListFormat.FormatFlags = StringFormatFlags.NoWrap | StringFormatFlags.FitBlackBox;
+            ListFormat = new StringFormat();
+            ListFormat.Trimming = StringTrimming.None;
+            ListFormat.FormatFlags = StringFormatFlags.NoWrap | StringFormatFlags.FitBlackBox;
 
             Instance = instance;
             if (Instance != null) {
@@ -142,7 +141,6 @@ namespace HeapProfiler {
             Modules = rtc.Result.Modules;
             FunctionNames = rtc.Result.FunctionNames;
             Deltas = rtc.Result.Deltas;
-            Tracebacks = rtc.Result.Tracebacks;
 
             TracebackFilter.AutoCompleteCustomSource.Clear();
             TracebackFilter.AutoCompleteCustomSource.AddRange(FunctionNames.ToArray());
@@ -166,13 +164,7 @@ namespace HeapProfiler {
 
             SetBusy(true);
 
-            ModuleList.BeginUpdate();
-            ModuleList.Items.Clear();
-            foreach (var key in Modules.Keys.OrderBy((s) => s))
-                ModuleList.Items.Add(Modules[key]);
-            for (int i = 0; i < ModuleList.Items.Count; i++)
-                ModuleList.SetItemChecked(i, true);
-            ModuleList.EndUpdate();
+            ModuleList.Items = Modules.Keys;
 
             SetBusy(false);
         }
@@ -195,7 +187,7 @@ namespace HeapProfiler {
 
                 bool filteredOut = (delta.Traceback.Modules.Count > 0);
                 foreach (var module in delta.Traceback.Modules) {
-                    filteredOut &= Modules[module].Filtered;
+                    filteredOut &= !ModuleList.SelectedItems.Contains(module);
 
                     if (!filteredOut)
                         break;
@@ -233,51 +225,6 @@ namespace HeapProfiler {
 
         private void DiffViewer_FormClosed (object sender, FormClosedEventArgs e) {
             Dispose();
-        }
-
-        private void ModuleList_ItemCheck (object sender, ItemCheckEventArgs e) {
-            var m = (ModuleInfo)ModuleList.Items[e.Index];
-            m.Filtered = (e.NewValue == CheckState.Unchecked);
-            RefreshDeltas();
-        }
-
-        private void SelectAllModules_Click (object sender, EventArgs e) {
-            SetBusy(true);
-            ModuleList.BeginUpdate();
-
-            for (int i = 0; i < ModuleList.Items.Count; i++)
-                ModuleList.SetItemChecked(i, true);
-
-            ModuleList.EndUpdate();
-            SetBusy(false);
-
-            RefreshDeltas();
-        }
-
-        private void SelectNoModules_Click (object sender, EventArgs e) {
-            SetBusy(true);
-            ModuleList.BeginUpdate();
-
-            for (int i = 0; i < ModuleList.Items.Count; i++)
-                ModuleList.SetItemChecked(i, false);
-
-            ModuleList.EndUpdate();
-            SetBusy(false);
-
-            RefreshDeltas();
-        }
-
-        private void InvertModuleSelection_Click (object sender, EventArgs e) {
-            SetBusy(true);
-            ModuleList.BeginUpdate();
-
-            for (int i = 0; i < ModuleList.Items.Count; i++)
-                ModuleList.SetItemChecked(i, !ModuleList.GetItemChecked(i));
-
-            ModuleList.EndUpdate();
-            SetBusy(false);
-
-            RefreshDeltas();
         }
 
         private void SaveDiffMenu_Click (object sender, EventArgs e) {
@@ -346,6 +293,14 @@ namespace HeapProfiler {
 
             if (pair.CompareTo(CurrentPair) != 0)
                 PendingLoad = Start(LoadRange(pair));
+        }
+
+        private void ModuleList_FilterChanged (object sender, EventArgs e) {
+            RefreshDeltas();
+        }
+
+        private void ViewSplit_SizeChanged (object sender, EventArgs e) {
+            TracebackFilter.Width = ViewSplit.Panel1.ClientSize.Width - FindIcon.Width;
         }
     }
 }

@@ -21,12 +21,26 @@ CREATE TABLE MemoryStats (
 
 CREATE TABLE Heaps (
     Heaps_ID INTEGER PRIMARY KEY NOT NULL
+	Offset INTEGER NOT NULL
 );
 
 CREATE TABLE SnapshotHeaps (
     Snapshots_ID INTEGER NOT NULL,
     Heaps_ID INTEGER NOT NULL,
     PRIMARY KEY (Snapshots_ID, Heaps_ID)
+);
+
+CREATE TABLE HeapStats (
+	Heaps_ID INTEGER NOT NULL,
+	Snapshots_ID INTEGER NOT NULL,
+	EstimatedSize INTEGER NOT NULL,
+	EstimatedFree INTEGER NOT NULL,
+	TotalOverhead INTEGER NOT NULL,
+	TotalRequested INTEGER NOT NULL,
+	LargestFreeSpan INTEGER NOT NULL,
+	LargestOccupiedSpan INTEGER NOT NULL,
+	OccupiedSpans INTEGER NOT NULL,
+	EmptySpans INTEGER NOT NULL
 );
 
 CREATE TABLE Modules (

@@ -568,7 +568,8 @@ namespace HeapProfiler {
     }
 
     public abstract class KeyedCollection2<TKey, TValue> :
-        KeyedCollection<TKey, TValue> where TValue : class {
+        KeyedCollection<TKey, TValue>
+        where TValue : class {
 
         public KeyedCollection2 ()
             : base() {
@@ -578,7 +579,13 @@ namespace HeapProfiler {
             : base(keyComparer) {
         }
 
-        public IList<TValue> Values {
+        public virtual IEnumerable<TKey> Keys {
+            get {
+                return base.Dictionary.Keys;
+            }
+        }
+
+        public virtual IList<TValue> Values {
             get {
                 return base.Items;
             }
@@ -738,21 +745,35 @@ namespace HeapProfiler {
         protected int _Position = 0;
 
         public LineReader (string text) {
+            if (text == null)
+                throw new ArgumentNullException();
+
             Text = text;
+        }
+
+        public void Rewind (ref Line line) {
+            if ((_Position <= line.Start) || (line.Length <= 0))
+                throw new InvalidOperationException();
+
+            _Position = line.Start;
+            _LinesRead -= 1;
         }
 
         public bool ReadLine (out Line line) {
             bool scanningEol = false;
             int start = _Position;
+            int end = -1;
             int length = Text.Length;
 
             while (_Position < length) {
                 var current = Text[_Position];
 
                 if ((current == '\r') || (current == '\n')) {
+                    if (end < 0)
+                        end = _Position;
                     scanningEol = true;
                 } else if (scanningEol) {
-                    line = new Line(this, start, _Position - start);
+                    line = new Line(this, start, end - start);
                     _LinesRead += 1;
                     return true;
                 }
@@ -760,7 +781,11 @@ namespace HeapProfiler {
                 _Position += 1;
             }
 
-            if (_Position > start) {
+            if (end > 0) {
+                line = new Line(this, start, end - start);
+                _LinesRead += 1;
+                return true;
+            } else if (_Position > start) {
                 line = new Line(this, start, length - start);
                 _LinesRead += 1;
                 return true;

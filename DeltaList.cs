@@ -30,7 +30,7 @@ using Squared.Util;
 using TItem = HeapProfiler.DeltaInfo;
 
 namespace HeapProfiler {
-    public partial class DeltaList : UserControl {
+    public class DeltaList : UserControl {
         public struct ItemData {
             public bool Expanded;
         }

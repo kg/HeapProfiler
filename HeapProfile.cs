@@ -67,7 +67,6 @@ namespace HeapProfiler {
     }
 
     public class ModuleInfo {
-        public bool Filtered = false;
         public string ModuleName;
         public string SymbolType;
         public string SymbolPath;
@@ -594,12 +593,14 @@ namespace HeapProfiler {
                 if (Allocations.Count == 0)
                     return;
 
+                Offset = Allocations[0].Offset;
+
                 var currentPair = new Pair<UInt32>(Allocations[0].Offset, Allocations[0].NextOffset);
                 // Detect free space at the front of the heap
-                if (currentPair.First > Offset) {
+                if (currentPair.First > ID) {
                     EmptySpans += 1;
-                    EstimatedFree += currentPair.First - Offset;
-                    LargestFreeSpan = Math.Max(LargestFreeSpan, currentPair.First - Offset);
+                    EstimatedFree += currentPair.First - ID;
+                    LargestFreeSpan = Math.Max(LargestFreeSpan, currentPair.First - ID);
                 }
 
                 var a = Allocations[0];
@@ -646,6 +647,45 @@ namespace HeapProfiler {
         }
 
         public class HeapCollection : KeyedCollection2<UInt32, Heap> {
+            protected readonly List<UInt32> _Keys = new List<uint>();
+
+            public override IEnumerable<UInt32> Keys {
+                get {
+                    return _Keys;
+                }
+            }
+
+            protected override void InsertItem (int index, Heap item) {
+                base.InsertItem(index, item);
+
+                UpdateKeys();
+            }
+
+            protected override void SetItem (int index, Heap item) {
+                base.SetItem(index, item);
+
+                UpdateKeys();
+            }
+
+            protected override void RemoveItem (int index) {
+                base.RemoveItem(index);
+
+                UpdateKeys();
+            }
+
+            protected override void ClearItems () {
+                base.ClearItems();
+
+                UpdateKeys();
+            }
+
+            protected void UpdateKeys () {
+                _Keys.Clear();
+                foreach (var item in base.Items)
+                    _Keys.Add(GetKeyForItem(item));
+                _Keys.Sort();
+            }
+
             protected override UInt32 GetKeyForItem (Heap item) {
                 return item.ID;
             }
@@ -738,8 +778,10 @@ namespace HeapProfiler {
                                     frameList.Add(UInt32.Parse(
                                         line.ToString(), NumberStyles.HexNumber | NumberStyles.AllowLeadingWhite
                                     ));
-                                else
+                                else {
+                                    lr.Rewind(ref line);
                                     break;
+                                }
                             }
 
                             Tracebacks.Add(traceback = new Traceback(
@@ -762,6 +804,8 @@ namespace HeapProfiler {
                         Memory = new MemoryStatistics(line.ToString());
                         scanningForMemory = false;
                         break;
+                    } else {
+                        continue;
                     }
                 } else if (scanningForStart) {
                     if (line.Contains("Loaded modules"))

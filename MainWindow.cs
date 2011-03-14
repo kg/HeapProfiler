@@ -547,7 +547,10 @@ namespace HeapProfiler {
         }
 
         private void ViewSelection_Click (object sender, EventArgs e) {
-
+            var index = SnapshotTimeline.Selection.First;
+            var viewer = new HeapViewer(Scheduler, Instance);
+            viewer.SetSnapshot(index);
+            viewer.ShowDialog(this);
         }
     }
 }

@@ -57,6 +57,15 @@
     <Compile Include="ActivityIndicator.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="HeapLayoutView.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="HeapViewer.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="HeapViewer.Designer.cs">
+      <DependentUpon>HeapViewer.cs</DependentUpon>
+    </Compile>
     <Compile Include="DeltaHistogram.cs">
       <SubType>UserControl</SubType>
     </Compile>
@@ -79,6 +88,12 @@
     </Compile>
     <Compile Include="MainWindow.Designer.cs">
       <DependentUpon>MainWindow.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ModuleSelector.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="ModuleSelector.Designer.cs">
+      <DependentUpon>ModuleSelector.cs</DependentUpon>
     </Compile>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -106,8 +121,14 @@
     <EmbeddedResource Include="DiffViewer.resx">
       <DependentUpon>DiffViewer.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="HeapViewer.resx">
+      <DependentUpon>HeapViewer.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="MainWindow.resx">
       <DependentUpon>MainWindow.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="ModuleSelector.resx">
+      <DependentUpon>ModuleSelector.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>

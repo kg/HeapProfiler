@@ -31,7 +31,7 @@ using TItem = HeapProfiler.DeltaInfo;
 using System.Globalization;
 
 namespace HeapProfiler {
-    public partial class DeltaHistogram : UserControl {
+    public class DeltaHistogram : UserControl {
         public struct ItemData {
         }
 
