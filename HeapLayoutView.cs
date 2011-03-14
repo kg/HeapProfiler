@@ -26,6 +26,7 @@ using System.Text;
 using System.Windows.Forms;
 using Squared.Task;
 using Squared.Util;
+using System.Drawing.Drawing2D;
 
 namespace HeapProfiler {
     public class HeapLayoutView : UserControl {
@@ -33,7 +34,6 @@ namespace HeapProfiler {
 
         protected const int BytesPerPixel = 16;
         protected const int RowHeight = 12;
-        protected const int HeapSpacing = 8;
         protected const int MarginWidth = 2;
 
         protected ScratchBuffer Scratch = new ScratchBuffer();
@@ -112,14 +112,14 @@ namespace HeapProfiler {
                 _ScrollOffset = 0;
 
             using (var functionHighlightBrush = new SolidBrush(Color.PaleGoldenrod))
-            using (var shadeBrush = new SolidBrush(Color.FromArgb(31, 0, 0, 0)))
+            using (var shadeBrush = new SolidBrush(SystemColors.ControlLight))
             using (var backgroundBrush = new SolidBrush(BackColor))
             using (var highlightBrush = new SolidBrush(SystemColors.Highlight)) {
-                int y = -_ScrollOffset;
+                int y = -_ScrollOffset * RowHeight;
 
                 foreach (var heapId in Snapshot.Heaps.Keys) {
                     var heap = Snapshot.Heaps[heapId];
-                    var itemHeight = (int)(heap.EstimatedSize / BytesPerRow) + HeapSpacing;
+                    var itemHeight = (int)(Math.Ceiling(heap.EstimatedSize / (float)BytesPerRow) + 1) * RowHeight;
                     var rgn = new Rectangle(0, y, width, itemHeight);
                     var maxX = width - MarginWidth;
 
@@ -130,8 +130,10 @@ namespace HeapProfiler {
                     using (var scratch = Scratch.Get(e.Graphics, clippedRgn)) {
                         var g = scratch.Graphics;
 
+                        g.SmoothingMode = SmoothingMode.None;
+
                         g.ResetClip();
-                        g.Clear(backgroundBrush.Color);
+                        g.Clear(shadeBrush.Color);
                         foreach (var allocation in heap.Allocations) {
                             var color = SelectItemColor(allocation);
 
@@ -140,8 +142,6 @@ namespace HeapProfiler {
                                 y2 = y1 + RowHeight;
                             float x1 = (pos % BytesPerRow) / (float)BytesPerPixel,
                                 x2 = x1 + ((allocation.Size + allocation.Overhead) / (float)BytesPerPixel);
-
-                            Console.WriteLine(pos);
 
                             if (y2 < rgn.Top)
                                 continue;
@@ -167,9 +167,15 @@ namespace HeapProfiler {
                     if (y >= ClientSize.Height)
                         break;
                 }
+
+                if (y < ClientSize.Height)
+                    e.Graphics.FillRectangle(backgroundBrush, new Rectangle(0, y, ClientSize.Width, ClientSize.Height - y));
             }
 
-            var largeChange = ScrollBar.LargeChange;
+            var largeChange = ClientSize.Height / RowHeight;
+            if (ScrollBar.LargeChange != largeChange)
+                ScrollBar.LargeChange = largeChange;
+
             int scrollMax = Math.Max(1, contentHeight) + largeChange - 1;
             if (ScrollBar.Maximum != scrollMax)
                 ScrollBar.Maximum = scrollMax;
@@ -210,32 +216,30 @@ namespace HeapProfiler {
         }
 
         protected override void OnPreviewKeyDown (PreviewKeyDownEventArgs e) {
-            /*
             switch (e.KeyCode) {
                 case Keys.Down:
-                SelectedIndex += 1;
+                    ScrollOffset += 1;
                 break;
                 case Keys.End:
-                SelectedIndex = Items.Count - 1;
+                    ScrollOffset = ContentHeight - 1;
                 break;
                 case Keys.Home:
-                SelectedIndex = 0;
+                    ScrollOffset = 0;
                 break;
                 case Keys.PageDown:
-                SelectedIndex += ScrollBar.LargeChange;
+                    ScrollOffset += ScrollBar.LargeChange;
                 break;
                 case Keys.PageUp:
-                SelectedIndex -= ScrollBar.LargeChange;
+                    ScrollOffset -= ScrollBar.LargeChange;
                 break;
                 case Keys.Up:
-                SelectedIndex -= 1;
+                    ScrollOffset -= 1;
                 break;
 
                 default:
-                base.OnPreviewKeyDown(e);
+                    base.OnPreviewKeyDown(e);
                 break;
             }
-             */
         }
 
         protected override void OnKeyDown (KeyEventArgs e) {
@@ -313,7 +317,7 @@ namespace HeapProfiler {
                     bytes += heap.EstimatedSize;
                 }
 
-                return (int)((bytes / BytesPerRow * RowHeight) + (Snapshot.Heaps.Count * HeapSpacing));
+                return (int)((bytes / BytesPerRow) + Snapshot.Heaps.Count);
             }
         }
     }

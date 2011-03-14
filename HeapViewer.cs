@@ -82,7 +82,7 @@ namespace HeapProfiler {
 
             SetBusy(true);
 
-            ModuleList.Items = Snapshot.Modules.Keys;
+            ModuleList.Items = (from m in Snapshot.Modules select m.ShortFilename).ToArray();
 
             SetBusy(false);
         }
