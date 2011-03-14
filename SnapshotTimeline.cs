@@ -21,7 +21,7 @@ namespace HeapProfiler {
         public const double GridLineRatio = 0.4;
         public const int MaxGridLines = 16;
         public const long MaximumThreshold = 256;
-        public const int MinSelectionDistance = 3;
+        public const int MinSelectionDistance = 5;
 
         public List<TItem> Items = new List<TItem>();
 
@@ -353,12 +353,8 @@ namespace HeapProfiler {
             if (!_MouseDownLocation.HasValue)
                 return;
 
-            int direction = 1;
-            if (mouseLocation.X < _MouseDownLocation.Value.X)
-                direction = -1;
-
-            var index1 = IndexFromPoint(_MouseDownLocation.Value, -direction);
-            var index2 = IndexFromPoint(mouseLocation, direction);
+            var index1 = IndexFromPoint(_MouseDownLocation.Value, -1);
+            var index2 = IndexFromPoint(mouseLocation, 1);
 
             if (Math.Abs(mouseLocation.X - _MouseDownLocation.Value.X) >= MinSelectionDistance) {
                 var newSelection = Pair.New(
