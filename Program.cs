@@ -24,6 +24,7 @@ using Squared.Task;
 using System.Diagnostics;
 using System.IO;
 using Squared.Task.IO;
+using System.Text;
 
 namespace HeapProfiler {
     static class Program {
@@ -172,10 +173,10 @@ namespace HeapProfiler {
 
             using (var process = fProcess.Result)
             using (var stdout = new AsyncTextReader(
-                new StreamDataAdapter(process.StandardOutput.BaseStream, false)
+                new StreamDataAdapter(process.StandardOutput.BaseStream, false), Encoding.ASCII, 1024 * 16
             ))
             using (var stderr = new AsyncTextReader(
-                new StreamDataAdapter(process.StandardError.BaseStream, false)
+                new StreamDataAdapter(process.StandardError.BaseStream, false), Encoding.ASCII, 1024 * 16
             ))
             try {
                 if (priority.HasValue)

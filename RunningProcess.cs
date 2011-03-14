@@ -32,7 +32,7 @@ using Squared.Task.IO;
 
 namespace HeapProfiler {
     public class RunningProcess : IDisposable {
-        public const int SymbolResolveBatchSize = 512;
+        public const int SymbolResolveBatchSize = 1024;
         public const int MaxFramesPerTraceback = 31;
         public const int MaxConcurrentLoads = 4;
 
