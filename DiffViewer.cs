@@ -166,13 +166,7 @@ namespace HeapProfiler {
 
             SetBusy(true);
 
-            ModuleList.BeginUpdate();
-            ModuleList.Items.Clear();
-            foreach (var key in Modules.Keys.OrderBy((s) => s))
-                ModuleList.Items.Add(Modules[key]);
-            for (int i = 0; i < ModuleList.Items.Count; i++)
-                ModuleList.SetItemChecked(i, true);
-            ModuleList.EndUpdate();
+            ModuleList.Items = Modules;
 
             SetBusy(false);
         }
@@ -233,51 +227,6 @@ namespace HeapProfiler {
 
         private void DiffViewer_FormClosed (object sender, FormClosedEventArgs e) {
             Dispose();
-        }
-
-        private void ModuleList_ItemCheck (object sender, ItemCheckEventArgs e) {
-            var m = (ModuleInfo)ModuleList.Items[e.Index];
-            m.Filtered = (e.NewValue == CheckState.Unchecked);
-            RefreshDeltas();
-        }
-
-        private void SelectAllModules_Click (object sender, EventArgs e) {
-            SetBusy(true);
-            ModuleList.BeginUpdate();
-
-            for (int i = 0; i < ModuleList.Items.Count; i++)
-                ModuleList.SetItemChecked(i, true);
-
-            ModuleList.EndUpdate();
-            SetBusy(false);
-
-            RefreshDeltas();
-        }
-
-        private void SelectNoModules_Click (object sender, EventArgs e) {
-            SetBusy(true);
-            ModuleList.BeginUpdate();
-
-            for (int i = 0; i < ModuleList.Items.Count; i++)
-                ModuleList.SetItemChecked(i, false);
-
-            ModuleList.EndUpdate();
-            SetBusy(false);
-
-            RefreshDeltas();
-        }
-
-        private void InvertModuleSelection_Click (object sender, EventArgs e) {
-            SetBusy(true);
-            ModuleList.BeginUpdate();
-
-            for (int i = 0; i < ModuleList.Items.Count; i++)
-                ModuleList.SetItemChecked(i, !ModuleList.GetItemChecked(i));
-
-            ModuleList.EndUpdate();
-            SetBusy(false);
-
-            RefreshDeltas();
         }
 
         private void SaveDiffMenu_Click (object sender, EventArgs e) {
@@ -346,6 +295,14 @@ namespace HeapProfiler {
 
             if (pair.CompareTo(CurrentPair) != 0)
                 PendingLoad = Start(LoadRange(pair));
+        }
+
+        private void ModuleList_FilterChanged (object sender, EventArgs e) {
+            RefreshDeltas();
+        }
+
+        private void ViewSplit_SizeChanged (object sender, EventArgs e) {
+            TracebackFilter.Width = ViewSplit.Panel1.ClientSize.Width - FindIcon.Width;
         }
     }
 }
