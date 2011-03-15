@@ -44,14 +44,14 @@ namespace HeapProfiler {
         public List<Allocation> ListItems = new List<Allocation>();
 
         protected IFuture PendingLoad = null;
-        protected RunningProcess Instance = null;
+        protected HeapRecording Instance = null;
 
         protected string Filename;
         protected string FunctionFilter = null;
         protected StringFormat ListFormat;
         protected bool Updating = false;
 
-        public HeapViewer (TaskScheduler scheduler, RunningProcess instance)
+        public HeapViewer (TaskScheduler scheduler, HeapRecording instance)
             : base (scheduler) {
             InitializeComponent();
 

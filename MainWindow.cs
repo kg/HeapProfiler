@@ -36,7 +36,7 @@ namespace HeapProfiler {
         public const double CaptureCheckIntervalSeconds = 1.0;
         public const double CaptureMaxIntervalSeconds = 60.0;
 
-        public RunningProcess Instance = null;
+        public HeapRecording Instance = null;
 
         protected IFuture AutoCaptureFuture = null;
 
@@ -114,7 +114,7 @@ namespace HeapProfiler {
 
             LaunchProcess.Enabled = false;
 
-            Instance = RunningProcess.Start(
+            Instance = HeapRecording.StartProcess(
                 Scheduler, Activities,
                 ExecutablePath.Text,
                 Arguments.Text,
@@ -379,7 +379,7 @@ namespace HeapProfiler {
                 if (dialog.ShowDialog(this) != System.Windows.Forms.DialogResult.OK)
                     return;
 
-                Instance = RunningProcess.FromSnapshots(
+                Instance = HeapRecording.FromSnapshots(
                     Scheduler, Activities, dialog.FileNames
                 );
                 Instance.StatusChanged += (s, _) => RefreshStatus();

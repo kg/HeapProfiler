@@ -45,7 +45,7 @@ namespace HeapProfiler {
 
         protected IFuture PendingLoad = null;
         protected Pair<int> PendingLoadPair = new Pair<int>(-1, -1);
-        protected RunningProcess Instance = null;
+        protected HeapRecording Instance = null;
 
         protected Pair<int> CurrentPair = new Pair<int>(-1, -1);
         protected string Filename;
@@ -53,7 +53,7 @@ namespace HeapProfiler {
         protected StringFormat ListFormat;
         protected bool Updating = false;
 
-        public DiffViewer (TaskScheduler scheduler, RunningProcess instance)
+        public DiffViewer (TaskScheduler scheduler, HeapRecording instance)
             : base (scheduler) {
             InitializeComponent();
 

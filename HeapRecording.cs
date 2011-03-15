@@ -31,7 +31,7 @@ using System.Threading;
 using Squared.Task.IO;
 
 namespace HeapProfiler {
-    public class RunningProcess : IDisposable {
+    public class HeapRecording : IDisposable {
         public const int SymbolResolveBatchSize = 1024;
         public const int MaxFramesPerTraceback = 31;
         public const int MaxConcurrentLoads = 4;
@@ -79,7 +79,7 @@ namespace HeapProfiler {
         protected int MaxPendingLoads = Math.Min(Environment.ProcessorCount, MaxConcurrentLoads);
         protected int TotalFrameResolveFailures = 0;
 
-        protected RunningProcess (
+        protected HeapRecording (
             TaskScheduler scheduler,
             ActivityIndicator activities,
             ProcessStartInfo startInfo
@@ -97,7 +97,7 @@ namespace HeapProfiler {
             DiffCache.ItemEvicted += DiffCache_ItemEvicted;
         }
 
-        protected RunningProcess (
+        protected HeapRecording (
             TaskScheduler scheduler,
             ActivityIndicator activities,
             string[] snapshots
@@ -432,7 +432,7 @@ namespace HeapProfiler {
             OnStatusChanged();
         }
 
-        public static RunningProcess Start (
+        public static HeapRecording StartProcess (
             TaskScheduler scheduler, ActivityIndicator activities, string executablePath, string arguments, string workingDirectory
         ) {
             var psi = new ProcessStartInfo(
@@ -445,7 +445,7 @@ namespace HeapProfiler {
             else
                 psi.WorkingDirectory = Path.GetDirectoryName(executablePath);
 
-            return new RunningProcess(scheduler, activities, psi);
+            return new HeapRecording(scheduler, activities, psi);
         }
 
         public bool Running {
@@ -555,8 +555,8 @@ namespace HeapProfiler {
             }
         }
 
-        public static RunningProcess FromSnapshots (TaskScheduler scheduler, ActivityIndicator activities, string[] snapshots) {
-            return new RunningProcess(
+        public static HeapRecording FromSnapshots (TaskScheduler scheduler, ActivityIndicator activities, string[] snapshots) {
+            return new HeapRecording(
                 scheduler, activities, snapshots
             );
         }

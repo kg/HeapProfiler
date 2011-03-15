@@ -57,6 +57,7 @@
     <Compile Include="ActivityIndicator.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="HeapDiff.cs" />
     <Compile Include="HeapLayoutView.cs">
       <SubType>UserControl</SubType>
     </Compile>
@@ -81,7 +82,7 @@
     <Compile Include="DiffViewer.Designer.cs">
       <DependentUpon>DiffViewer.cs</DependentUpon>
     </Compile>
-    <Compile Include="HeapProfile.cs" />
+    <Compile Include="HeapSnapshot.cs" />
     <Compile Include="HSV.cs" />
     <Compile Include="MainWindow.cs">
       <SubType>Form</SubType>
@@ -97,7 +98,7 @@
     </Compile>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="RunningProcess.cs" />
+    <Compile Include="HeapRecording.cs" />
     <Compile Include="Settings.cs" />
     <Compile Include="DeltaList.cs">
       <SubType>UserControl</SubType>
