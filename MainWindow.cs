@@ -137,11 +137,15 @@ namespace HeapProfiler {
         private void RefreshLaunchEnabled () {
             bool enabled = true;
 
-            var path = Path.GetFullPath(ExecutablePath.Text);
-            if (!File.Exists(path))
+            try {
+                var path = Path.GetFullPath(ExecutablePath.Text);
+                if (!File.Exists(path))
+                    enabled = false;
+                if (Path.GetExtension(path).ToLowerInvariant() != ".exe")
+                    enabled = false;
+            } catch {
                 enabled = false;
-            if (Path.GetExtension(path).ToLowerInvariant() != ".exe")
-                enabled = false;
+            }
 
             if (Instance != null && Instance.Running)
                 enabled = false;

@@ -1,9 +1,13 @@
 ﻿PRAGMA user_version = 1;
 
+CREATE TABLE Meta (
+	Name TEXT PRIMARY KEY NOT NULL,
+	Value VARIANT
+);
+
 CREATE TABLE Snapshots (
     Snapshots_ID INTEGER PRIMARY KEY NOT NULL,
-    When DATETIME NOT NULL,
-    Filename TEXT NOT NULL
+    When DATETIME NOT NULL
 );
 
 CREATE TABLE MemoryStats (
