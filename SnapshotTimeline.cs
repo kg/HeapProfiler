@@ -137,8 +137,8 @@ namespace HeapProfiler {
 
             if (Items.Count > 0) {
                 maxValue = Math.Max(MaximumThreshold, (from s in Items select _ItemValueGetter(s)).Max());
-                minTicks = (from s in Items select s.When.Ticks).Min();
-                maxTicks = (from s in Items select s.When.Ticks).Max();
+                minTicks = (from s in Items select s.Timestamp.Ticks).Min();
+                maxTicks = (from s in Items select s.Timestamp.Ticks).Max();
                 _ContentWidth = contentWidth = (int)(
                     (maxTicks - minTicks) 
                     * pixelsPerMinute / minuteInTicks
@@ -215,7 +215,7 @@ namespace HeapProfiler {
                     lastY = y;
                     y = (float)(height - VerticalMargin - ((value / (double)maxValue) * (height - VerticalMargin * 2)));
                     lastX = x;
-                    x = (int)((item.When.Ticks - minTicks)
+                    x = (int)((item.Timestamp.Ticks - minTicks)
                         * pixelsPerMinute / minuteInTicks) - _ScrollOffset;
 
                     using (var brush = new SolidBrush(selected ? SystemColors.HighlightText : ForeColor))
@@ -266,7 +266,7 @@ namespace HeapProfiler {
                     using (var pen = new Pen(SystemColors.HighlightText)) {
                         pen.Width = 2.0f;
                         var item = Items[mouseIndex];
-                        x = (int)((item.When.Ticks - minTicks) * pixelsPerMinute / minuteInTicks) - _ScrollOffset;
+                        x = (int)((item.Timestamp.Ticks - minTicks) * pixelsPerMinute / minuteInTicks) - _ScrollOffset;
                         g.DrawLine(
                             pen, 
                             x, 0, x, height
@@ -287,7 +287,7 @@ namespace HeapProfiler {
                 if ((y != null) || (x == null))
                     throw new InvalidOperationException("BinarySearch should be doing Comparer(currentItem, valueToFind), and valueToFind should be null.");
 
-                return x.When.CompareTo(When);
+                return x.Timestamp.CompareTo(When);
             }
         }
 
@@ -306,7 +306,7 @@ namespace HeapProfiler {
             var minuteInTicks = Squared.Util.Time.SecondInTicks * 60;
 
             if (Items.Count > 0)
-                minTicks = (from s in Items select s.When.Ticks).Min();
+                minTicks = (from s in Items select s.Timestamp.Ticks).Min();
 
             time = new DateTime(
                 (absoluteX * minuteInTicks / pixelsPerMinute) + minTicks,
@@ -405,7 +405,7 @@ namespace HeapProfiler {
             var formattedValue = _ItemValueFormatter(value);
             var text = String.Format(
                 "{0}: {1}",
-                Items[index].When.ToLongTimeString(),
+                Items[index].Timestamp.ToLongTimeString(),
                 formattedValue
             );
 
@@ -424,8 +424,8 @@ namespace HeapProfiler {
 
             var text = String.Format(
                 "{0} - {1}",
-                Items[range.First].When.ToLongTimeString(),
-                Items[range.Second].When.ToLongTimeString()
+                Items[range.First].Timestamp.ToLongTimeString(),
+                Items[range.Second].Timestamp.ToLongTimeString()
             );
 
             if (text == _ToolTipText)

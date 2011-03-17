@@ -265,8 +265,8 @@ namespace HeapProfiler {
             ToolTip.SetToolTip(
                 this, String.Format(
                     "{0} - {1}",
-                    Items[range.First].When.ToLongTimeString(),
-                    Items[range.Second].When.ToLongTimeString()
+                    Items[range.First].Timestamp.ToLongTimeString(),
+                    Items[range.Second].Timestamp.ToLongTimeString()
                 )
             );
         }

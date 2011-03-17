@@ -358,7 +358,7 @@ namespace HeapProfiler {
                         String.Format(
                             "{0:0000}_{1}.heapsnap", 
                             snap.Index, 
-                            snap.When.ToString("u").Replace(":", "_")
+                            snap.Timestamp.ToString("u").Replace(":", "_")
                         )
                     );
                     try {
@@ -555,6 +555,35 @@ namespace HeapProfiler {
             var viewer = new HeapViewer(Scheduler, Instance);
             viewer.SetSnapshot(index);
             viewer.ShowDialog(this);
+        }
+
+        private void SaveAsMenu_Click (object sender, EventArgs e) {
+            using (var dialog = new SaveFileDialog()) {
+                dialog.Title = "Save Heap Recording";
+                dialog.Filter = "Heap Recordings|*.heaprecording";
+                dialog.DefaultExt = ".heaprecording";
+                dialog.AddExtension = true;
+                dialog.CheckPathExists = true;
+                if (dialog.ShowDialog(this) != System.Windows.Forms.DialogResult.OK)
+                    return;
+
+                Scheduler.Start(
+                    SaveInstanceAs(dialog.FileName), 
+                    TaskExecutionPolicy.RunAsBackgroundTask
+                );
+            }
+        }
+
+        private IEnumerator<object> SaveInstanceAs (string targetFilename) {
+            UseWaitCursor = true;
+            Enabled = false;
+
+            try {
+                yield return Instance.Database.Move(targetFilename);
+            } finally {
+                UseWaitCursor = false;
+                Enabled = true;
+            }
         }
     }
 }

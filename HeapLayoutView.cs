@@ -137,7 +137,7 @@ namespace HeapProfiler {
                         foreach (var allocation in heap.Allocations) {
                             var color = SelectItemColor(allocation);
 
-                            int pos = (int)(allocation.Offset - heap.Offset);
+                            int pos = (int)(allocation.Address - heap.BaseAddress);
                             int y1 = y + ((pos / BytesPerRow) * RowHeight),
                                 y2 = y1 + RowHeight;
                             float x1 = (pos % BytesPerRow) / (float)BytesPerPixel,

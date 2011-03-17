@@ -107,7 +107,7 @@ namespace HeapProfiler {
             PendingLoadPair = Pair.New(-1, -1);
             CurrentPair = range;
 
-            Text = "Diff Viewer - " + String.Format("{0} - {1}", s1.When.ToLongTimeString(), s2.When.ToLongTimeString());
+            Text = "Diff Viewer - " + String.Format("{0} - {1}", s1.Timestamp.ToLongTimeString(), s2.Timestamp.ToLongTimeString());
         }
 
         public IEnumerator<object> LoadDiff (string filename) {

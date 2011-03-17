@@ -29,12 +29,21 @@ using Squared.Util.RegexExtensions;
 using System.Text.RegularExpressions;
 using System.Threading;
 using Squared.Task.IO;
+using System.Reflection;
 
 namespace HeapProfiler {
     public class HeapRecording : IDisposable {
         public const int SymbolResolveBatchSize = 1024;
         public const int MaxFramesPerTraceback = 31;
         public const int MaxConcurrentLoads = 4;
+
+        public static readonly DatabaseSchema DatabaseSchema;
+
+        static HeapRecording () {
+            using (var stream = Assembly.GetEntryAssembly().GetManifestResourceStream("HeapProfiler.schema.sql"))
+            using (var sr = new StreamReader(stream))
+                DatabaseSchema = new DatabaseSchema(sr.ReadToEnd());
+        }
 
         public static class SymbolResolveState {
             public static int Count = 0;
@@ -66,6 +75,7 @@ namespace HeapProfiler {
         public event EventHandler StatusChanged;
         public event EventHandler SnapshotsChanged;
 
+        public DatabaseFile Database;
         public Process Process;
 
         protected readonly HashSet<HeapSnapshot.Module> SymbolModules = new HashSet<HeapSnapshot.Module>();
@@ -90,9 +100,8 @@ namespace HeapProfiler {
             Scheduler = scheduler;
 
             Futures.Add(Scheduler.Start(
-                MainTask(), TaskExecutionPolicy.RunAsBackgroundTask
+                ProfileMainTask(), TaskExecutionPolicy.RunAsBackgroundTask
             ));
-            StartHelperTasks();
 
             DiffCache.ItemEvicted += DiffCache_ItemEvicted;
         }
@@ -105,7 +114,9 @@ namespace HeapProfiler {
             Scheduler = scheduler;
             Activities = activities;
 
-            StartHelperTasks();
+            Futures.Add(Scheduler.Start(
+                LoadExistingMainTask(), TaskExecutionPolicy.RunAsBackgroundTask
+            ));
 
             SnapshotLoadQueue.EnqueueMultiple(snapshots);
 
@@ -209,7 +220,7 @@ namespace HeapProfiler {
                             foreach (var module in symbolModules)
                                 sw.WriteLine(
                                     "//            {0:X8} {1:X8} {2}", 
-                                    module.Offset, module.Size, module.Filename
+                                    module.BaseAddress, module.Size, module.Filename
                                 );
 
                             sw.WriteLine("//");
@@ -354,6 +365,15 @@ namespace HeapProfiler {
             }
         }
 
+        protected IEnumerator<object> AddSnapshot (HeapSnapshot snapshot) {
+            Snapshots.Add(snapshot);
+            Snapshots.Sort((lhs, rhs) => lhs.Timestamp.CompareTo(rhs.Timestamp));
+
+            yield return snapshot.SaveToDatabase(Database);
+
+            OnSnapshotsChanged();
+        }
+
         protected IEnumerator<object> FinishLoadingSnapshot (
             Future<HeapSnapshot> future, ActivityIndicator.CountedItem progress
         ) {
@@ -361,10 +381,7 @@ namespace HeapProfiler {
 
             // Resort the loaded snapshots, since it's possible for the user to load
             //  a subset of a full capture, or load snapshots in the wrong order
-            Snapshots.Add(future.Result);
-            Snapshots.Sort((lhs, rhs) => lhs.When.CompareTo(rhs.When));
-
-            OnSnapshotsChanged();
+            yield return AddSnapshot(future.Result);
 
             foreach (var module in future.Result.Modules)
                 SymbolModules.Add(module);
@@ -401,7 +418,21 @@ namespace HeapProfiler {
                 SnapshotsChanged(this, EventArgs.Empty);
         }
 
-        protected IEnumerator<object> MainTask () {
+        protected IEnumerator<object> CreateTemporaryDatabase () {
+            var filename = Path.GetTempFileName();
+
+            yield return DatabaseFile.CreateNew(
+                Scheduler, DatabaseSchema, filename
+            ).Bind(() => Database);
+        }
+
+        protected IEnumerator<object> LoadExistingMainTask () {
+            yield return CreateTemporaryDatabase();
+
+            StartHelperTasks();
+        }
+
+        protected IEnumerator<object> ProfileMainTask () {
             var shortName = Path.GetFileName(Path.GetFullPath(StartInfo.FileName));
 
             using (Activities.AddItem("Enabling heap instrumentation"))
@@ -410,6 +441,10 @@ namespace HeapProfiler {
                     "-i \"{0}\" +ust", shortName
                 )
             ));
+
+            yield return CreateTemporaryDatabase();
+
+            StartHelperTasks();
 
             var f = Program.StartProcess(StartInfo);
             using (Activities.AddItem("Starting process"))

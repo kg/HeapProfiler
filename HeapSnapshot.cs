@@ -67,7 +67,9 @@ namespace HeapProfiler {
     }
 
     public class MemoryStatistics {
+        [Column]
         public long NonpagedSystem, Paged, PagedSystem, Private, Virtual, WorkingSet;
+        [Column]
         public long PeakPaged, PeakVirtual, PeakWorking;
 
         public MemoryStatistics () {
@@ -120,19 +122,26 @@ namespace HeapProfiler {
 
             return sb.ToString();
         }
+
+        public IEnumerator<object> SaveToDatabase (DatabaseFile db, int Snapshots_ID) {
+            using (var pi = Mapper<MemoryStatistics>.PrepareInsert(
+                db, "data.MemoryStats", extraColumns: new[] { "Snapshots_ID" }
+            ))
+                yield return pi.Insert(this, Snapshots_ID);
+        }
     }
 
     public class HeapSnapshot {
         public class Module {
             public readonly string Filename;
             public readonly string ShortFilename;
-            public readonly UInt32 Offset;
+            public readonly UInt32 BaseAddress;
             public readonly UInt32 Size;
 
             public Module (string filename, UInt32 offset, UInt32 size) {
                 Filename = filename;
                 ShortFilename = Path.GetFileName(Filename);
-                Offset = offset;
+                BaseAddress = offset;
                 Size = size;
             }
 
@@ -150,7 +159,7 @@ namespace HeapProfiler {
             }
 
             public override string ToString () {
-                return String.Format("{0} @ {1:x8}", ShortFilename, Offset);
+                return String.Format("{0} @ {1:x8}", ShortFilename, BaseAddress);
             }
         }
 
@@ -160,22 +169,33 @@ namespace HeapProfiler {
             }
         }
 
+        [Mapper(Explicit=true)]
         public class Heap {
             public readonly UInt32 ID;
             public readonly List<Allocation> Allocations = new List<Allocation>();
 
-            public UInt32 Offset, EstimatedSize, EstimatedFree;
+            public UInt32 BaseAddress;
+
+            [Column]
+            public UInt32 EstimatedSize, EstimatedFree;
+            [Column]
             public UInt32 TotalOverhead, TotalRequested;
+            [Column]
             public UInt32 LargestFreeSpan, LargestOccupiedSpan;
-            public int OccupiedSpans;
-            public int EmptySpans;
+            [Column]
+            public int OccupiedSpans, EmptySpans;
+
+            // Needed for Mapper :(
+            public Heap () {
+                throw new InvalidOperationException();
+            }
 
             public Heap (UInt32 id) {
                 ID = id;
             }
 
             internal void ComputeStatistics () {
-                Offset = ID;
+                BaseAddress = ID;
                 OccupiedSpans = EmptySpans = 0;
                 EstimatedSize = EstimatedFree = 0;
                 LargestFreeSpan = LargestOccupiedSpan = 0;
@@ -184,9 +204,9 @@ namespace HeapProfiler {
                 if (Allocations.Count == 0)
                     return;
 
-                Offset = Allocations[0].Offset;
+                BaseAddress = Allocations[0].Address;
 
-                var currentPair = new Pair<UInt32>(Allocations[0].Offset, Allocations[0].NextOffset);
+                var currentPair = new Pair<UInt32>(Allocations[0].Address, Allocations[0].NextOffset);
                 // Detect free space at the front of the heap
                 if (currentPair.First > ID) {
                     EmptySpans += 1;
@@ -201,10 +221,10 @@ namespace HeapProfiler {
                 for (int i = 1; i < Allocations.Count; i++) {
                     a = Allocations[i];
 
-                    if (a.Offset > currentPair.Second) {
+                    if (a.Address > currentPair.Second) {
                         // There's empty space between this allocation and the last one, so begin tracking a new occupied span
                         //  and update the statistics
-                        var emptySize = a.Offset - currentPair.Second;
+                        var emptySize = a.Address - currentPair.Second;
 
                         OccupiedSpans += 1;
                         EmptySpans += 1;
@@ -214,7 +234,7 @@ namespace HeapProfiler {
                         LargestFreeSpan = Math.Max(LargestFreeSpan, emptySize);
                         LargestOccupiedSpan = Math.Max(LargestOccupiedSpan, currentPair.Second - currentPair.First);
 
-                        currentPair.First = a.Offset;
+                        currentPair.First = a.Address;
                         currentPair.Second = a.NextOffset;
                     } else {
                         currentPair.Second = a.NextOffset;
@@ -227,12 +247,69 @@ namespace HeapProfiler {
                 // We aren't given the size of the heap, so we treat the end of the last allocation as the end of the heap.
                 OccupiedSpans += 1;
                 LargestOccupiedSpan = Math.Max(LargestOccupiedSpan, currentPair.Second - currentPair.First);
-                EstimatedSize = currentPair.Second - Offset;
+                EstimatedSize = currentPair.Second - BaseAddress;
             }
 
             public float Fragmentation {
                 get {
                     return EmptySpans / (float)Math.Max(1, Allocations.Count);
+                }
+            }
+
+            public IEnumerator<object> SaveToDatabase (DatabaseFile db, int Snapshots_ID) {
+                yield return db.ExecuteSQL(
+                    "REPLACE INTO data.Heaps (Heaps_ID, BaseAddress) VALUES (?, ?)",
+                    ID, BaseAddress
+                );
+
+                yield return db.ExecuteSQL(
+                    "REPLACE INTO data.SnapshotHeaps (Snapshots_ID, Heaps_ID) VALUES (?, ?)",
+                    Snapshots_ID, ID
+                );
+
+                using (var pi = Mapper<Heap>.PrepareInsert(
+                    db, "data.HeapStats", extraColumns: new[] { "Heaps_ID", "Snapshots_ID" }
+                ))
+                    yield return pi.Insert(this, ID, Snapshots_ID);
+
+                yield return Future.RunInThread(
+                    () => TaskThread(AllocationWriter(db, Snapshots_ID))
+                );
+            }
+
+            protected void TaskThread (IEnumerator<object> task) {
+                using (var scheduler = new TaskScheduler(JobQueue.ThreadSafe)) {
+                    var f = scheduler.Start(task, TaskExecutionPolicy.RunAsBackgroundTask);
+                    f.RegisterOnDispose((_) => {
+                        scheduler.Dispose();
+                    });
+
+                    while (!f.Completed) {
+                        bool ok = scheduler.WaitForWorkItems(0.25);
+                        if (ok)
+                            scheduler.Step();
+                    }
+                }
+            }
+
+            protected IEnumerator<object> AllocationWriter (DatabaseFile db, int Snapshots_ID) {
+                using (var xact = db.CreateTransaction()) {
+                    yield return xact;
+
+                    using (var query = db.BuildQuery(
+                        @"INSERT INTO data.Allocations (
+                            Heaps_ID, Snapshots_ID, Tracebacks_ID, Address, Size, Overhead
+                          ) VALUES (
+                            ?, ?, ?, ?, ?, ?
+                          )"
+                    ))
+                    foreach (var alloc in Allocations)
+                        yield return query.ExecuteNonQuery(
+                            ID, Snapshots_ID, alloc.TracebackID,
+                            alloc.Address, alloc.Size, alloc.Overhead
+                        );
+
+                    yield return xact.Commit();
                 }
             }
         }
@@ -283,13 +360,13 @@ namespace HeapProfiler {
         }
 
         public struct Allocation {
-            public readonly UInt32 Offset;
+            public readonly UInt32 Address;
             public readonly UInt32 Size;
             public readonly UInt32 Overhead;
             public readonly UInt32 TracebackID;
 
             public Allocation (UInt32 offset, UInt32 size, UInt32 overhead, UInt32 tracebackID) {
-                Offset = offset;
+                Address = offset;
                 Size = size;
                 Overhead = overhead;
                 TracebackID = tracebackID;
@@ -297,7 +374,7 @@ namespace HeapProfiler {
 
             public UInt32 NextOffset {
                 get {
-                    return Offset + Size + Overhead;
+                    return Address + Size + Overhead;
                 }
             }
         }
@@ -319,7 +396,7 @@ namespace HeapProfiler {
         }
 
         public readonly int Index;
-        public readonly DateTime When;
+        public readonly DateTime Timestamp;
         public readonly string Filename;
         public readonly ModuleCollection Modules = new ModuleCollection();
         public readonly HeapCollection Heaps = new HeapCollection();
@@ -328,7 +405,7 @@ namespace HeapProfiler {
 
         public HeapSnapshot (int index, DateTime when, string filename, string text) {
             Index = index;
-            When = when;
+            Timestamp = when;
             Filename = filename;
             Memory = new MemoryStatistics();
 
@@ -424,7 +501,7 @@ namespace HeapProfiler {
 
             foreach (var heap in Heaps) {
                 heap.Allocations.Sort(
-                    (lhs, rhs) => lhs.Offset.CompareTo(rhs.Offset)
+                    (lhs, rhs) => lhs.Address.CompareTo(rhs.Address)
                 );
                 heap.ComputeStatistics();
             }
@@ -463,8 +540,20 @@ namespace HeapProfiler {
             }
         }
 
+        public IEnumerator<object> SaveToDatabase (DatabaseFile db) {
+            yield return db.ExecuteSQL(
+                "INSERT INTO data.Snapshots (Snapshots_ID, Timestamp) VALUES (?, ?)",
+                Index, Timestamp.ToUniversalTime().Ticks
+            );
+
+            yield return Memory.SaveToDatabase(db, Index);
+
+            foreach (var heap in Heaps)
+                yield return heap.SaveToDatabase(db, Index);
+        }
+
         public override string ToString () {
-            return String.Format("#{0} - {1}", Index, When.ToLongTimeString());
+            return String.Format("#{0} - {1}", Index, Timestamp.ToLongTimeString());
         }
     }
 }

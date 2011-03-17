@@ -37,6 +37,7 @@
             this.ExecutablePath = new System.Windows.Forms.TextBox();
             this.LaunchProcess = new System.Windows.Forms.Button();
             this.GroupSnapshots = new System.Windows.Forms.GroupBox();
+            this.ViewSelection = new System.Windows.Forms.Button();
             this.AutoCapture = new System.Windows.Forms.CheckBox();
             this.DiffSelection = new System.Windows.Forms.Button();
             this.CaptureSnapshot = new System.Windows.Forms.Button();
@@ -44,10 +45,12 @@
             this.MainMenu = new System.Windows.Forms.MenuStrip();
             this.fileToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.OpenDiffMenu = new System.Windows.Forms.ToolStripMenuItem();
-            this.OpenSnapshotsMenu = new System.Windows.Forms.ToolStripMenuItem();
-            this.SaveSnapshotsMenu = new System.Windows.Forms.ToolStripMenuItem();
+            this.SaveAsMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripMenuItem1 = new System.Windows.Forms.ToolStripSeparator();
             this.exitToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.snapshotsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.ImportSnapshotsMenu = new System.Windows.Forms.ToolStripMenuItem();
+            this.ExportSnapshotsMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.OptionsMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.SymbolPathMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.AssociateHeapdiffsMenu = new System.Windows.Forms.ToolStripMenuItem();
@@ -61,7 +64,6 @@
             this.ViewAverageHeapBlockSizeMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.ViewHeapFragmentationMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.Activities = new HeapProfiler.ActivityIndicator();
-            this.ViewSelection = new System.Windows.Forms.Button();
             this.GroupExecutable.SuspendLayout();
             this.GroupSnapshots.SuspendLayout();
             this.MainMenu.SuspendLayout();
@@ -221,12 +223,25 @@
             this.GroupSnapshots.TabStop = false;
             this.GroupSnapshots.Text = "Snapshots";
             // 
+            // ViewSelection
+            // 
+            this.ViewSelection.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.ViewSelection.Enabled = false;
+            this.ViewSelection.Location = new System.Drawing.Point(553, 114);
+            this.ViewSelection.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
+            this.ViewSelection.Name = "ViewSelection";
+            this.ViewSelection.Size = new System.Drawing.Size(133, 27);
+            this.ViewSelection.TabIndex = 7;
+            this.ViewSelection.Text = "&View Selection";
+            this.ViewSelection.UseVisualStyleBackColor = true;
+            this.ViewSelection.Click += new System.EventHandler(this.ViewSelection_Click);
+            // 
             // AutoCapture
             // 
             this.AutoCapture.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.AutoCapture.Appearance = System.Windows.Forms.Appearance.Button;
             this.AutoCapture.Location = new System.Drawing.Point(553, 52);
-            this.AutoCapture.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
+            this.AutoCapture.Margin = new System.Windows.Forms.Padding(4);
             this.AutoCapture.Name = "AutoCapture";
             this.AutoCapture.Size = new System.Drawing.Size(133, 27);
             this.AutoCapture.TabIndex = 4;
@@ -282,6 +297,7 @@
             // 
             this.MainMenu.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.fileToolStripMenuItem,
+            this.snapshotsToolStripMenuItem,
             this.OptionsMenu,
             this.viewToolStripMenuItem});
             this.MainMenu.Location = new System.Drawing.Point(0, 0);
@@ -295,8 +311,7 @@
             // 
             this.fileToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.OpenDiffMenu,
-            this.OpenSnapshotsMenu,
-            this.SaveSnapshotsMenu,
+            this.SaveAsMenu,
             this.toolStripMenuItem1,
             this.exitToolStripMenuItem});
             this.fileToolStripMenuItem.Name = "fileToolStripMenuItem";
@@ -306,35 +321,51 @@
             // OpenDiffMenu
             // 
             this.OpenDiffMenu.Name = "OpenDiffMenu";
-            this.OpenDiffMenu.Size = new System.Drawing.Size(194, 24);
+            this.OpenDiffMenu.Size = new System.Drawing.Size(152, 24);
             this.OpenDiffMenu.Text = "Open &Diff...";
             this.OpenDiffMenu.Click += new System.EventHandler(this.OpenDiffMenu_Click);
             // 
-            // OpenSnapshotsMenu
+            // SaveAsMenu
             // 
-            this.OpenSnapshotsMenu.Name = "OpenSnapshotsMenu";
-            this.OpenSnapshotsMenu.Size = new System.Drawing.Size(194, 24);
-            this.OpenSnapshotsMenu.Text = "&Open Snapshots...";
-            this.OpenSnapshotsMenu.Click += new System.EventHandler(this.OpenSnapshotsMenu_Click);
-            // 
-            // SaveSnapshotsMenu
-            // 
-            this.SaveSnapshotsMenu.Name = "SaveSnapshotsMenu";
-            this.SaveSnapshotsMenu.Size = new System.Drawing.Size(194, 24);
-            this.SaveSnapshotsMenu.Text = "&Save Snapshots...";
-            this.SaveSnapshotsMenu.Click += new System.EventHandler(this.SaveAllSnapshots_Click);
+            this.SaveAsMenu.Name = "SaveAsMenu";
+            this.SaveAsMenu.Size = new System.Drawing.Size(152, 24);
+            this.SaveAsMenu.Text = "&Save As...";
+            this.SaveAsMenu.Click += new System.EventHandler(this.SaveAsMenu_Click);
             // 
             // toolStripMenuItem1
             // 
             this.toolStripMenuItem1.Name = "toolStripMenuItem1";
-            this.toolStripMenuItem1.Size = new System.Drawing.Size(191, 6);
+            this.toolStripMenuItem1.Size = new System.Drawing.Size(149, 6);
             // 
             // exitToolStripMenuItem
             // 
             this.exitToolStripMenuItem.Name = "exitToolStripMenuItem";
-            this.exitToolStripMenuItem.Size = new System.Drawing.Size(194, 24);
+            this.exitToolStripMenuItem.Size = new System.Drawing.Size(152, 24);
             this.exitToolStripMenuItem.Text = "E&xit";
             this.exitToolStripMenuItem.Click += new System.EventHandler(this.ExitMenu_Click);
+            // 
+            // snapshotsToolStripMenuItem
+            // 
+            this.snapshotsToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.ImportSnapshotsMenu,
+            this.ExportSnapshotsMenu});
+            this.snapshotsToolStripMenuItem.Name = "snapshotsToolStripMenuItem";
+            this.snapshotsToolStripMenuItem.Size = new System.Drawing.Size(88, 24);
+            this.snapshotsToolStripMenuItem.Text = "&Snapshots";
+            // 
+            // ImportSnapshotsMenu
+            // 
+            this.ImportSnapshotsMenu.Name = "ImportSnapshotsMenu";
+            this.ImportSnapshotsMenu.Size = new System.Drawing.Size(152, 24);
+            this.ImportSnapshotsMenu.Text = "&Import...";
+            this.ImportSnapshotsMenu.Click += new System.EventHandler(this.OpenSnapshotsMenu_Click);
+            // 
+            // ExportSnapshotsMenu
+            // 
+            this.ExportSnapshotsMenu.Name = "ExportSnapshotsMenu";
+            this.ExportSnapshotsMenu.Size = new System.Drawing.Size(152, 24);
+            this.ExportSnapshotsMenu.Text = "&Export...";
+            this.ExportSnapshotsMenu.Click += new System.EventHandler(this.SaveAllSnapshots_Click);
             // 
             // OptionsMenu
             // 
@@ -438,24 +469,11 @@
             this.Activities.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)
                         | System.Windows.Forms.AnchorStyles.Right)));
             this.Activities.Location = new System.Drawing.Point(11, 505);
-            this.Activities.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
+            this.Activities.Margin = new System.Windows.Forms.Padding(4);
             this.Activities.Name = "Activities";
             this.Activities.Size = new System.Drawing.Size(692, 12);
             this.Activities.TabIndex = 3;
             this.Activities.PreferredSizeChanged += new System.EventHandler(this.Activities_PreferredSizeChanged);
-            // 
-            // ViewSelection
-            // 
-            this.ViewSelection.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.ViewSelection.Enabled = false;
-            this.ViewSelection.Location = new System.Drawing.Point(553, 114);
-            this.ViewSelection.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
-            this.ViewSelection.Name = "ViewSelection";
-            this.ViewSelection.Size = new System.Drawing.Size(133, 27);
-            this.ViewSelection.TabIndex = 7;
-            this.ViewSelection.Text = "&View Selection";
-            this.ViewSelection.UseVisualStyleBackColor = true;
-            this.ViewSelection.Click += new System.EventHandler(this.ViewSelection_Click);
             // 
             // MainWindow
             // 
@@ -509,8 +527,6 @@
         private System.Windows.Forms.Label label1;
         private System.Windows.Forms.CheckBox AutoCapture;
         private System.Windows.Forms.ToolStripMenuItem AssociateHeapdiffsMenu;
-        private System.Windows.Forms.ToolStripMenuItem OpenSnapshotsMenu;
-        private System.Windows.Forms.ToolStripMenuItem SaveSnapshotsMenu;
         private ActivityIndicator Activities;
         private SnapshotTimeline SnapshotTimeline;
         private System.Windows.Forms.ToolStripMenuItem viewToolStripMenuItem;
@@ -523,6 +539,10 @@
         private System.Windows.Forms.ToolStripMenuItem ViewHeapFragmentationMenu;
         private System.Windows.Forms.ToolStripMenuItem ViewAverageFreeBlockSizeMenu;
         private System.Windows.Forms.Button ViewSelection;
+        private System.Windows.Forms.ToolStripMenuItem SaveAsMenu;
+        private System.Windows.Forms.ToolStripMenuItem snapshotsToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem ImportSnapshotsMenu;
+        private System.Windows.Forms.ToolStripMenuItem ExportSnapshotsMenu;
     }
 }
 
