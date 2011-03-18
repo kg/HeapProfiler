@@ -274,6 +274,8 @@ namespace HeapProfiler {
                 ))
                     yield return pi.Insert(this, heapId, Snapshots_ID);
 
+                IFuture lastFuture = null;
+
                 using (var select = db.BuildQuery(
                     @"SELECT Allocations_ID FROM data.Allocations WHERE 
                         Heaps_ID = ? AND Tracebacks_ID = ? AND RelativeAddress = ? 
@@ -288,7 +290,7 @@ namespace HeapProfiler {
                 ))
                 using (var update = db.BuildQuery(
                     @"UPDATE data.Allocations SET Last_Snapshots_ID = ? WHERE Allocations_ID = ?"
-                ))
+                )) {
                     foreach (var alloc in Allocations) {
                         var tracebackId = alloc.Traceback.DatabaseID.Value;
                         long relativeAddress = alloc.Address - BaseAddress;
@@ -301,15 +303,20 @@ namespace HeapProfiler {
                         yield return fExistingId;
 
                         if (fExistingId.Result == null)
-                            yield return insert.ExecuteNonQuery(
+                            lastFuture = insert.ExecuteNonQuery(
                                 heapId, Snapshots_ID, Snapshots_ID, tracebackId,
                                 relativeAddress, size, overhead
                             );
                         else
-                            yield return update.ExecuteNonQuery(
+                            lastFuture = update.ExecuteNonQuery(
                                 Snapshots_ID, (long)fExistingId.Result
                             );
                     }
+
+                    // We need to wait for the last query we started to finish.
+                    if (lastFuture != null)
+                        yield return lastFuture;
+                }
             }
         }
 
@@ -446,18 +453,25 @@ namespace HeapProfiler {
                 if (Frames.Count == 0)
                     yield break;
 
+                IFuture lastFuture = null;
+
                 using (var query = db.BuildQuery(
                     @"INSERT INTO data.TracebackFrames (
                         Tracebacks_ID, FrameIndex, Address
                       ) VALUES (
                         ?, ?, ?
                       )"
-                ))
-                for (int i = 0; i < Frames.Count; i++)
-                    yield return query.ExecuteNonQuery(
-                        DatabaseID.Value, i, 
-                        (long)Frames.Array[i + Frames.Offset]
-                    );
+                )) {
+                    for (int i = 0; i < Frames.Count; i++)
+                        lastFuture = query.ExecuteNonQuery(
+                            DatabaseID.Value, i,
+                            (long)Frames.Array[i + Frames.Offset]
+                        );
+
+                    // We need to wait for the last insert we started to finish.
+                    if (lastFuture != null)
+                        yield return lastFuture;
+                }
             }
 
             public override string ToString () {
