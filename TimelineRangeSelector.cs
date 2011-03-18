@@ -138,7 +138,6 @@ namespace HeapProfiler {
 
             VisibleItems.Clear();
 
-            using (var textBrush = new SolidBrush(ForeColor))
             using (var outlinePen = new Pen(ForeColor))
             using (var highlightBrush = new SolidBrush(SystemColors.Highlight))
             using (var highlightPen = new Pen(SystemColors.HighlightText))

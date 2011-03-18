@@ -57,21 +57,21 @@ namespace HeapProfiler {
                 TabStop = false
             };
 
-            ScrollBar.Scroll += new ScrollEventHandler(ScrollBar_Scroll);
+            ScrollBar.Scroll += ScrollBar_Scroll;
 
             ZoomInButton = new Button {
                 Text = "+",
                 TabStop = false,
                 UseVisualStyleBackColor = true
             };
-            ZoomInButton.Click += new EventHandler(ZoomInButton_Click);
+            ZoomInButton.Click += ZoomInButton_Click;
 
             ZoomOutButton = new Button {
                 Text = "-",
                 TabStop = false,
                 UseVisualStyleBackColor = true
             };
-            ZoomOutButton.Click += new EventHandler(ZoomOutButton_Click);
+            ZoomOutButton.Click += ZoomOutButton_Click;
 
             ToolTip = new ToolTip();
             _ItemValueGetter = (s) => 0;
@@ -133,7 +133,7 @@ namespace HeapProfiler {
             long minTicks = 0, maxTicks = 0;
             int contentWidth;
 
-            var minuteInTicks = Squared.Util.Time.SecondInTicks * 60;
+            const long minuteInTicks = Squared.Util.Time.SecondInTicks * 60;
 
             if (Items.Count > 0) {
                 maxValue = Math.Max(MaximumThreshold, (from s in Items select _ItemValueGetter(s)).Max());
@@ -167,7 +167,6 @@ namespace HeapProfiler {
 
             using (var outlinePen = new Pen(Color.Black))
             using (var gridPen = new Pen(Color.FromArgb(96, 0, 0, 0)))
-            using (var backgroundBrush = new SolidBrush(BackColor))
             using (var scratch = Scratch.Get(e.Graphics, ClientRectangle)) {
                 var g = scratch.Graphics;
                 g.Clear(BackColor);
@@ -303,7 +302,7 @@ namespace HeapProfiler {
 
             int pixelsPerMinute = PixelsPerMinute * ZoomRatio / 100;
             long minTicks = 0;
-            var minuteInTicks = Squared.Util.Time.SecondInTicks * 60;
+            const long minuteInTicks = Squared.Util.Time.SecondInTicks * 60;
 
             if (Items.Count > 0)
                 minTicks = (from s in Items select s.Timestamp.Ticks).Min();

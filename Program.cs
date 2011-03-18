@@ -59,9 +59,6 @@ namespace HeapProfiler {
 
         public static IEnumerator<object> MainTask () {
             while (!Settings.DebuggingToolsInstalled) {
-                bool isSdkInstalled = false;
-                bool areRedistsInstalled = false;
-
                 var defaultPath = Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
                     @"Microsoft SDKs\Windows\v7.1"
@@ -69,7 +66,7 @@ namespace HeapProfiler {
                 if (!Directory.Exists(defaultPath))
                     defaultPath = defaultPath.Replace(" (x86)", "");
 
-                isSdkInstalled = Directory.Exists(defaultPath);
+                bool isSdkInstalled = Directory.Exists(defaultPath);
 
                 defaultPath = Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
@@ -78,7 +75,7 @@ namespace HeapProfiler {
                 if (!File.Exists(defaultPath))
                     defaultPath = defaultPath.Replace(" (x86)", "");
 
-                areRedistsInstalled = File.Exists(defaultPath);
+                bool areRedistsInstalled = File.Exists(defaultPath);
 
                 if (areRedistsInstalled) {
                     var result = MessageBox.Show("The x86 Debugging Tools for Windows from SDK 7.1 are not installed. Would you like to install them now?", "Error", MessageBoxButtons.YesNo);
@@ -91,7 +88,7 @@ namespace HeapProfiler {
                         "msiexec.exe", String.Format("/package \"{0}\"", defaultPath)
                     ));
                 } else if (isSdkInstalled) {
-                    var result = MessageBox.Show("The x86 Debugging Tools for Windows from SDK 7.1 are not installed, and you did not install the redistributables when you installed the SDK. Please either install the debugging tools or the redistributables.", "Error");
+                    MessageBox.Show("The x86 Debugging Tools for Windows from SDK 7.1 are not installed, and you did not install the redistributables when you installed the SDK. Please either install the debugging tools or the redistributables.", "Error");
                     Application.Exit();
                     yield break;
                 } else {

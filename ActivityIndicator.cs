@@ -145,9 +145,6 @@ namespace HeapProfiler {
         protected readonly HashSet<Item> _Items = new HashSet<Item>();
         protected bool RelayoutPending = false, SizeChangedPending = false;
 
-        public ActivityIndicator () {
-        }
-
         protected override void Dispose (bool disposing) {
             foreach (var item in _Items) {
                 item.Label.Dispose();

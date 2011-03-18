@@ -143,9 +143,6 @@ namespace HeapProfiler {
         protected Bitmap _ScratchBuffer = null;
         protected Graphics _ScratchGraphics = null;
 
-        public ScratchBuffer () {
-        }
-
         public Region Get (Graphics graphics, Rectangle region) {
             return new Region(
                 this, graphics, region
@@ -571,11 +568,11 @@ namespace HeapProfiler {
         KeyedCollection<TKey, TValue>
         where TValue : class {
 
-        public KeyedCollection2 ()
+        protected KeyedCollection2 ()
             : base() {
         }
 
-        public KeyedCollection2 (IEqualityComparer<TKey> keyComparer)
+        protected KeyedCollection2 (IEqualityComparer<TKey> keyComparer)
             : base(keyComparer) {
         }
 

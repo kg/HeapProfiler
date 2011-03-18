@@ -92,8 +92,6 @@ namespace HeapProfiler {
         }
 
         public float Render (Graphics g, ref RenderParams rp) {
-            char[] functionEndChars = new char[] { '@', '+' };
-
             g.ResetClip();
             g.FillRectangle(rp.ShadeBrush, 0, rp.Region.Y, rp.Region.Width, rp.LineHeight - 1);
 
@@ -279,7 +277,6 @@ namespace HeapProfiler {
                     () => Encoding.ASCII.GetString(fBytes.Result)
                 );
                 yield return fText;
-                fBytes = null;
             }
 
             yield return fText;

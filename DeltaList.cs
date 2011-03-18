@@ -72,7 +72,7 @@ namespace HeapProfiler {
                 TabStop = false
             };
 
-            ScrollBar.Scroll += new ScrollEventHandler(ScrollBar_Scroll);
+            ScrollBar.Scroll += ScrollBar_Scroll;
             OnResize(EventArgs.Empty);
 
             Controls.Add(ScrollBar);

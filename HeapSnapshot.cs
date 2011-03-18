@@ -76,7 +76,7 @@ namespace HeapProfiler {
         }
 
         public MemoryStatistics (string json) {
-            var prefix = "// Memory=";
+            const string prefix = "// Memory=";
             if (json.StartsWith(prefix))
                 json = json.Substring(prefix.Length);
 

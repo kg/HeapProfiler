@@ -111,7 +111,7 @@ namespace HeapProfiler {
         protected HeapRecording (
             TaskScheduler scheduler,
             ActivityIndicator activities,
-            string[] snapshots
+            IEnumerable<string> snapshots
         ) {
             Scheduler = scheduler;
             Activities = activities;
@@ -176,7 +176,6 @@ namespace HeapProfiler {
         }
 
         protected IEnumerator<object> SymbolResolverTask () {
-            var yield = new Yield();
             var sleep = new Sleep(0.1);
             var batch = new List<PendingSymbolResolve>();
             var nullProgress = new CallbackProgressListener();

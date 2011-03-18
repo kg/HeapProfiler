@@ -58,7 +58,7 @@ namespace HeapProfiler {
                 TabStop = false
             };
 
-            ScrollBar.Scroll += new ScrollEventHandler(ScrollBar_Scroll);
+            ScrollBar.Scroll += ScrollBar_Scroll;
             OnResize(EventArgs.Empty);
 
             Controls.Add(ScrollBar);
@@ -103,7 +103,6 @@ namespace HeapProfiler {
 
             var width = ClientSize.Width - ScrollBar.Width;
 
-            var bytesPerRow = BytesPerRow;
             var contentHeight = ContentHeight;
 
             if (_ScrollOffset >= contentHeight)
@@ -111,10 +110,8 @@ namespace HeapProfiler {
             if (_ScrollOffset < 0)
                 _ScrollOffset = 0;
 
-            using (var functionHighlightBrush = new SolidBrush(Color.PaleGoldenrod))
             using (var shadeBrush = new SolidBrush(SystemColors.ControlLight))
-            using (var backgroundBrush = new SolidBrush(BackColor))
-            using (var highlightBrush = new SolidBrush(SystemColors.Highlight)) {
+            using (var backgroundBrush = new SolidBrush(BackColor)) {
                 int y = -_ScrollOffset * RowHeight;
 
                 foreach (var heapId in Snapshot.Heaps.Keys) {
@@ -190,18 +187,10 @@ namespace HeapProfiler {
         }
 
         protected override void OnMouseDown (MouseEventArgs e) {
-            if (e.Button == MouseButtons.Left) {
-                var index = IndexFromPoint(e.Location);
-            }
-
             base.OnMouseDown(e);
         }
 
         protected override void OnMouseMove (MouseEventArgs e) {
-            if (e.Button == MouseButtons.Left) {
-                var index = IndexFromPoint(e.Location);
-            }
-
             base.OnMouseMove(e);
         }
 

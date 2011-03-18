@@ -57,9 +57,10 @@ namespace HeapProfiler {
             : base (scheduler) {
             InitializeComponent();
 
-            ListFormat = new StringFormat();
-            ListFormat.Trimming = StringTrimming.None;
-            ListFormat.FormatFlags = StringFormatFlags.NoWrap | StringFormatFlags.FitBlackBox;
+            ListFormat = new StringFormat {
+                Trimming = StringTrimming.None,
+                FormatFlags = StringFormatFlags.NoWrap | StringFormatFlags.FitBlackBox
+            };
 
             Instance = instance;
             if (Instance != null) {

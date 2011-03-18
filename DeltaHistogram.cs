@@ -88,7 +88,7 @@ namespace HeapProfiler {
                 TabStop = false
             };
 
-            ScrollBar.Scroll += new ScrollEventHandler(ScrollBar_Scroll);
+            ScrollBar.Scroll += ScrollBar_Scroll;
             OnResize(EventArgs.Empty);
 
             Controls.Add(ScrollBar);
@@ -136,7 +136,7 @@ namespace HeapProfiler {
         }
 
         protected float GraphLog (int value) {
-            double scale = 2.0;
+            const double scale = 2.0;
             double result = (Math.Log(Math.Abs(value) + 1) / Math.Log(scale)) * Math.Sign(value);
             return (float)result;
         }
@@ -163,7 +163,7 @@ namespace HeapProfiler {
             int minVisibleIndex = int.MaxValue,  maxVisibleIndex = -int.MaxValue;
 
             int height = ClientSize.Height - ScrollBar.Height;
-            float centerY = height / 2;
+            float centerY = height / 2.0f;
 
             float max = GraphLog(Maximum);
 
@@ -206,8 +206,6 @@ namespace HeapProfiler {
                 using (var scratch = Scratch.Get(e.Graphics, rgn)) {
                     var g = scratch.Graphics;
                     g.Clear(BackColor);
-
-                    var format1 = sf.Clone();
 
                     g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
                     g.DrawLine(gridPen, 0, centerY, marginWidth, centerY);
@@ -271,7 +269,6 @@ namespace HeapProfiler {
                     x += ItemWidth;
 
                 for (int i = _ScrollOffset; (i < Items.Count) && (x < ClientSize.Width); i++) {
-                    var x1 = x;
                     var selected = (i == SelectedIndex);
 
                     var item = Items[i];
@@ -291,8 +288,6 @@ namespace HeapProfiler {
 
                         g.ResetClip();
                         g.Clear(BackColor);
-
-                        var brush = selected ? highlightBrush : itemBrush;
 
                         g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
 
