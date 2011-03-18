@@ -395,6 +395,9 @@ namespace HeapProfiler {
         }
 
         private void Activities_PreferredSizeChanged (object sender, EventArgs e) {
+            if (WindowState == FormWindowState.Minimized)
+                return;
+
             var margin = GroupSnapshots.Left;
             var ps = Activities.GetPreferredSize(new Size(
                 GroupSnapshots.Width, ClientSize.Height

@@ -60,6 +60,8 @@ namespace HeapProfiler {
             yield return cw.ExecuteSQL("PRAGMA synchronous=0");
             yield return cw.ExecuteSQL("PRAGMA read_uncommitted=1");
             yield return cw.ExecuteSQL("PRAGMA locking_mode=NORMAL");
+            yield return cw.ExecuteSQL("PRAGMA journal_mode=MEMORY");
+            yield return cw.ExecuteSQL("PRAGMA cache_size=8192");
         }
 
         public static IEnumerator<object> CreateNew (
@@ -124,6 +126,35 @@ namespace HeapProfiler {
             get {
                 return _Filename;
             }
+        }
+
+        public Future<long> GetUniqueID (string tableName) {
+            return GetUniqueID(tableName, null);
+        }
+
+        public Future<long> GetUniqueID (string tableName, string[] columnNames, params object[] values) {
+            if ((columnNames == null) || (columnNames.Length == 0))
+                return ExecuteScalar<long>(String.Format("INSERT INTO {0} DEFAULT VALUES; SELECT last_insert_rowid()", tableName));
+
+            if (columnNames.Length != values.Length)
+                throw new ArgumentException("Must pass a value for every specified column name");
+
+            var valuePlaceholders = String.Join(", ",
+                columnNames.Select((name, index) => String.Format("@p{0}", index)).ToArray()
+            );
+            var whereClauses = String.Join(" AND ",
+                columnNames.Select((name, index) => String.Format("{0} = @p{1}", name, index)).ToArray()
+            );
+
+            var sql = String.Format(
+                "INSERT OR IGNORE INTO {0} ({1}) VALUES ({2}); SELECT _ROWID_ FROM {0} WHERE {3}",
+                tableName,
+                String.Join(", ", columnNames),
+                valuePlaceholders,
+                whereClauses
+            );
+
+            return ExecuteScalar<long>(sql, values);
         }
 
         public IEnumerator<object> Move (string targetFilename) {

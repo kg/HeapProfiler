@@ -86,7 +86,9 @@ namespace HeapProfiler {
         protected readonly LRUCache<Pair<string>, string> DiffCache = new LRUCache<Pair<string>, string>(32);
         protected readonly object SymbolResolveLock = new object();
 
-        protected int MaxPendingLoads = Math.Min(Environment.ProcessorCount, MaxConcurrentLoads);
+        protected ActivityIndicator.CountedItem DatabaseFlushIndicator = null;
+
+        protected int MaxPendingLoads = 1; // Math.Min(Environment.ProcessorCount, MaxConcurrentLoads);
         protected int TotalFrameResolveFailures = 0;
 
         protected HeapRecording (
@@ -167,7 +169,7 @@ namespace HeapProfiler {
                     var traceback = snapshot.Tracebacks[i];
 
                     lock (SymbolResolveLock)
-                    foreach (var frame in traceback.Frames)
+                    foreach (var frame in traceback)
                         ResolveFrame(frame, out tf, out ftf);
                 }
             });
@@ -355,8 +357,11 @@ namespace HeapProfiler {
                     progress.Increment();
 
                     var fSnapshot = Future.RunInThread(
-                        () => new HeapSnapshot(filename, text)
+                        (Func<string, string, HeapSnapshot>)((fn, t) => new HeapSnapshot(fn, t)),
+                        filename, text
                     );
+
+                    text = null;
 
                     yield return new Start(FinishLoadingSnapshot(
                         fSnapshot, progress
@@ -369,25 +374,42 @@ namespace HeapProfiler {
             Snapshots.Add(snapshot);
             Snapshots.Sort((lhs, rhs) => lhs.Timestamp.CompareTo(rhs.Timestamp));
 
-            yield return snapshot.SaveToDatabase(Database);
-
             OnSnapshotsChanged();
+
+            yield return DoDatabaseSave(snapshot);
+
+            /*
+            yield return new Start(
+                DoDatabaseSave(snapshot), 
+                TaskExecutionPolicy.RunAsBackgroundTask
+            );
+             */
+        }
+
+        protected IEnumerator<object> DoDatabaseSave (HeapSnapshot snapshot) {
+            if (DatabaseFlushIndicator == null)
+                DatabaseFlushIndicator = new ActivityIndicator.CountedItem(Activities, "Updating snapshot database");
+
+            using (DatabaseFlushIndicator.Increment())
+                yield return snapshot.SaveToDatabase(Database);
         }
 
         protected IEnumerator<object> FinishLoadingSnapshot (
-            Future<HeapSnapshot> future, ActivityIndicator.CountedItem progress
+            IFuture future, ActivityIndicator.CountedItem progress
         ) {
             yield return future;
 
+            var snapshot = future.Result as HeapSnapshot;
+
             // Resort the loaded snapshots, since it's possible for the user to load
             //  a subset of a full capture, or load snapshots in the wrong order
-            yield return AddSnapshot(future.Result);
+            yield return AddSnapshot(snapshot);
 
-            foreach (var module in future.Result.Modules)
+            foreach (var module in snapshot.Modules)
                 SymbolModules.Add(module);
 
             yield return new Start(
-                ResolveSymbolsForSnapshot(future.Result),
+                ResolveSymbolsForSnapshot(snapshot),
                 TaskExecutionPolicy.RunAsBackgroundTask
             );
 

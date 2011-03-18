@@ -177,11 +177,11 @@ namespace HeapProfiler {
             public UInt32 BaseAddress;
 
             [Column]
-            public UInt32 EstimatedSize, EstimatedFree;
+            public long EstimatedStart, EstimatedSize, EstimatedFree;
             [Column]
-            public UInt32 TotalOverhead, TotalRequested;
+            public long TotalOverhead, TotalRequested;
             [Column]
-            public UInt32 LargestFreeSpan, LargestOccupiedSpan;
+            public long LargestFreeSpan, LargestOccupiedSpan;
             [Column]
             public int OccupiedSpans, EmptySpans;
 
@@ -195,7 +195,7 @@ namespace HeapProfiler {
             }
 
             internal void ComputeStatistics () {
-                BaseAddress = ID;
+                EstimatedStart = BaseAddress = ID;
                 OccupiedSpans = EmptySpans = 0;
                 EstimatedSize = EstimatedFree = 0;
                 LargestFreeSpan = LargestOccupiedSpan = 0;
@@ -204,7 +204,7 @@ namespace HeapProfiler {
                 if (Allocations.Count == 0)
                     return;
 
-                BaseAddress = Allocations[0].Address;
+                EstimatedStart = Allocations[0].Address;
 
                 var currentPair = new Pair<UInt32>(Allocations[0].Address, Allocations[0].NextOffset);
                 // Detect free space at the front of the heap
@@ -257,60 +257,59 @@ namespace HeapProfiler {
             }
 
             public IEnumerator<object> SaveToDatabase (DatabaseFile db, int Snapshots_ID) {
-                yield return db.ExecuteSQL(
-                    "REPLACE INTO data.Heaps (Heaps_ID, BaseAddress) VALUES (?, ?)",
-                    ID, BaseAddress
+                var fHeapId = db.GetUniqueID(
+                    "data.Heaps", new[] { "BaseAddress" },
+                    (long)BaseAddress
                 );
+                yield return fHeapId;
+                var heapId = fHeapId.Result;
 
                 yield return db.ExecuteSQL(
-                    "REPLACE INTO data.SnapshotHeaps (Snapshots_ID, Heaps_ID) VALUES (?, ?)",
-                    Snapshots_ID, ID
+                    "INSERT INTO data.SnapshotHeaps (Snapshots_ID, Heaps_ID) VALUES (?, ?)",
+                    Snapshots_ID, heapId
                 );
 
                 using (var pi = Mapper<Heap>.PrepareInsert(
                     db, "data.HeapStats", extraColumns: new[] { "Heaps_ID", "Snapshots_ID" }
                 ))
-                    yield return pi.Insert(this, ID, Snapshots_ID);
+                    yield return pi.Insert(this, heapId, Snapshots_ID);
 
-                yield return Future.RunInThread(
-                    () => TaskThread(AllocationWriter(db, Snapshots_ID))
-                );
-            }
+                using (var select = db.BuildQuery(
+                    @"SELECT Allocations_ID FROM data.Allocations WHERE 
+                        Heaps_ID = ? AND Tracebacks_ID = ? AND RelativeAddress = ? 
+                        AND Size = ? AND Overhead = ? AND Last_Snapshots_ID = ?"
+                ))
+                using (var insert = db.BuildQuery(
+                    @"INSERT INTO data.Allocations (
+                        Heaps_ID, First_Snapshots_ID, Last_Snapshots_ID, Tracebacks_ID, RelativeAddress, Size, Overhead
+                      ) VALUES (
+                        ?, ?, ?, ?, ?, ?, ?
+                      )"
+                ))
+                using (var update = db.BuildQuery(
+                    @"UPDATE data.Allocations SET Last_Snapshots_ID = ? WHERE Allocations_ID = ?"
+                ))
+                    foreach (var alloc in Allocations) {
+                        var tracebackId = alloc.Traceback.DatabaseID.Value;
+                        long relativeAddress = alloc.Address - BaseAddress;
+                        long size = alloc.Size;
+                        long overhead = alloc.Overhead;
 
-            protected void TaskThread (IEnumerator<object> task) {
-                using (var scheduler = new TaskScheduler(JobQueue.ThreadSafe)) {
-                    var f = scheduler.Start(task, TaskExecutionPolicy.RunAsBackgroundTask);
-                    f.RegisterOnDispose((_) => {
-                        scheduler.Dispose();
-                    });
-
-                    while (!f.Completed) {
-                        bool ok = scheduler.WaitForWorkItems(0.25);
-                        if (ok)
-                            scheduler.Step();
-                    }
-                }
-            }
-
-            protected IEnumerator<object> AllocationWriter (DatabaseFile db, int Snapshots_ID) {
-                using (var xact = db.CreateTransaction()) {
-                    yield return xact;
-
-                    using (var query = db.BuildQuery(
-                        @"INSERT INTO data.Allocations (
-                            Heaps_ID, Snapshots_ID, Tracebacks_ID, Address, Size, Overhead
-                          ) VALUES (
-                            ?, ?, ?, ?, ?, ?
-                          )"
-                    ))
-                    foreach (var alloc in Allocations)
-                        yield return query.ExecuteNonQuery(
-                            ID, Snapshots_ID, alloc.TracebackID,
-                            alloc.Address, alloc.Size, alloc.Overhead
+                        var fExistingId = select.ExecuteScalar(
+                            heapId, tracebackId, relativeAddress, size, overhead, Snapshots_ID - 1
                         );
+                        yield return fExistingId;
 
-                    yield return xact.Commit();
-                }
+                        if (fExistingId.Result == null)
+                            yield return insert.ExecuteNonQuery(
+                                heapId, Snapshots_ID, Snapshots_ID, tracebackId,
+                                relativeAddress, size, overhead
+                            );
+                        else
+                            yield return update.ExecuteNonQuery(
+                                Snapshots_ID, (long)fExistingId.Result
+                            );
+                    }
             }
         }
 
@@ -363,13 +362,13 @@ namespace HeapProfiler {
             public readonly UInt32 Address;
             public readonly UInt32 Size;
             public readonly UInt32 Overhead;
-            public readonly UInt32 TracebackID;
+            public readonly Traceback Traceback;
 
-            public Allocation (UInt32 offset, UInt32 size, UInt32 overhead, UInt32 tracebackID) {
+            public Allocation (UInt32 offset, UInt32 size, UInt32 overhead, Traceback traceback) {
                 Address = offset;
                 Size = size;
                 Overhead = overhead;
-                TracebackID = tracebackID;
+                Traceback = traceback;
             }
 
             public UInt32 NextOffset {
@@ -379,13 +378,97 @@ namespace HeapProfiler {
             }
         }
 
-        public class Traceback {
+        public class Traceback : IEnumerable<UInt32> {
             public readonly UInt32 ID;
-            public readonly UInt32[] Frames;
+            public readonly ArraySegment<UInt32> Frames;
 
-            public Traceback (UInt32 id, UInt32[] frames) {
+            public long? DatabaseID = null;
+
+            public Traceback (UInt32 id, ArraySegment<UInt32> frames) {
                 ID = id;
                 Frames = frames;
+            }
+
+            public IEnumerator<uint> GetEnumerator () {
+                for (int i = 0; i < Frames.Count; i++)
+                    yield return Frames.Array[i + Frames.Offset];
+            }
+
+            System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator () {
+                return this.GetEnumerator();
+            }
+
+            /*
+            protected string GenerateFindSQL () {
+                var sb = new StringBuilder();
+
+                sb.AppendLine("SELECT f0.Tracebacks_ID FROM data.TracebackFrames f0 ");
+                for (int i = 1; i < Frames.Count; i++) {
+                    sb.AppendFormat("  INNER JOIN data.TracebackFrames f{0} USING (Tracebacks_ID) ", i);
+                    sb.AppendLine();
+                }
+
+                sb.AppendLine("WHERE ");
+                for (int i = 0; i < Frames.Count; i++) {
+                    var frame = Frames.Array[i + Frames.Offset];
+                    sb.AppendFormat("f{0}.Address = {1} AND f{0}.FrameIndex = {0} ", i, frame);
+
+                    if (i < Frames.Count - 1)
+                        sb.Append("AND ");
+
+                    sb.AppendLine();
+                }
+
+                return sb.ToString();
+            }
+             */
+
+            public IEnumerator<object> SaveToDatabase (DatabaseFile db) {
+                var fExistingId = db.ExecuteScalar(
+                    "SELECT Tracebacks_ID FROM data.Tracebacks WHERE RuntimeID = ?", 
+                    (long)ID
+                );
+                yield return fExistingId;
+
+                if (fExistingId.Result != null) {
+                    DatabaseID = (long)fExistingId.Result;
+                    yield break;
+                }
+
+                var fTracebackId = db.GetUniqueID(
+                    "data.Tracebacks", new[] { "RuntimeID" }, 
+                    (long)ID
+                );
+                yield return fTracebackId;
+
+                DatabaseID = fTracebackId.Result;
+
+                if (Frames.Count == 0)
+                    yield break;
+
+                using (var query = db.BuildQuery(
+                    @"INSERT INTO data.TracebackFrames (
+                        Tracebacks_ID, FrameIndex, Address
+                      ) VALUES (
+                        ?, ?, ?
+                      )"
+                ))
+                for (int i = 0; i < Frames.Count; i++)
+                    yield return query.ExecuteNonQuery(
+                        DatabaseID.Value, i, 
+                        (long)Frames.Array[i + Frames.Offset]
+                    );
+            }
+
+            public override string ToString () {
+                return String.Format(
+                    "Traceback {0:X8}{1}{2}", 
+                    ID, Environment.NewLine, 
+                    String.Join(
+                        Environment.NewLine,
+                        (from f in this select String.Format("  {0:X8}", f)).ToArray()
+                    )
+                );
             }
         }
 
@@ -402,6 +485,9 @@ namespace HeapProfiler {
         public readonly HeapCollection Heaps = new HeapCollection();
         public readonly TracebackCollection Tracebacks = new TracebackCollection();
         public readonly MemoryStatistics Memory;
+
+        public const int FrameBufferSize = 16 * 1024;
+        public const int MaxTracebackLength = 32;
 
         public HeapSnapshot (int index, DateTime when, string filename, string text) {
             Index = index;
@@ -424,7 +510,14 @@ namespace HeapProfiler {
             int groupAllocId = regexes.Allocation.GroupNumberFromName("id");
             
             Match m;
-            var frameList = new List<UInt32>();
+            
+            // Instead of allocating a tiny new UInt32[] for every traceback we read in,
+            //  we store groups of tracebacks into fixed-size buffers so that the GC has
+            //  less work to do when performing collections. Tracebacks are read-only after 
+            //  being constructed, and all the tracebacks from a snapshot have the same
+            //  lifetime, so this works out well.
+            var frameBuffer = new UInt32[FrameBufferSize];
+            int frameBufferCount = 0;
 
             var lr = new LineReader(text);
             LineReader.Line line;
@@ -439,13 +532,21 @@ namespace HeapProfiler {
                         Traceback traceback;
 
                         if (!Tracebacks.TryGetValue(tracebackId, out traceback)) {
+                            // If the frame buffer could fill up while we're building our traceback,
+                            //  let's allocate a new one.
+                            if (frameBufferCount >= frameBuffer.Length - MaxTracebackLength) {
+                                frameBuffer = new UInt32[frameBuffer.Length];
+                                frameBufferCount = 0;
+                            }
+
+                            int firstFrame = frameBufferCount;
+
                             // This is only valid if every allocation is followed by an empty line
-                            frameList.Clear();
                             while (lr.ReadLine(out line)) {
                                 if (line.StartsWith("\t"))
-                                    frameList.Add(UInt32.Parse(
+                                    frameBuffer[frameBufferCount++] = UInt32.Parse(
                                         line.ToString(), NumberStyles.HexNumber | NumberStyles.AllowLeadingWhite
-                                    ));
+                                    );
                                 else {
                                     lr.Rewind(ref line);
                                     break;
@@ -453,7 +554,7 @@ namespace HeapProfiler {
                             }
 
                             Tracebacks.Add(traceback = new Traceback(
-                                tracebackId, frameList.ToArray()
+                                tracebackId, new ArraySegment<UInt32>(frameBuffer, firstFrame, frameBufferCount - firstFrame)
                             ));
                         }
 
@@ -461,7 +562,7 @@ namespace HeapProfiler {
                             UInt32.Parse(m.Groups[groupAllocOffset].Value, NumberStyles.HexNumber),
                             UInt32.Parse(m.Groups[groupAllocSize].Value, NumberStyles.HexNumber),
                             UInt32.Parse(m.Groups[groupAllocOverhead].Value, NumberStyles.HexNumber),
-                            tracebackId
+                            traceback
                         ));
                     }
                 } else if (scanningForMemory) {
@@ -548,8 +649,25 @@ namespace HeapProfiler {
 
             yield return Memory.SaveToDatabase(db, Index);
 
-            foreach (var heap in Heaps)
-                yield return heap.SaveToDatabase(db, Index);
+            using (var xact = db.CreateTransaction()) {
+                yield return xact;
+
+                foreach (var traceback in Tracebacks)
+                    yield return traceback.SaveToDatabase(db);
+
+                yield return xact.Commit();
+            }
+
+            using (var xact = db.CreateTransaction()) {
+                yield return xact;
+
+                foreach (var heap in Heaps)
+                    yield return heap.SaveToDatabase(db, Index);
+
+                yield return xact.Commit();
+            }
+
+            yield return db.ExecuteSQL("ANALYZE");
         }
 
         public override string ToString () {
