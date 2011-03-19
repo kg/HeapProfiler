@@ -83,7 +83,7 @@ namespace HeapProfiler {
         protected readonly Dictionary<UInt32, Future<TracebackFrame>> PendingSymbolResolves = new Dictionary<UInt32, Future<TracebackFrame>>();
         protected readonly BlockingQueue<PendingSymbolResolve> SymbolResolveQueue = new BlockingQueue<PendingSymbolResolve>();
         protected readonly BlockingQueue<string> SnapshotLoadQueue = new BlockingQueue<string>();
-        protected readonly BlockingQueue<HeapSnapshot> SnapshotDatabaseSaveQueue = new BlockingQueue<HeapSnapshot>();
+        protected readonly BlockingQueue<int> SnapshotDatabaseSaveQueue = new BlockingQueue<int>();
         protected readonly LRUCache<Pair<string>, string> DiffCache = new LRUCache<Pair<string>, string>(32);
         protected readonly object SymbolResolveLock = new object();
 
@@ -316,13 +316,26 @@ namespace HeapProfiler {
         }
 
         protected IEnumerator<object> DatabaseSaveTask () {
+            var sleep = new Sleep(0.1);
             while (true) {
+                while (SnapshotLoadQueue.Count > 0)
+                    yield return sleep;
+
                 var f = SnapshotDatabaseSaveQueue.Dequeue();
                 using (f)
                     yield return f;
 
-                using (Activities.AddItem("Updating database"))
-                    yield return f.Result.SaveToDatabase(Database);
+                using (Activities.AddItem("Updating database")) {
+                    int maxItem = Math.Min(Snapshots.Count, f.Result);
+                    for (int i = 0; i < maxItem; i++) {
+                        if (!Snapshots[i].SavedToDatabase) {
+                            Console.WriteLine("Saving {0}", i);
+                            yield return Snapshots[i].SaveToDatabase(Database);
+                        }
+                    }
+
+                    yield return Database.ExecuteSQL("ANALYZE");
+                }
             }
         }
 
@@ -389,7 +402,7 @@ namespace HeapProfiler {
 
             OnSnapshotsChanged();
 
-            SnapshotDatabaseSaveQueue.Enqueue(snapshot);
+            SnapshotDatabaseSaveQueue.Enqueue(Snapshots.Count);
 
             yield break;
         }

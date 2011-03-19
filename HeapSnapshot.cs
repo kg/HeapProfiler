@@ -500,6 +500,8 @@ namespace HeapProfiler {
         public readonly TracebackCollection Tracebacks = new TracebackCollection();
         public readonly MemoryStatistics Memory;
 
+        public bool SavedToDatabase = false;
+
         public const int FrameBufferSize = 16 * 1024;
         public const int MaxTracebackLength = 32;
 
@@ -656,6 +658,8 @@ namespace HeapProfiler {
         }
 
         public IEnumerator<object> SaveToDatabase (DatabaseFile db) {
+            SavedToDatabase = true;
+
             yield return db.ExecuteSQL(
                 "INSERT INTO data.Snapshots (Snapshots_ID, Timestamp) VALUES (?, ?)",
                 Index, Timestamp.ToUniversalTime().Ticks
@@ -680,8 +684,6 @@ namespace HeapProfiler {
 
                 yield return xact.Commit();
             }
-
-            yield return db.ExecuteSQL("ANALYZE");
         }
 
         public override string ToString () {
