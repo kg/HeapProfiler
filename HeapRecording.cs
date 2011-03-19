@@ -83,12 +83,11 @@ namespace HeapProfiler {
         protected readonly Dictionary<UInt32, Future<TracebackFrame>> PendingSymbolResolves = new Dictionary<UInt32, Future<TracebackFrame>>();
         protected readonly BlockingQueue<PendingSymbolResolve> SymbolResolveQueue = new BlockingQueue<PendingSymbolResolve>();
         protected readonly BlockingQueue<string> SnapshotLoadQueue = new BlockingQueue<string>();
+        protected readonly BlockingQueue<HeapSnapshot> SnapshotDatabaseSaveQueue = new BlockingQueue<HeapSnapshot>();
         protected readonly LRUCache<Pair<string>, string> DiffCache = new LRUCache<Pair<string>, string>(32);
         protected readonly object SymbolResolveLock = new object();
 
-        protected ActivityIndicator.CountedItem DatabaseFlushIndicator = null;
-
-        protected int MaxPendingLoads = 1; // Math.Min(Environment.ProcessorCount, MaxConcurrentLoads);
+        protected int MaxPendingLoads = Math.Min(Environment.ProcessorCount, MaxConcurrentLoads);
         protected int TotalFrameResolveFailures = 0;
 
         protected HeapRecording (
@@ -139,6 +138,10 @@ namespace HeapProfiler {
 
             Futures.Add(Scheduler.Start(
                 SnapshotIOTask(), TaskExecutionPolicy.RunAsBackgroundTask
+            ));
+
+            Futures.Add(Scheduler.Start(
+                DatabaseSaveTask(), TaskExecutionPolicy.RunAsBackgroundTask
             ));
         }
 
@@ -312,6 +315,17 @@ namespace HeapProfiler {
             }
         }
 
+        protected IEnumerator<object> DatabaseSaveTask () {
+            while (true) {
+                var f = SnapshotDatabaseSaveQueue.Dequeue();
+                using (f)
+                    yield return f;
+
+                using (Activities.AddItem("Updating database"))
+                    yield return f.Result.SaveToDatabase(Database);
+            }
+        }
+
         protected IEnumerator<object> SnapshotIOTask () {
             ActivityIndicator.CountedItem progress = null;
             var sleep = new Sleep(0.25);
@@ -375,22 +389,9 @@ namespace HeapProfiler {
 
             OnSnapshotsChanged();
 
-            yield return DoDatabaseSave(snapshot);
+            SnapshotDatabaseSaveQueue.Enqueue(snapshot);
 
-            /*
-            yield return new Start(
-                DoDatabaseSave(snapshot), 
-                TaskExecutionPolicy.RunAsBackgroundTask
-            );
-             */
-        }
-
-        protected IEnumerator<object> DoDatabaseSave (HeapSnapshot snapshot) {
-            if (DatabaseFlushIndicator == null)
-                DatabaseFlushIndicator = new ActivityIndicator.CountedItem(Activities, "Updating snapshot database");
-
-            using (DatabaseFlushIndicator.Increment())
-                yield return snapshot.SaveToDatabase(Database);
+            yield break;
         }
 
         protected IEnumerator<object> FinishLoadingSnapshot (
