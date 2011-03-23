@@ -37,14 +37,6 @@ namespace HeapProfiler {
         public const int MaxFramesPerTraceback = 31;
         public const int MaxConcurrentLoads = 4;
 
-        public static readonly DatabaseSchema DatabaseSchema;
-
-        static HeapRecording () {
-            using (var stream = Assembly.GetEntryAssembly().GetManifestResourceStream("HeapProfiler.schema.sql"))
-            using (var sr = new StreamReader(stream))
-                DatabaseSchema = new DatabaseSchema(sr.ReadToEnd());
-        }
-
         public static class SymbolResolveState {
             public static int Count = 0;
             public static ActivityIndicator.CountedItem Progress;
@@ -75,7 +67,6 @@ namespace HeapProfiler {
         public event EventHandler StatusChanged;
         public event EventHandler SnapshotsChanged;
 
-        public DatabaseFile Database;
         public Process Process;
 
         protected readonly HashSet<HeapSnapshot.Module> SymbolModules = new HashSet<HeapSnapshot.Module>();
