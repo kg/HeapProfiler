@@ -33,6 +33,7 @@ using System.Globalization;
 using Squared.Util;
 using Squared.Task;
 using Squared.Task.IO;
+using Squared.Data.Mangler;
 
 namespace HeapProfiler {
     public class ModuleInfo {
@@ -225,6 +226,58 @@ namespace HeapProfiler {
             SourceFile = null;
             SourceLine = null;
             Offset2 = rawOffset;
+        }
+
+        static string ReadString (BinaryReader br) {
+            if (br.ReadBoolean())
+                return br.ReadString();
+
+            return null;
+        }
+
+        static void WriteString (BinaryWriter bw, string str) {
+            bool isNull = str == null;
+            bw.Write(!isNull);
+            if (!isNull)
+                bw.Write(str);
+        }
+
+        [TangleSerializer]
+        static void Serialize (ref TracebackFrame input, Stream output) {
+            var bw = new BinaryWriter(output, Encoding.UTF8);
+
+            bw.Write(input.Offset);
+            bw.Write(input.Offset2.HasValue);
+            if (input.Offset2.HasValue)
+                bw.Write(input.Offset2.Value);
+
+            WriteString(bw, input.Module);
+            WriteString(bw, input.Function);
+            WriteString(bw, input.SourceFile);
+
+            bw.Write(input.SourceLine.HasValue);
+            if (input.SourceLine.HasValue)
+                bw.Write(input.SourceLine.Value);
+
+            bw.Flush();
+        }
+
+        [TangleDeserializer]
+        static void Deserialize (Stream input, out TracebackFrame output) {
+            var br = new BinaryReader(input, Encoding.UTF8);
+
+            output = new TracebackFrame();
+
+            output.Offset = br.ReadUInt32();
+            if (br.ReadBoolean())
+                output.Offset2 = br.ReadUInt32();
+
+            output.Module = ReadString(br);
+            output.Function = ReadString(br);
+            output.SourceFile = ReadString(br);
+
+            if (br.ReadBoolean())
+                output.SourceLine = br.ReadInt32();
         }
 
         public override string ToString () {

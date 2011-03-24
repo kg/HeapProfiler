@@ -168,10 +168,10 @@ namespace HeapProfiler {
             public readonly UInt32 BaseAddress;
             public readonly UInt32 Size;
 
-            public Module (string filename, UInt32 offset, UInt32 size) {
+            public Module (string filename, UInt32 baseAddress, UInt32 size) {
                 Filename = filename;
                 ShortFilename = Path.GetFileName(Filename);
-                BaseAddress = offset;
+                BaseAddress = baseAddress;
                 Size = size;
             }
 
@@ -190,6 +190,26 @@ namespace HeapProfiler {
 
             public override string ToString () {
                 return String.Format("{0} @ {1:x8}", ShortFilename, BaseAddress);
+            }
+
+            [TangleSerializer]
+            static void Serialize (ref Module input, Stream output) {
+                var bw = new BinaryWriter(output, Encoding.UTF8);
+                bw.Write(input.BaseAddress);
+                bw.Write(input.Size);
+                bw.Write(input.Filename);
+                bw.Flush();
+            }
+
+            [TangleDeserializer]
+            static void Deserialize (Stream input, out Module output) {
+                var br = new BinaryReader(input, Encoding.UTF8);
+
+                var baseAddress = br.ReadUInt32();
+                var size = br.ReadUInt32();
+                var filename = br.ReadString();
+
+                output = new Module(filename, baseAddress, size);
             }
         }
 
@@ -392,17 +412,23 @@ namespace HeapProfiler {
             }
 
             [TangleSerializer]
-            static void Serialize (ref AllocationRanges input, Stream output) {
-                var bw = new BinaryWriter(output, Encoding.UTF8);
+            static unsafe void Serialize (ref AllocationRanges input, Stream output) {
+                var count = input.Ranges.Count;
 
-                bw.Write(input.Ranges.Count);
-                for (int i = 0; i < input.Ranges.Count; i++) {
-                    var range = input.Ranges.Array[i + input.Ranges.Offset];
-                    bw.Write(range.First);
-                    bw.Write(range.Last);
+                var buffer = new byte[4 + (count * 3)];
+                fixed (byte* pBuffer = buffer) {
+                    *(int*)(pBuffer + 0) = count;
+
+                    for (int i = 0; i < count; i++) {
+                        int offset = 4 + (3 * i);
+                        var range = input.Ranges.Array[i + input.Ranges.Offset];
+                        *(ushort*)(pBuffer + offset) = range.First;
+                        byte delta = (byte)(range.Last - range.First);
+                        *(byte*)(pBuffer + offset + 2) = delta;
+                    }
                 }
 
-                bw.Flush();
+                output.Write(buffer, 0, buffer.Length);
             }
 
             [TangleDeserializer]
@@ -414,8 +440,8 @@ namespace HeapProfiler {
 
                 for (int i = 0; i < count; i++) {
                     var first = br.ReadUInt16();
-                    var last = br.ReadUInt16();
-                    array[i] = new Range(first, last);
+                    var delta = br.ReadByte();
+                    array[i] = new Range(first, (ushort)(first + delta));
                 }
 
                 output = new AllocationRanges(array);
@@ -696,18 +722,14 @@ namespace HeapProfiler {
             }
         }
 
-        protected void MakeKeyForAllocation (Allocation allocation, out TangleKey key) {
-            var buffer = new byte[16];
-            var ms = new MemoryStream(buffer);
-            var bw = new BinaryWriter(ms);
+        protected unsafe void MakeKeyForAllocation (Allocation allocation, out TangleKey key) {
+            var buffer = new byte[12];
 
-            bw.Write(allocation.Address);
-            bw.Write(allocation.Size);
-            bw.Write(allocation.Overhead);
-            bw.Write(allocation.Traceback.ID);
-
-            bw.Flush();
-            ms.Flush();
+            fixed (byte* pBuffer = buffer) {
+                *(uint*)(pBuffer + 0) = allocation.Traceback.ID;
+                *(uint*)(pBuffer + 4) = allocation.Address;
+                *(uint*)(pBuffer + 8) = allocation.Size + allocation.Overhead;
+            }
 
             key = new TangleKey(buffer);
         }
@@ -719,13 +741,13 @@ namespace HeapProfiler {
 
             yield return Memory.SaveToDatabase(db, Index);
 
-            long i = 0;
-            foreach (var traceback in Tracebacks) {
-                yield return db.Tracebacks.Add(traceback.ID, traceback);
+            foreach (var module in Modules)
+                yield return db.Modules.Add(module.Filename, module);
 
-                if ((i++) % 500 == 0)
-                    Console.WriteLine("Tracebacks written: {0:000000}", i);
-            }
+            yield return db.SnapshotModules.Set(Index, Modules.Keys.ToArray());
+
+            foreach (var traceback in Tracebacks)
+                yield return db.Tracebacks.Add(traceback.ID, traceback);
 
             UInt16 uIndex = (UInt16)Index;
             var nullRange = AllocationRanges.New(uIndex);
@@ -733,11 +755,12 @@ namespace HeapProfiler {
             Tangle<AllocationRanges>.UpdateCallback updateRanges =
                 (value) => value.Update(uIndex);
 
-            i = 0;
+            TangleKey key;
+            long i = 0;
+
             foreach (var heap in Heaps) {
                 yield return db.Heaps.Set(heap.ID, heap);
 
-                TangleKey key;
                 foreach (var allocation in heap.Allocations) {
                     MakeKeyForAllocation(allocation, out key);
 
@@ -745,10 +768,12 @@ namespace HeapProfiler {
                         key, nullRange, updateRanges
                     );
 
-                    if ((i++) % 500 == 0)
+                    if ((i++) % 10000 == 0)
                         Console.WriteLine("Allocations updated: {0:000000}", i);
                 }
             }
+
+            yield return db.SnapshotHeaps.Set(Index, Heaps.Keys.ToArray());
         }
 
         public override string ToString () {

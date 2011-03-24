@@ -281,6 +281,8 @@ namespace HeapProfiler {
                                     ResolvedSymbolCache[key] = frame;
                                     PendingSymbolResolves.Remove(key);
                                 }
+
+                                Database.SymbolCache.Add(key, frame);
                             }
 
                             foreach (var frame in batch) {
