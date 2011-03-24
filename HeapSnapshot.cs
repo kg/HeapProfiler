@@ -33,6 +33,7 @@ using System.Globalization;
 using Squared.Util;
 using Squared.Task;
 using Squared.Task.IO;
+using Squared.Data.Mangler;
 
 namespace HeapProfiler {
     public class Regexes {
@@ -90,6 +91,20 @@ namespace HeapProfiler {
                 BoundMember.New(this, t.GetField(name)).Value = dict[name];
         }
 
+        protected MemoryStatistics (BinaryReader input) {
+            var t = this.GetType();
+            var cn = Mapper<MemoryStatistics>.ColumnNames;
+
+            var valueCount = input.ReadInt32();
+            if (valueCount != cn.Length)
+                throw new InvalidDataException();
+
+            for (int i = 0; i < cn.Length; i++) {
+                var value = input.ReadInt64();
+                BoundMember.New(this, t.GetField(cn[i])).Value = value;
+            }
+        }
+
         public MemoryStatistics (Process process) {
             process.Refresh();
 
@@ -124,10 +139,25 @@ namespace HeapProfiler {
         }
 
         public IEnumerator<object> SaveToDatabase (DatabaseFile db, int Snapshots_ID) {
-            using (var pi = Mapper<MemoryStatistics>.PrepareInsert(
-                db, "data.MemoryStats", extraColumns: new[] { "Snapshots_ID" }
-            ))
-                yield return pi.Insert(this, Snapshots_ID);
+            yield return db.MemoryStatistics.Set(Snapshots_ID, this);
+        }
+
+        [TangleSerializer]
+        static void Serialize (ref MemoryStatistics input, Stream output) {
+            var cv = Mapper<MemoryStatistics>.GetColumnValues(input);
+
+            var bw = new BinaryWriter(output, Encoding.UTF8);
+            bw.Write(cv.Length);
+            for (int i = 0; i < cv.Length; i++)
+                bw.Write((long)cv[i]);
+            bw.Flush();
+        }
+
+        [TangleDeserializer]
+        static void Deserialize (Stream input, out MemoryStatistics output) {
+            var br = new BinaryReader(input, Encoding.UTF8);
+
+            output = new MemoryStatistics(br);
         }
     }
 
@@ -183,7 +213,7 @@ namespace HeapProfiler {
             [Column]
             public long LargestFreeSpan, LargestOccupiedSpan;
             [Column]
-            public int OccupiedSpans, EmptySpans;
+            public long OccupiedSpans, EmptySpans;
 
             // Needed for Mapper :(
             public Heap () {
@@ -191,7 +221,7 @@ namespace HeapProfiler {
             }
 
             public Heap (UInt32 id) {
-                ID = id;
+                BaseAddress = ID = id;
             }
 
             internal void ComputeStatistics () {
@@ -256,66 +286,38 @@ namespace HeapProfiler {
                 }
             }
 
-            public IEnumerator<object> SaveToDatabase (DatabaseFile db, int Snapshots_ID) {
-                var fHeapId = db.GetUniqueID(
-                    "data.Heaps", new[] { "BaseAddress" },
-                    (long)BaseAddress
-                );
-                yield return fHeapId;
-                var heapId = fHeapId.Result;
+            [TangleSerializer]
+            static void Serialize (ref Heap input, Stream output) {
+                var cv = Mapper<Heap>.GetColumnValues(input);
 
-                yield return db.ExecuteSQL(
-                    "INSERT INTO data.SnapshotHeaps (Snapshots_ID, Heaps_ID) VALUES (?, ?)",
-                    Snapshots_ID, heapId
-                );
+                var bw = new BinaryWriter(output, Encoding.UTF8);
 
-                using (var pi = Mapper<Heap>.PrepareInsert(
-                    db, "data.HeapStats", extraColumns: new[] { "Heaps_ID", "Snapshots_ID" }
-                ))
-                    yield return pi.Insert(this, heapId, Snapshots_ID);
+                bw.Write(input.ID);
 
-                IFuture lastFuture = null;
+                bw.Write(cv.Length);
+                for (int i = 0; i < cv.Length; i++)
+                    bw.Write((long)cv[i]);
 
-                using (var select = db.BuildQuery(
-                    @"SELECT Allocations_ID FROM data.Allocations WHERE 
-                        Heaps_ID = ? AND Tracebacks_ID = ? AND RelativeAddress = ? 
-                        AND Size = ? AND Overhead = ? AND Last_Snapshots_ID = ?"
-                ))
-                using (var insert = db.BuildQuery(
-                    @"INSERT INTO data.Allocations (
-                        Heaps_ID, First_Snapshots_ID, Last_Snapshots_ID, Tracebacks_ID, RelativeAddress, Size, Overhead
-                      ) VALUES (
-                        ?, ?, ?, ?, ?, ?, ?
-                      )"
-                ))
-                using (var update = db.BuildQuery(
-                    @"UPDATE data.Allocations SET Last_Snapshots_ID = ? WHERE Allocations_ID = ?"
-                )) {
-                    foreach (var alloc in Allocations) {
-                        var tracebackId = alloc.Traceback.DatabaseID.Value;
-                        long relativeAddress = alloc.Address - BaseAddress;
-                        long size = alloc.Size;
-                        long overhead = alloc.Overhead;
+                bw.Flush();
+            }
 
-                        var fExistingId = select.ExecuteScalar(
-                            heapId, tracebackId, relativeAddress, size, overhead, Snapshots_ID - 1
-                        );
-                        yield return fExistingId;
+            [TangleDeserializer]
+            static void Deserialize (Stream input, out Heap output) {
+                var br = new BinaryReader(input, Encoding.UTF8);
 
-                        if (fExistingId.Result == null)
-                            lastFuture = insert.ExecuteNonQuery(
-                                heapId, Snapshots_ID, Snapshots_ID, tracebackId,
-                                relativeAddress, size, overhead
-                            );
-                        else
-                            lastFuture = update.ExecuteNonQuery(
-                                Snapshots_ID, (long)fExistingId.Result
-                            );
-                    }
+                var id = br.ReadUInt32();
+                output = new Heap(id);
 
-                    // We need to wait for the last query we started to finish.
-                    if (lastFuture != null)
-                        yield return lastFuture;
+                var t = typeof(Heap);
+                var cn = Mapper<Heap>.ColumnNames;
+
+                var count = br.ReadInt32();
+                if (count != cn.Length)
+                    throw new InvalidDataException();
+
+                for (int i = 0; i < count; i++) {
+                    long value = br.ReadInt64();
+                    BoundMember.New(output, t.GetField(cn[i])).Value = value;
                 }
             }
         }
@@ -365,6 +367,87 @@ namespace HeapProfiler {
             }
         }
 
+        public struct AllocationRanges {
+            public struct Range {
+                public readonly UInt16 First, Last;
+
+                public Range (UInt16 id) {
+                    First = Last = id;
+                }
+
+                public Range (UInt16 first, UInt16 last) {
+                    First = first;
+                    Last = last;
+                }
+            }
+
+            public readonly ArraySegment<Range> Ranges;
+
+            public AllocationRanges (params Range[] ranges)
+                : this(new ArraySegment<Range>(ranges)) {
+            }
+
+            public AllocationRanges (ArraySegment<Range> ranges) {
+                Ranges = ranges;
+            }
+
+            [TangleSerializer]
+            static void Serialize (ref AllocationRanges input, Stream output) {
+                var bw = new BinaryWriter(output, Encoding.UTF8);
+
+                bw.Write(input.Ranges.Count);
+                for (int i = 0; i < input.Ranges.Count; i++) {
+                    var range = input.Ranges.Array[i + input.Ranges.Offset];
+                    bw.Write(range.First);
+                    bw.Write(range.Last);
+                }
+
+                bw.Flush();
+            }
+
+            [TangleDeserializer]
+            static void Deserialize (Stream input, out AllocationRanges output) {
+                var br = new BinaryReader(input, Encoding.UTF8);
+
+                var count = br.ReadInt32();
+                var array = new Range[count];
+
+                for (int i = 0; i < count; i++) {
+                    var first = br.ReadUInt16();
+                    var last = br.ReadUInt16();
+                    array[i] = new Range(first, last);
+                }
+
+                output = new AllocationRanges(array);
+            }
+
+            public static AllocationRanges New (UInt16 index) {
+                return new AllocationRanges(new Range(index));
+            }
+
+            public AllocationRanges Update (UInt16 index) {
+                Range[] result;
+
+                for (int i = 0; i < Ranges.Count; i++) {
+                    var range = Ranges.Array[i + Ranges.Offset];
+                    if (range.First <= index && range.Last >= index)
+                        return this;
+
+                    if (range.Last == index - 1) {
+                        result = new Range[Ranges.Count];
+                        Array.Copy(Ranges.Array, Ranges.Offset, result, 0, Ranges.Count);
+                        result[i] = new Range(range.First, index);
+                        return new AllocationRanges(result);
+                    }
+                }
+
+                result = new Range[Ranges.Count + 1];
+                Array.Copy(Ranges.Array, Ranges.Offset, result, 0, Ranges.Count);
+                result[result.Length - 1] = new Range(index);
+                return new AllocationRanges(result);
+            }
+        }
+
         public struct Allocation {
             public readonly UInt32 Address;
             public readonly UInt32 Size;
@@ -389,8 +472,6 @@ namespace HeapProfiler {
             public readonly UInt32 ID;
             public readonly ArraySegment<UInt32> Frames;
 
-            public long? DatabaseID = null;
-
             public Traceback (UInt32 id, ArraySegment<UInt32> frames) {
                 ID = id;
                 Frames = frames;
@@ -405,75 +486,6 @@ namespace HeapProfiler {
                 return this.GetEnumerator();
             }
 
-            /*
-            protected string GenerateFindSQL () {
-                var sb = new StringBuilder();
-
-                sb.AppendLine("SELECT f0.Tracebacks_ID FROM data.TracebackFrames f0 ");
-                for (int i = 1; i < Frames.Count; i++) {
-                    sb.AppendFormat("  INNER JOIN data.TracebackFrames f{0} USING (Tracebacks_ID) ", i);
-                    sb.AppendLine();
-                }
-
-                sb.AppendLine("WHERE ");
-                for (int i = 0; i < Frames.Count; i++) {
-                    var frame = Frames.Array[i + Frames.Offset];
-                    sb.AppendFormat("f{0}.Address = {1} AND f{0}.FrameIndex = {0} ", i, frame);
-
-                    if (i < Frames.Count - 1)
-                        sb.Append("AND ");
-
-                    sb.AppendLine();
-                }
-
-                return sb.ToString();
-            }
-             */
-
-            public IEnumerator<object> SaveToDatabase (DatabaseFile db) {
-                var fExistingId = db.ExecuteScalar(
-                    "SELECT Tracebacks_ID FROM data.Tracebacks WHERE RuntimeID = ?", 
-                    (long)ID
-                );
-                yield return fExistingId;
-
-                if (fExistingId.Result != null) {
-                    DatabaseID = (long)fExistingId.Result;
-                    yield break;
-                }
-
-                var fTracebackId = db.GetUniqueID(
-                    "data.Tracebacks", new[] { "RuntimeID" }, 
-                    (long)ID
-                );
-                yield return fTracebackId;
-
-                DatabaseID = fTracebackId.Result;
-
-                if (Frames.Count == 0)
-                    yield break;
-
-                IFuture lastFuture = null;
-
-                using (var query = db.BuildQuery(
-                    @"INSERT INTO data.TracebackFrames (
-                        Tracebacks_ID, FrameIndex, Address
-                      ) VALUES (
-                        ?, ?, ?
-                      )"
-                )) {
-                    for (int i = 0; i < Frames.Count; i++)
-                        lastFuture = query.ExecuteNonQuery(
-                            DatabaseID.Value, i,
-                            (long)Frames.Array[i + Frames.Offset]
-                        );
-
-                    // We need to wait for the last insert we started to finish.
-                    if (lastFuture != null)
-                        yield return lastFuture;
-                }
-            }
-
             public override string ToString () {
                 return String.Format(
                     "Traceback {0:X8}{1}{2}", 
@@ -483,6 +495,33 @@ namespace HeapProfiler {
                         (from f in this select String.Format("  {0:X8}", f)).ToArray()
                     )
                 );
+            }
+
+            [TangleSerializer]
+            static void Serialize (ref Traceback input, Stream output) {
+                var bw = new BinaryWriter(output, Encoding.UTF8);
+
+                bw.Write(input.ID);
+
+                bw.Write(input.Frames.Count);
+                for (int i = 0; i < input.Frames.Count; i++)
+                    bw.Write(input.Frames.Array[i + input.Frames.Offset]);
+
+                bw.Flush();
+            }
+
+            [TangleDeserializer]
+            static void Deserialize (Stream input, out Traceback output) {
+                var br = new BinaryReader(input, Encoding.UTF8);
+
+                var id = br.ReadUInt32();
+
+                var count = br.ReadInt32();
+                var array = new UInt32[count];
+                for (int i = 0; i < count; i++)
+                    array[i] = br.ReadUInt32();
+
+                output = new Traceback(id, new ArraySegment<uint>(array));
             }
         }
 
@@ -657,37 +696,111 @@ namespace HeapProfiler {
             }
         }
 
+        protected void MakeKeyForAllocation (Allocation allocation, out TangleKey key) {
+            var buffer = new byte[16];
+            var ms = new MemoryStream(buffer);
+            var bw = new BinaryWriter(ms);
+
+            bw.Write(allocation.Address);
+            bw.Write(allocation.Size);
+            bw.Write(allocation.Overhead);
+            bw.Write(allocation.Traceback.ID);
+
+            bw.Flush();
+            ms.Flush();
+
+            key = new TangleKey(buffer);
+        }
+
         public IEnumerator<object> SaveToDatabase (DatabaseFile db) {
             SavedToDatabase = true;
 
-            yield return db.ExecuteSQL(
-                "INSERT INTO data.Snapshots (Snapshots_ID, Timestamp) VALUES (?, ?)",
-                Index, Timestamp.ToUniversalTime().Ticks
-            );
+            yield return db.Snapshots.Set(Index, this);
 
             yield return Memory.SaveToDatabase(db, Index);
 
-            using (var xact = db.CreateTransaction()) {
-                yield return xact;
+            long i = 0;
+            foreach (var traceback in Tracebacks) {
+                yield return db.Tracebacks.Add(traceback.ID, traceback);
 
-                foreach (var traceback in Tracebacks)
-                    yield return traceback.SaveToDatabase(db);
-
-                yield return xact.Commit();
+                if ((i++) % 500 == 0)
+                    Console.WriteLine("Tracebacks written: {0:000000}", i);
             }
 
-            using (var xact = db.CreateTransaction()) {
-                yield return xact;
+            UInt16 uIndex = (UInt16)Index;
+            var nullRange = AllocationRanges.New(uIndex);
 
-                foreach (var heap in Heaps)
-                    yield return heap.SaveToDatabase(db, Index);
+            Tangle<AllocationRanges>.UpdateCallback updateRanges =
+                (value) => value.Update(uIndex);
 
-                yield return xact.Commit();
+            i = 0;
+            foreach (var heap in Heaps) {
+                yield return db.Heaps.Set(heap.ID, heap);
+
+                TangleKey key;
+                foreach (var allocation in heap.Allocations) {
+                    MakeKeyForAllocation(allocation, out key);
+
+                    yield return db.Allocations.AddOrUpdate(
+                        key, nullRange, updateRanges
+                    );
+
+                    if ((i++) % 500 == 0)
+                        Console.WriteLine("Allocations updated: {0:000000}", i);
+                }
             }
         }
 
         public override string ToString () {
             return String.Format("#{0} - {1}", Index, Timestamp.ToLongTimeString());
+        }
+
+        [TangleSerializer]
+        static void Serialize (ref HeapSnapshot input, Stream output) {
+            var bw = new BinaryWriter(output, Encoding.UTF8);
+            bw.Write(input.Index);
+            bw.Write(input.Timestamp.ToString("O"));
+            bw.Write(input.Filename);
+
+            bw.Write(input.Tracebacks.Count);
+            foreach (var traceback in input.Tracebacks)
+                bw.Write(traceback.ID);
+
+            bw.Write(input.Heaps.Count);
+            foreach (var heap in input.Heaps)
+                bw.Write(heap.ID);
+
+            bw.Flush();
+        }
+
+        [TangleDeserializer]
+        public static void Deserialize (Stream input, out HeapSnapshot output) {
+            var br = new BinaryReader(input, Encoding.UTF8);
+            var index = br.ReadInt32();
+            var timestamp = DateTime.Parse(br.ReadString());
+            var filename = br.ReadString();
+
+            output = new HeapSnapshot(index, timestamp, filename, "");
+
+            // TODO
+
+            var ids = new List<UInt32>();
+
+            int count = br.ReadInt32();
+            for (int i = 0; i < count; i++)
+                ids.Add(br.ReadUInt32());
+
+            Console.WriteLine(String.Join(", ", (from id in ids select id.ToString()).ToArray()));
+            ids.Clear();
+
+            count = br.ReadInt32();
+            for (int i = 0; i < count; i++)
+                ids.Add(br.ReadUInt32());
+
+            Console.WriteLine(String.Join(", ", (from id in ids select id.ToString()).ToArray()));
+            ids.Clear();
+
+            throw new NotImplementedException();
         }
     }
 }

@@ -67,6 +67,7 @@ namespace HeapProfiler {
         public event EventHandler StatusChanged;
         public event EventHandler SnapshotsChanged;
 
+        public DatabaseFile Database;
         public Process Process;
 
         protected readonly HashSet<HeapSnapshot.Module> SymbolModules = new HashSet<HeapSnapshot.Module>();
@@ -324,8 +325,6 @@ namespace HeapProfiler {
                             yield return Snapshots[i].SaveToDatabase(Database);
                         }
                     }
-
-                    yield return Database.ExecuteSQL("ANALYZE");
                 }
             }
         }
@@ -447,8 +446,8 @@ namespace HeapProfiler {
         protected IEnumerator<object> CreateTemporaryDatabase () {
             var filename = Path.GetTempFileName();
 
-            yield return DatabaseFile.CreateNew(
-                Scheduler, DatabaseSchema, filename
+            yield return Future.RunInThread(() =>
+                new DatabaseFile(Scheduler, filename)
             ).Bind(() => Database);
         }
 
