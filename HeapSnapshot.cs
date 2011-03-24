@@ -735,19 +735,33 @@ namespace HeapProfiler {
         }
 
         public IEnumerator<object> SaveToDatabase (DatabaseFile db) {
+            IFuture lastModule = null;
+            IFuture lastTraceback = null;
+            IFuture lastAllocation = null;
+
+            var sleep = new Sleep(0.005);
+            const long sleepInterval = 5000;
+            long i = 0;
+
             SavedToDatabase = true;
 
             yield return db.Snapshots.Set(Index, this);
 
             yield return Memory.SaveToDatabase(db, Index);
 
-            foreach (var module in Modules)
-                yield return db.Modules.Add(module.Filename, module);
+            foreach (var module in Modules) {
+                lastModule = db.Modules.Add(module.Filename, module);
+                if ((i++ % sleepInterval) == 0)
+                    yield return sleep;
+            }
 
             yield return db.SnapshotModules.Set(Index, Modules.Keys.ToArray());
 
-            foreach (var traceback in Tracebacks)
-                yield return db.Tracebacks.Add(traceback.ID, traceback);
+            foreach (var traceback in Tracebacks) {
+                lastTraceback = db.Tracebacks.Add(traceback.ID, traceback);
+                if ((i++ % sleepInterval) == 0)
+                    yield return sleep;
+            }
 
             UInt16 uIndex = (UInt16)Index;
             var nullRange = AllocationRanges.New(uIndex);
@@ -756,7 +770,6 @@ namespace HeapProfiler {
                 (value) => value.Update(uIndex);
 
             TangleKey key;
-            long i = 0;
 
             foreach (var heap in Heaps) {
                 yield return db.Heaps.Set(heap.ID, heap);
@@ -764,16 +777,23 @@ namespace HeapProfiler {
                 foreach (var allocation in heap.Allocations) {
                     MakeKeyForAllocation(allocation, out key);
 
-                    yield return db.Allocations.AddOrUpdate(
+                    lastAllocation = db.Allocations.AddOrUpdate(
                         key, nullRange, updateRanges
                     );
 
-                    if ((i++) % 10000 == 0)
-                        Console.WriteLine("Allocations updated: {0:000000}", i);
+                    if ((i++ % sleepInterval) == 0)
+                        yield return sleep;
                 }
             }
 
             yield return db.SnapshotHeaps.Set(Index, Heaps.Keys.ToArray());
+
+            if (lastModule != null)
+                yield return lastModule;
+            if (lastTraceback != null)
+                yield return lastTraceback;
+            if (lastAllocation != null)
+                yield return lastAllocation;
         }
 
         public override string ToString () {
