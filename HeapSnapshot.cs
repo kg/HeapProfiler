@@ -34,6 +34,7 @@ using Squared.Util;
 using Squared.Task;
 using Squared.Task.IO;
 using Squared.Data.Mangler;
+using System.Runtime.InteropServices;
 
 namespace HeapProfiler {
     public class Regexes {
@@ -143,10 +144,10 @@ namespace HeapProfiler {
         }
 
         [TangleSerializer]
-        static void Serialize (ref MemoryStatistics input, Stream output) {
+        static void Serialize (ref SerializationContext<MemoryStatistics> context, ref MemoryStatistics input) {
             var cv = Mapper<MemoryStatistics>.GetColumnValues(input);
 
-            var bw = new BinaryWriter(output, Encoding.UTF8);
+            var bw = new BinaryWriter(context.Stream, Encoding.UTF8);
             bw.Write(cv.Length);
             for (int i = 0; i < cv.Length; i++)
                 bw.Write((long)cv[i]);
@@ -154,8 +155,8 @@ namespace HeapProfiler {
         }
 
         [TangleDeserializer]
-        static void Deserialize (Stream input, out MemoryStatistics output) {
-            var br = new BinaryReader(input, Encoding.UTF8);
+        static void Deserialize (ref DeserializationContext<MemoryStatistics> context, out MemoryStatistics output) {
+            var br = new BinaryReader(context.Stream, Encoding.UTF8);
 
             output = new MemoryStatistics(br);
         }
@@ -239,8 +240,8 @@ namespace HeapProfiler {
             }
 
             [TangleSerializer]
-            static void Serialize (ref Module input, Stream output) {
-                var bw = new BinaryWriter(output, Encoding.UTF8);
+            static void Serialize (ref SerializationContext<Module> context, ref Module input) {
+                var bw = new BinaryWriter(context.Stream, Encoding.UTF8);
                 bw.Write(input.BaseAddress);
                 bw.Write(input.Size);
                 bw.Write(input.Filename);
@@ -248,8 +249,8 @@ namespace HeapProfiler {
             }
 
             [TangleDeserializer]
-            static void Deserialize (Stream input, out Module output) {
-                var br = new BinaryReader(input, Encoding.UTF8);
+            static void Deserialize (ref SerializationContext<Module> context, out Module output) {
+                var br = new BinaryReader(context.Stream, Encoding.UTF8);
 
                 var baseAddress = br.ReadUInt32();
                 var size = br.ReadUInt32();
@@ -353,10 +354,10 @@ namespace HeapProfiler {
             }
 
             [TangleSerializer]
-            static void Serialize (ref Heap input, Stream output) {
+            static void Serialize (ref SerializationContext<Heap> context, ref Heap input) {
                 var cv = Mapper<Heap>.GetColumnValues(input);
 
-                var bw = new BinaryWriter(output, Encoding.UTF8);
+                var bw = new BinaryWriter(context.Stream, Encoding.UTF8);
 
                 bw.Write(input.ID);
 
@@ -368,8 +369,8 @@ namespace HeapProfiler {
             }
 
             [TangleDeserializer]
-            static void Deserialize (Stream input, out Heap output) {
-                var br = new BinaryReader(input, Encoding.UTF8);
+            static void Deserialize (ref SerializationContext<Heap> context, out Heap output) {
+                var br = new BinaryReader(context.Stream, Encoding.UTF8);
 
                 var id = br.ReadUInt32();
                 output = new Heap(id);
@@ -458,7 +459,7 @@ namespace HeapProfiler {
             }
 
             [TangleSerializer]
-            static unsafe void Serialize (ref AllocationRanges input, Stream output) {
+            static unsafe void Serialize (ref SerializationContext<AllocationRanges> context, ref AllocationRanges input) {
                 var count = input.Ranges.Count;
 
                 var buffer = new byte[4 + (count * 3)];
@@ -474,19 +475,23 @@ namespace HeapProfiler {
                     }
                 }
 
-                output.Write(buffer, 0, buffer.Length);
+                context.SetResult(buffer);
             }
 
             [TangleDeserializer]
-            static void Deserialize (Stream input, out AllocationRanges output) {
-                var br = new BinaryReader(input, Encoding.UTF8);
+            static unsafe void Deserialize (ref DeserializationContext<AllocationRanges> context, out AllocationRanges output) {
+                if (context.SourceLength < 4)
+                    throw new InvalidDataException();
 
-                var count = br.ReadInt32();
+                int count = *(int *)(context.Source + 0);
                 var array = new Range[count];
 
+                if (context.SourceLength < (4 + (3 * count)))
+                    throw new InvalidDataException();
+
                 for (int i = 0; i < count; i++) {
-                    var first = br.ReadUInt16();
-                    var delta = br.ReadByte();
+                    var first = *(ushort*)(context.Source + 4 + (i * 3));
+                    var delta = *(context.Source + 4 + (i * 3) + 2);
                     array[i] = new Range(first, (ushort)(first + delta));
                 }
 
@@ -570,28 +575,38 @@ namespace HeapProfiler {
             }
 
             [TangleSerializer]
-            static void Serialize (ref Traceback input, Stream output) {
-                var bw = new BinaryWriter(output, Encoding.UTF8);
+            static unsafe void Serialize (ref SerializationContext<Traceback> context, ref Traceback input) {
+                var buffer = new byte[8 + input.Frames.Count * 4];
 
-                bw.Write(input.ID);
+                fixed (uint * pFrames = &input.Frames.Array[input.Frames.Offset])
+                fixed (byte * pBuffer = buffer) {
+                    *(UInt32 *)(pBuffer + 0) = input.ID;
+                    *(int *)(pBuffer + 4) = input.Frames.Count;
 
-                bw.Write(input.Frames.Count);
-                for (int i = 0; i < input.Frames.Count; i++)
-                    bw.Write(input.Frames.Array[i + input.Frames.Offset]);
+                    Squared.Data.Mangler.Internal.Native.memmove(
+                        pBuffer + 8, (byte *)pFrames, new UIntPtr((uint)(input.Frames.Count * 4))
+                    );
+                }
 
-                bw.Flush();
+                context.SetResult(buffer);
             }
 
             [TangleDeserializer]
-            static void Deserialize (Stream input, out Traceback output) {
-                var br = new BinaryReader(input, Encoding.UTF8);
+            static unsafe void Deserialize (ref DeserializationContext<Traceback> context, out Traceback output) {
+                if (context.SourceLength < 8)
+                    throw new InvalidDataException();
 
-                var id = br.ReadUInt32();
+                var id = *(UInt32 *)(context.Source + 0);
+                var count = *(int*)(context.Source + 4);
 
-                var count = br.ReadInt32();
+                if (context.SourceLength < 8 + (count * 4))
+                    throw new InvalidDataException();
+
                 var array = new UInt32[count];
-                for (int i = 0; i < count; i++)
-                    array[i] = br.ReadUInt32();
+                fixed (uint * pFrames = array)
+                    Squared.Data.Mangler.Internal.Native.memmove(
+                        (byte*)pFrames, context.Source + 8, new UIntPtr((uint)(count * 4))
+                    );
 
                 output = new Traceback(id, new ArraySegment<uint>(array));
             }
@@ -766,14 +781,16 @@ namespace HeapProfiler {
             key = new TangleKey(buffer);
         }
 
+        public static IEnumerator<object> LoadFromDatabase (DatabaseFile db, HeapSnapshotInfo info) {
+            var fResult = db.Snapshots.Get(info.Index);
+
+            yield return fResult;
+        }
+
         public IEnumerator<object> SaveToDatabase (DatabaseFile db) {
             IFuture lastModule = null;
             IFuture lastTraceback = null;
             IFuture lastAllocation = null;
-
-            var sleep = new Sleep(0.005);
-            const long sleepInterval = 6000;
-            long i = 0;
 
             SavedToDatabase = true;
 
@@ -781,18 +798,24 @@ namespace HeapProfiler {
 
             yield return Memory.SaveToDatabase(db, Index);
 
-            foreach (var module in Modules) {
-                lastModule = db.Modules.Add(module.Filename, module);
-                if ((i++ % sleepInterval) == 0)
-                    yield return sleep;
+            {
+                var batch = db.Modules.CreateBatch(Modules.Count);
+
+                foreach (var module in Modules)
+                    batch.Add(module.Filename, module);
+
+                yield return batch.Execute(db.Modules);
             }
 
             yield return db.SnapshotModules.Set(Index, Modules.Keys.ToArray());
 
-            foreach (var traceback in Tracebacks) {
-                lastTraceback = db.Tracebacks.Add(traceback.ID, traceback);
-                if ((i++ % sleepInterval) == 0)
-                    yield return sleep;
+            {
+                var batch = db.Tracebacks.CreateBatch(Tracebacks.Count);
+
+                foreach (var traceback in Tracebacks)
+                    batch.Add(traceback.ID, traceback);
+
+                yield return batch.Execute(db.Tracebacks);
             }
 
             UInt16 uIndex = (UInt16)Index;
@@ -806,26 +829,20 @@ namespace HeapProfiler {
             foreach (var heap in Heaps) {
                 yield return db.Heaps.Set(heap.ID, heap);
 
+                var batch = db.Allocations.CreateBatch(heap.Allocations.Count);
+
                 foreach (var allocation in heap.Allocations) {
                     MakeKeyForAllocation(allocation, out key);
 
-                    lastAllocation = db.Allocations.AddOrUpdate(
+                    batch.AddOrUpdate(
                         key, nullRange, updateRanges
                     );
-
-                    if ((i++ % sleepInterval) == 0)
-                        yield return sleep;
                 }
+
+                yield return batch.Execute(db.Allocations);
             }
 
             yield return db.SnapshotHeaps.Set(Index, Heaps.Keys.ToArray());
-
-            if (lastModule != null)
-                yield return lastModule;
-            if (lastTraceback != null)
-                yield return lastTraceback;
-            if (lastAllocation != null)
-                yield return lastAllocation;
         }
 
         public int Index {
@@ -857,26 +874,24 @@ namespace HeapProfiler {
         }
 
         [TangleSerializer]
-        static void Serialize (ref HeapSnapshot input, Stream output) {
-            var bw = new BinaryWriter(output, Encoding.UTF8);
+        static void Serialize (ref SerializationContext<HeapSnapshot> context, ref HeapSnapshot input) {
+            var bw = new BinaryWriter(context.Stream, Encoding.UTF8);
             bw.Write(input.Index);
             bw.Write(input.Timestamp.ToString("O"));
             bw.Write(input.Filename);
 
-            bw.Write(input.Tracebacks.Count);
-            foreach (var traceback in input.Tracebacks)
-                bw.Write(traceback.ID);
-
             bw.Write(input.Heaps.Count);
-            foreach (var heap in input.Heaps)
+
+            foreach (var heap in input.Heaps) {
                 bw.Write(heap.ID);
+                bw.Write(heap.Allocations.Count);
+            }
 
             bw.Flush();
         }
 
-        [TangleDeserializer]
-        public static void Deserialize (Stream input, out HeapSnapshot output) {
-            var br = new BinaryReader(input, Encoding.UTF8);
+        public static void Deserialize (DatabaseFile db, ref DeserializationContext<HeapSnapshot> context, out HeapSnapshot output) {
+            var br = new BinaryReader(context.Stream, Encoding.UTF8);
             var index = br.ReadInt32();
             var timestamp = DateTime.Parse(br.ReadString());
             var filename = br.ReadString();

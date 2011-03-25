@@ -51,6 +51,10 @@ namespace HeapProfiler {
             Serializers["SnapshotModules"] = (Serializer<string[]>)SerializeModuleList;
             Deserializers["SnapshotHeaps"] = (Deserializer<uint[]>)DeserializeHeapList;
             Serializers["SnapshotHeaps"] = (Serializer<uint[]>)SerializeHeapList;
+            Deserializers["Snapshots"] = (Deserializer<HeapSnapshot>)(
+                (ref DeserializationContext<HeapSnapshot> context, out HeapSnapshot output) =>
+                    HeapSnapshot.Deserialize(this, ref context, out output)
+            );
         }
 
         public DatabaseFile (TaskScheduler scheduler, string filename)
@@ -67,8 +71,8 @@ namespace HeapProfiler {
             CreateTangles();
         }
 
-        protected void SerializeModuleList (ref string[] input, Stream output) {
-            var bw = new BinaryWriter(output);
+        protected void SerializeModuleList (ref SerializationContext<string[]> context, ref string[] input) {
+            var bw = new BinaryWriter(context.Stream);
 
             bw.Write(input.Length);
 
@@ -78,8 +82,8 @@ namespace HeapProfiler {
             bw.Flush();
         }
 
-        protected void DeserializeModuleList (Stream input, out string[] output) {
-            var br = new BinaryReader(input);
+        protected void DeserializeModuleList (ref DeserializationContext<string[]> context, out string[] output) {
+            var br = new BinaryReader(context.Stream);
 
             int count = br.ReadInt32();
             output = new string[count];
@@ -88,8 +92,8 @@ namespace HeapProfiler {
                 output[i] = br.ReadString();
         }
 
-        protected void SerializeHeapList (ref uint[] input, Stream output) {
-            var bw = new BinaryWriter(output);
+        protected void SerializeHeapList (ref SerializationContext<uint[]> context, ref uint[] input) {
+            var bw = new BinaryWriter(context.Stream);
 
             bw.Write(input.Length);
 
@@ -99,8 +103,8 @@ namespace HeapProfiler {
             bw.Flush();
         }
 
-        protected void DeserializeHeapList (Stream input, out uint[] output) {
-            var br = new BinaryReader(input);
+        protected void DeserializeHeapList (ref DeserializationContext<uint[]> context, out uint[] output) {
+            var br = new BinaryReader(context.Stream);
 
             int count = br.ReadInt32();
             output = new uint[count];

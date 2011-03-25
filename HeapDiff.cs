@@ -243,8 +243,8 @@ namespace HeapProfiler {
         }
 
         [TangleSerializer]
-        static void Serialize (ref TracebackFrame input, Stream output) {
-            var bw = new BinaryWriter(output, Encoding.UTF8);
+        static void Serialize (ref SerializationContext<TracebackFrame> context, ref TracebackFrame input) {
+            var bw = new BinaryWriter(context.Stream, Encoding.UTF8);
 
             bw.Write(input.Offset);
             bw.Write(input.Offset2.HasValue);
@@ -263,8 +263,8 @@ namespace HeapProfiler {
         }
 
         [TangleDeserializer]
-        static void Deserialize (Stream input, out TracebackFrame output) {
-            var br = new BinaryReader(input, Encoding.UTF8);
+        static void Deserialize (ref DeserializationContext<TracebackFrame> context, out TracebackFrame output) {
+            var br = new BinaryReader(context.Stream, Encoding.UTF8);
 
             output = new TracebackFrame();
 
