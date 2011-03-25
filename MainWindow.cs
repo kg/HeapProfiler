@@ -314,28 +314,6 @@ namespace HeapProfiler {
             }
         }
 
-        protected FileAssociation HeapdiffAssociation {
-            get {
-                var executablePath = Application.ExecutablePath;
-
-                return new FileAssociation(
-                    ".heapdiff", "HeapProfiler_heapdiff",
-                    "Heap Profiler Diff",
-                    String.Format("{0},0", executablePath),
-                    String.Format("{0} \"%1\"", executablePath)
-                );
-            }
-        }
-
-        private void AssociateHeapdiffsMenu_Click (object sender, EventArgs e) {
-            var assoc = HeapdiffAssociation;
-            assoc.IsAssociated = !assoc.IsAssociated;
-        }
-
-        private void OptionsMenu_DropDownOpening (object sender, EventArgs e) {
-            AssociateHeapdiffsMenu.Checked = HeapdiffAssociation.IsAssociated;
-        }
-
         private void SaveAllSnapshots_Click (object sender, EventArgs e) {
             if (Instance == null)
                 return;
@@ -381,15 +359,19 @@ namespace HeapProfiler {
                 if (dialog.ShowDialog(this) != System.Windows.Forms.DialogResult.OK)
                     return;
 
-                Instance = HeapRecording.FromSnapshots(
-                    Scheduler, Activities, dialog.FileNames
-                );
-                Instance.StatusChanged += (s, _) => RefreshStatus();
-                Instance.SnapshotsChanged += (s, _) => RefreshSnapshots();
-
-                RefreshStatus();
-                RefreshSnapshots();
+                OpenSnapshots(dialog.FileNames);
             }
+        }
+
+        public void OpenSnapshots (IEnumerable<string> filenames) {
+            Instance = HeapRecording.FromSnapshots(
+                Scheduler, Activities, filenames.OrderBy((f) => f)
+            );
+            Instance.StatusChanged += (s, _) => RefreshStatus();
+            Instance.SnapshotsChanged += (s, _) => RefreshSnapshots();
+
+            RefreshStatus();
+            RefreshSnapshots();
         }
 
         private void Activities_PreferredSizeChanged (object sender, EventArgs e) {
@@ -527,17 +509,23 @@ namespace HeapProfiler {
         }
 
         private void SaveAsMenu_Click (object sender, EventArgs e) {
-            using (var dialog = new SaveFileDialog()) {
-                dialog.Title = "Save Heap Recording";
-                dialog.Filter = "Heap Recordings|*.heaprecording";
-                dialog.DefaultExt = ".heaprecording";
-                dialog.AddExtension = true;
-                dialog.CheckPathExists = true;
+            using (var dialog = new FolderBrowserDialog()) {
+                dialog.SelectedPath = Instance.Database.Storage.Folder;
+                dialog.Description = "Save Heap Recording";
+                dialog.ShowNewFolderButton = true;
                 if (dialog.ShowDialog(this) != System.Windows.Forms.DialogResult.OK)
                     return;
 
+                if (dialog.SelectedPath == Instance.Database.Storage.Folder)
+                    return;
+
+                if (Directory.GetFiles(dialog.SelectedPath).Length > 0) {
+                    if (MessageBox.Show("The folder you have selected already contains files. If you continue, they may be overwritten or deleted.", "Warning", MessageBoxButtons.OKCancel) == System.Windows.Forms.DialogResult.Cancel)
+                        return;
+                }
+
                 Scheduler.Start(
-                    SaveInstanceAs(dialog.FileName), 
+                    SaveInstanceAs(dialog.SelectedPath), 
                     TaskExecutionPolicy.RunAsBackgroundTask
                 );
             }
@@ -562,6 +550,66 @@ namespace HeapProfiler {
                 WasMinimized = false;
                 Activities_PreferredSizeChanged(Activities, EventArgs.Empty);
             }
+        }
+
+        private void OptionsMenu_DropDownOpening (object sender, EventArgs e) {
+            AssociateDiffsMenu.Checked = HeapDiffAssociation.IsAssociated;
+            AssociateRecordingsMenu.Checked = HeapRecordingAssociation.IsAssociated;
+            AssociateSnapshotsMenu.Checked = HeapSnapshotAssociation.IsAssociated;
+        }
+
+        protected FileAssociation HeapDiffAssociation {
+            get {
+                var executablePath = Application.ExecutablePath;
+
+                return new FileAssociation(
+                    ".heapdiff", "HeapProfiler_heapdiff",
+                    "Heap Profiler Diff",
+                    String.Format("{0},0", executablePath),
+                    String.Format("{0} \"%1\"", executablePath)
+                );
+            }
+        }
+
+        private void AssociateDiffsMenu_Click (object sender, EventArgs e) {
+            var assoc = HeapDiffAssociation;
+            assoc.IsAssociated = !assoc.IsAssociated;
+        }
+
+        protected FileAssociation HeapSnapshotAssociation {
+            get {
+                var executablePath = Application.ExecutablePath;
+
+                return new FileAssociation(
+                    ".heapsnap", "HeapProfiler_heapsnapshot",
+                    "Heap Profiler Snapshot",
+                    String.Format("{0},0", executablePath),
+                    String.Format("{0} \"%1\"", executablePath)
+                );
+            }
+        }
+
+        private void AssociateSnapshotsMenu_Click (object sender, EventArgs e) {
+            var assoc = HeapSnapshotAssociation;
+            assoc.IsAssociated = !assoc.IsAssociated;
+        }
+
+        protected FileAssociation HeapRecordingAssociation {
+            get {
+                var executablePath = Application.ExecutablePath;
+
+                return new FileAssociation(
+                    ".heaprecording", "HeapProfiler_heaprecording",
+                    "Heap Profiler Recording",
+                    String.Format("{0},0", executablePath),
+                    String.Format("{0} \"%1\"", executablePath)
+                );
+            }
+        }
+
+        private void AssociateRecordingsMenu_Click (object sender, EventArgs e) {
+            var assoc = HeapRecordingAssociation;
+            assoc.IsAssociated = !assoc.IsAssociated;
         }
     }
 }

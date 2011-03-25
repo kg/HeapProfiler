@@ -646,7 +646,7 @@ namespace HeapProfiler {
             }
         }
 
-        public static HeapRecording FromSnapshots (TaskScheduler scheduler, ActivityIndicator activities, string[] snapshots) {
+        public static HeapRecording FromSnapshots (TaskScheduler scheduler, ActivityIndicator activities, IEnumerable<string> snapshots) {
             return new HeapRecording(
                 scheduler, activities, snapshots
             );

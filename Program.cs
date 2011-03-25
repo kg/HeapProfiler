@@ -103,20 +103,80 @@ namespace HeapProfiler {
                 yield return new Sleep(1.0);
             }
 
-            var args = Environment.GetCommandLineArgs();
-            if ((args.Length > 1) && File.Exists(args[1])) {
-                using (var viewer = new DiffViewer(Scheduler)) {
-                    Scheduler.Start(viewer.LoadDiff(args[1]), TaskExecutionPolicy.RunAsBackgroundTask);
+            var args = Environment.GetCommandLineArgs().Skip(1);
 
-                    yield return viewer.Show();
+            if (args.Count() > 0) {
+                yield return OpenFilenames(args);
 
-                    Application.Exit();
-                }
+                Application.Exit();
             } else {
                 using (var window = new MainWindow(Scheduler))
                     yield return window.Show();
 
                 Application.Exit();
+            }
+        }
+
+        public static IEnumerator<object> OpenFilenames (IEnumerable<string> filenames, MainWindow mainWindow = null) {
+            var diffs = new HashSet<string>();
+            var snapshots = new HashSet<string>();
+            string recording = null;
+
+            foreach (var filename in filenames) {
+                switch (Path.GetExtension(filename)) {
+                    case ".heaprecording": {
+                        if (recording != null) {
+                            MessageBox.Show("Only one heap recording can be opened at a time.", "Error");
+                            continue;
+                        } else if (snapshots.Count > 0) {
+                            MessageBox.Show("You cannot open snapshots and a recording in the same session.", "Error");
+                            continue;
+                        }
+
+                        recording = filename;
+                    } break;
+                    case ".heapsnap": {
+                        if (recording != null) {
+                            MessageBox.Show("You cannot open snapshots and a recording in the same session.", "Error");
+                            continue;
+                        }
+
+                        snapshots.Add(filename);
+                    } break;
+                    case ".heapdiff": {
+                        diffs.Add(filename);
+                    } break;
+                }
+            }
+
+            var futures = new OwnedFutureSet();
+            var disposables = new HashSet<IDisposable>();
+
+            if ((recording != null) || (snapshots.Count > 0)) {
+                if (mainWindow == null) {
+                    mainWindow = new MainWindow(Scheduler);
+                    disposables.Add(mainWindow);
+                    futures.Add(mainWindow.Show());
+                }
+
+                if (recording != null)
+                    throw new NotImplementedException();
+                else
+                    mainWindow.OpenSnapshots(snapshots);
+            }
+
+            foreach (var diff in diffs) {
+                var viewer = new DiffViewer(Scheduler);
+                Scheduler.Start(viewer.LoadDiff(diff), TaskExecutionPolicy.RunAsBackgroundTask);
+                futures.Add(viewer.Show());
+            }
+
+            using (futures)
+            try {
+                yield return Future.WaitForAll(futures);
+            } finally {
+                foreach (var disposable in disposables)
+                    disposable.Dispose();
             }
         }
 

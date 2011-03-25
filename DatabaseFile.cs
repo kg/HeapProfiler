@@ -29,6 +29,7 @@ namespace HeapProfiler {
 
         private readonly IBoundMember[] TangleFields;
         private HashSet<IDisposable> Tangles = new HashSet<IDisposable>();
+        private string _TokenFilePath;
         private string _Filename;
 
         protected DatabaseFile (TaskScheduler scheduler) {
@@ -59,8 +60,9 @@ namespace HeapProfiler {
                 File.Delete(_Filename);
 
             Directory.CreateDirectory(_Filename);
-
             Storage = new FolderStreamSource(_Filename);
+
+            MakeTokenFile(filename);
 
             CreateTangles();
         }
@@ -107,6 +109,11 @@ namespace HeapProfiler {
                 output[i] = br.ReadUInt32();
         }
 
+        protected void MakeTokenFile (string filename) {
+            _TokenFilePath = Path.Combine(filename, Path.GetFileNameWithoutExtension(filename) + ".heaprecording");
+            File.WriteAllText(_TokenFilePath, "");
+        }
+
         protected void CreateTangles () {
             Delegate deserializer = null, serializer = null;
 
@@ -131,10 +138,16 @@ namespace HeapProfiler {
             Tangles.Clear();
 
             var f = Future.RunInThread(() => {
+                File.Delete(_TokenFilePath);
+
                 if (File.Exists(targetFilename))
                     File.Delete(targetFilename);
 
                 Storage.Folder = targetFilename;
+
+                MakeTokenFile(targetFilename);
+
+                _Filename = targetFilename;
             });
             yield return f;
             var failed = f.Failed;

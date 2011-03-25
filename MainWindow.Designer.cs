@@ -53,7 +53,7 @@
             this.ExportSnapshotsMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.OptionsMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.SymbolPathMenu = new System.Windows.Forms.ToolStripMenuItem();
-            this.AssociateHeapdiffsMenu = new System.Windows.Forms.ToolStripMenuItem();
+            this.AssociateDiffsMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.viewToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.ViewPagedMemoryMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.ViewVirtualMemoryMenu = new System.Windows.Forms.ToolStripMenuItem();
@@ -64,6 +64,8 @@
             this.ViewAverageHeapBlockSizeMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.ViewHeapFragmentationMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.Activities = new HeapProfiler.ActivityIndicator();
+            this.AssociateSnapshotsMenu = new System.Windows.Forms.ToolStripMenuItem();
+            this.AssociateRecordingsMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.GroupExecutable.SuspendLayout();
             this.GroupSnapshots.SuspendLayout();
             this.MainMenu.SuspendLayout();
@@ -74,7 +76,7 @@
             this.SelectExecutable.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.SelectExecutable.Font = new System.Drawing.Font("Tahoma", 7.8F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.SelectExecutable.Location = new System.Drawing.Point(406, 14);
-            this.SelectExecutable.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.SelectExecutable.Margin = new System.Windows.Forms.Padding(2);
             this.SelectExecutable.Name = "SelectExecutable";
             this.SelectExecutable.Size = new System.Drawing.Size(30, 22);
             this.SelectExecutable.TabIndex = 1;
@@ -88,7 +90,7 @@
             this.SelectWorkingDirectory.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.SelectWorkingDirectory.Font = new System.Drawing.Font("Tahoma", 7.8F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.SelectWorkingDirectory.Location = new System.Drawing.Point(484, 62);
-            this.SelectWorkingDirectory.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.SelectWorkingDirectory.Margin = new System.Windows.Forms.Padding(2);
             this.SelectWorkingDirectory.Name = "SelectWorkingDirectory";
             this.SelectWorkingDirectory.Size = new System.Drawing.Size(30, 22);
             this.SelectWorkingDirectory.TabIndex = 7;
@@ -111,9 +113,9 @@
             this.GroupExecutable.Controls.Add(this.ExecutablePath);
             this.GroupExecutable.Controls.Add(this.LaunchProcess);
             this.GroupExecutable.Location = new System.Drawing.Point(8, 32);
-            this.GroupExecutable.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.GroupExecutable.Margin = new System.Windows.Forms.Padding(2);
             this.GroupExecutable.Name = "GroupExecutable";
-            this.GroupExecutable.Padding = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.GroupExecutable.Padding = new System.Windows.Forms.Padding(2);
             this.GroupExecutable.Size = new System.Drawing.Size(519, 110);
             this.GroupExecutable.TabIndex = 1;
             this.GroupExecutable.TabStop = false;
@@ -127,7 +129,7 @@
             this.WorkingDirectory.AutoCompleteMode = System.Windows.Forms.AutoCompleteMode.SuggestAppend;
             this.WorkingDirectory.AutoCompleteSource = System.Windows.Forms.AutoCompleteSource.FileSystemDirectories;
             this.WorkingDirectory.Location = new System.Drawing.Point(104, 64);
-            this.WorkingDirectory.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.WorkingDirectory.Margin = new System.Windows.Forms.Padding(2);
             this.WorkingDirectory.Name = "WorkingDirectory";
             this.WorkingDirectory.Size = new System.Drawing.Size(376, 20);
             this.WorkingDirectory.TabIndex = 6;
@@ -148,7 +150,7 @@
             this.Arguments.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
                         | System.Windows.Forms.AnchorStyles.Right)));
             this.Arguments.Location = new System.Drawing.Point(104, 40);
-            this.Arguments.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.Arguments.Margin = new System.Windows.Forms.Padding(2);
             this.Arguments.Name = "Arguments";
             this.Arguments.Size = new System.Drawing.Size(410, 20);
             this.Arguments.TabIndex = 4;
@@ -181,7 +183,7 @@
             this.ExecutablePath.AutoCompleteMode = System.Windows.Forms.AutoCompleteMode.SuggestAppend;
             this.ExecutablePath.AutoCompleteSource = System.Windows.Forms.AutoCompleteSource.FileSystem;
             this.ExecutablePath.Location = new System.Drawing.Point(7, 16);
-            this.ExecutablePath.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.ExecutablePath.Margin = new System.Windows.Forms.Padding(2);
             this.ExecutablePath.Name = "ExecutablePath";
             this.ExecutablePath.Size = new System.Drawing.Size(395, 20);
             this.ExecutablePath.TabIndex = 0;
@@ -195,7 +197,7 @@
             this.LaunchProcess.Enabled = false;
             this.LaunchProcess.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.LaunchProcess.Location = new System.Drawing.Point(439, 14);
-            this.LaunchProcess.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.LaunchProcess.Margin = new System.Windows.Forms.Padding(2);
             this.LaunchProcess.Name = "LaunchProcess";
             this.LaunchProcess.Size = new System.Drawing.Size(75, 22);
             this.LaunchProcess.TabIndex = 2;
@@ -214,9 +216,9 @@
             this.GroupSnapshots.Controls.Add(this.CaptureSnapshot);
             this.GroupSnapshots.Controls.Add(this.SnapshotTimeline);
             this.GroupSnapshots.Location = new System.Drawing.Point(8, 146);
-            this.GroupSnapshots.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.GroupSnapshots.Margin = new System.Windows.Forms.Padding(2);
             this.GroupSnapshots.Name = "GroupSnapshots";
-            this.GroupSnapshots.Padding = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.GroupSnapshots.Padding = new System.Windows.Forms.Padding(2);
             this.GroupSnapshots.Size = new System.Drawing.Size(519, 259);
             this.GroupSnapshots.TabIndex = 2;
             this.GroupSnapshots.TabStop = false;
@@ -227,7 +229,7 @@
             this.ViewSelection.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.ViewSelection.Enabled = false;
             this.ViewSelection.Location = new System.Drawing.Point(415, 93);
-            this.ViewSelection.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.ViewSelection.Margin = new System.Windows.Forms.Padding(2);
             this.ViewSelection.Name = "ViewSelection";
             this.ViewSelection.Size = new System.Drawing.Size(100, 22);
             this.ViewSelection.TabIndex = 7;
@@ -253,7 +255,7 @@
             this.DiffSelection.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.DiffSelection.Enabled = false;
             this.DiffSelection.Location = new System.Drawing.Point(415, 67);
-            this.DiffSelection.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.DiffSelection.Margin = new System.Windows.Forms.Padding(2);
             this.DiffSelection.Name = "DiffSelection";
             this.DiffSelection.Size = new System.Drawing.Size(100, 22);
             this.DiffSelection.TabIndex = 2;
@@ -267,7 +269,7 @@
             this.CaptureSnapshot.Enabled = false;
             this.CaptureSnapshot.Font = new System.Drawing.Font("Microsoft Sans Serif", 7.8F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.CaptureSnapshot.Location = new System.Drawing.Point(415, 17);
-            this.CaptureSnapshot.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.CaptureSnapshot.Margin = new System.Windows.Forms.Padding(2);
             this.CaptureSnapshot.Name = "CaptureSnapshot";
             this.CaptureSnapshot.Size = new System.Drawing.Size(100, 22);
             this.CaptureSnapshot.TabIndex = 1;
@@ -284,7 +286,7 @@
             this.SnapshotTimeline.Font = new System.Drawing.Font("Consolas", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.SnapshotTimeline.ForeColor = System.Drawing.SystemColors.WindowText;
             this.SnapshotTimeline.Location = new System.Drawing.Point(4, 17);
-            this.SnapshotTimeline.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.SnapshotTimeline.Margin = new System.Windows.Forms.Padding(2);
             this.SnapshotTimeline.Name = "SnapshotTimeline";
             this.SnapshotTimeline.Size = new System.Drawing.Size(406, 237);
             this.SnapshotTimeline.TabIndex = 6;
@@ -368,7 +370,9 @@
             // 
             this.OptionsMenu.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.SymbolPathMenu,
-            this.AssociateHeapdiffsMenu});
+            this.AssociateRecordingsMenu,
+            this.AssociateSnapshotsMenu,
+            this.AssociateDiffsMenu});
             this.OptionsMenu.Name = "OptionsMenu";
             this.OptionsMenu.Size = new System.Drawing.Size(61, 20);
             this.OptionsMenu.Text = "&Options";
@@ -377,16 +381,16 @@
             // SymbolPathMenu
             // 
             this.SymbolPathMenu.Name = "SymbolPathMenu";
-            this.SymbolPathMenu.Size = new System.Drawing.Size(296, 22);
-            this.SymbolPathMenu.Text = "&Symbols...";
+            this.SymbolPathMenu.Size = new System.Drawing.Size(281, 22);
+            this.SymbolPathMenu.Text = "Sy&mbols...";
             this.SymbolPathMenu.Click += new System.EventHandler(this.SymbolPathMenu_Click);
             // 
-            // AssociateHeapdiffsMenu
+            // AssociateDiffsMenu
             // 
-            this.AssociateHeapdiffsMenu.Name = "AssociateHeapdiffsMenu";
-            this.AssociateHeapdiffsMenu.Size = new System.Drawing.Size(296, 22);
-            this.AssociateHeapdiffsMenu.Text = "&Associate .heapdiff files with Heap Profiler";
-            this.AssociateHeapdiffsMenu.Click += new System.EventHandler(this.AssociateHeapdiffsMenu_Click);
+            this.AssociateDiffsMenu.Name = "AssociateDiffsMenu";
+            this.AssociateDiffsMenu.Size = new System.Drawing.Size(281, 22);
+            this.AssociateDiffsMenu.Text = "&Associate &diffs with Heap Profiler";
+            this.AssociateDiffsMenu.Click += new System.EventHandler(this.AssociateDiffsMenu_Click);
             // 
             // viewToolStripMenuItem
             // 
@@ -471,6 +475,20 @@
             this.Activities.TabIndex = 3;
             this.Activities.PreferredSizeChanged += new System.EventHandler(this.Activities_PreferredSizeChanged);
             // 
+            // AssociateSnapshotsMenu
+            // 
+            this.AssociateSnapshotsMenu.Name = "AssociateSnapshotsMenu";
+            this.AssociateSnapshotsMenu.Size = new System.Drawing.Size(281, 22);
+            this.AssociateSnapshotsMenu.Text = "Associate &snapshots with Heap Profiler";
+            this.AssociateSnapshotsMenu.Click += new System.EventHandler(this.AssociateSnapshotsMenu_Click);
+            // 
+            // AssociateRecordingsMenu
+            // 
+            this.AssociateRecordingsMenu.Name = "AssociateRecordingsMenu";
+            this.AssociateRecordingsMenu.Size = new System.Drawing.Size(281, 22);
+            this.AssociateRecordingsMenu.Text = "Associate &recordings with Heap Profiler";
+            this.AssociateRecordingsMenu.Click += new System.EventHandler(this.AssociateRecordingsMenu_Click);
+            // 
             // MainWindow
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -482,7 +500,7 @@
             this.Controls.Add(this.MainMenu);
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.MainMenuStrip = this.MainMenu;
-            this.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.Margin = new System.Windows.Forms.Padding(2);
             this.Name = "MainWindow";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "Heap Profiler";
@@ -523,7 +541,7 @@
         private System.Windows.Forms.TextBox Arguments;
         private System.Windows.Forms.Label label1;
         private System.Windows.Forms.CheckBox AutoCapture;
-        private System.Windows.Forms.ToolStripMenuItem AssociateHeapdiffsMenu;
+        private System.Windows.Forms.ToolStripMenuItem AssociateDiffsMenu;
         private ActivityIndicator Activities;
         private SnapshotTimeline SnapshotTimeline;
         private System.Windows.Forms.ToolStripMenuItem viewToolStripMenuItem;
@@ -540,6 +558,8 @@
         private System.Windows.Forms.ToolStripMenuItem snapshotsToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem ImportSnapshotsMenu;
         private System.Windows.Forms.ToolStripMenuItem ExportSnapshotsMenu;
+        private System.Windows.Forms.ToolStripMenuItem AssociateRecordingsMenu;
+        private System.Windows.Forms.ToolStripMenuItem AssociateSnapshotsMenu;
     }
 }
 

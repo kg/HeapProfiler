@@ -434,7 +434,8 @@ namespace HeapProfiler {
             var fontSize = Font.Size;
 
             using (var g = CreateGraphics()) {
-                var screenBounds = Screen.FromControl(this).Bounds;
+                var screen = Screen.FromPoint(Cursor.Position);
+                var screenBounds = screen.Bounds;
                 
                 // Iterate a few times to shrink the tooltip's font size if it's too big
                 for (int i = 0; i < 10; i++) {
@@ -478,7 +479,7 @@ namespace HeapProfiler {
                 bool wasVisible = Tooltip.Visible;
                 Tooltip.Visible = false;
 
-                MoveTooltip(location);
+                MoveTooltip(screen, this.PointToScreen(location));
 
                 Tooltip.Refresh();
 
@@ -514,13 +515,10 @@ namespace HeapProfiler {
             ));
         }
 
-        protected void MoveTooltip (Point location) {
+        protected void MoveTooltip (Screen screen, Point location) {
             var rgn = Tooltip.RenderParams.Region;
 
-            var screenLocation = PointToScreen(location);
-
-            var screen = Screen.FromControl(this);
-            int x = screenLocation.X + 4, y = screenLocation.Y + 24;
+            int x = location.X + 4, y = location.Y + 24;
 
             if ((x + rgn.Width) >= screen.WorkingArea.Right)
                 x = (screen.WorkingArea.Right - rgn.Width - 1);
