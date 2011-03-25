@@ -161,6 +161,52 @@ namespace HeapProfiler {
         }
     }
 
+    public class HeapSnapshotInfo {
+        public readonly int Index;
+        public readonly DateTime Timestamp;
+        public readonly string Filename;
+        public readonly MemoryStatistics Memory;
+
+        public readonly float HeapFragmentation;
+        public readonly long LargestFreeHeapBlock, LargestOccupiedHeapBlock;
+        public readonly long AverageFreeBlockSize, AverageOccupiedBlockSize;
+
+        private HeapSnapshot _StrongRef;
+        private WeakReference _WeakRef;
+
+        public HeapSnapshotInfo (int index, DateTime timestamp, string filename, MemoryStatistics memory, HeapSnapshot snapshot) {
+            Index = index;
+            Timestamp = timestamp;
+            Filename = filename;
+            Memory = memory;
+            _StrongRef = snapshot;
+
+            LargestFreeHeapBlock = (from heap in snapshot.Heaps select heap.LargestFreeSpan).Max();
+            LargestOccupiedHeapBlock = (from heap in snapshot.Heaps select heap.LargestOccupiedSpan).Max();
+            AverageFreeBlockSize = (long)(from heap in snapshot.Heaps select (heap.EstimatedFree) / Math.Max(heap.EmptySpans, 1)).Average();
+            AverageOccupiedBlockSize = (long)(from heap in snapshot.Heaps select (heap.TotalOverhead + heap.TotalRequested) / Math.Max(heap.OccupiedSpans, 1)).Average();
+            HeapFragmentation = (from heap in snapshot.Heaps select heap.EmptySpans).Sum() / (float)Math.Max(1, (from heap in snapshot.Heaps select heap.Allocations.Count).Sum());
+        }
+
+        public HeapSnapshot Snapshot {
+            get {
+                if (_StrongRef != null)
+                    return _StrongRef;
+                else if (_WeakRef != null)
+                    return _WeakRef.Target as HeapSnapshot;
+                else
+                    return null;
+            }
+        }
+
+        public void ReleaseStrongReference () {
+            if (_StrongRef != null) {
+                _WeakRef = new WeakReference(_StrongRef);
+            }
+            _StrongRef = null;
+        }
+    }
+
     public class HeapSnapshot {
         public class Module {
             public readonly string Filename;
@@ -557,13 +603,10 @@ namespace HeapProfiler {
             }
         }
 
-        public readonly int Index;
-        public readonly DateTime Timestamp;
-        public readonly string Filename;
+        public readonly HeapSnapshotInfo Info;
         public readonly ModuleCollection Modules = new ModuleCollection();
         public readonly HeapCollection Heaps = new HeapCollection();
         public readonly TracebackCollection Tracebacks = new TracebackCollection();
-        public readonly MemoryStatistics Memory;
 
         public bool SavedToDatabase = false;
 
@@ -571,11 +614,7 @@ namespace HeapProfiler {
         public const int MaxTracebackLength = 32;
 
         public HeapSnapshot (int index, DateTime when, string filename, string text) {
-            Index = index;
-            Timestamp = when;
-            Filename = filename;
-            Memory = new MemoryStatistics();
-
+            MemoryStatistics memory = new MemoryStatistics();
             bool scanningForStart = true, scanningForMemory = false;
             Heap scanningHeap = null;
 
@@ -651,7 +690,7 @@ namespace HeapProfiler {
                         scanningHeap = new Heap(UInt32.Parse(m.Groups[groupHeaderId].Value, NumberStyles.HexNumber));
                         Heaps.Add(scanningHeap);
                     } else if (line.StartsWith("// Memory=")) {
-                        Memory = new MemoryStatistics(line.ToString());
+                        memory = new MemoryStatistics(line.ToString());
                         scanningForMemory = false;
                         break;
                     } else {
@@ -687,6 +726,8 @@ namespace HeapProfiler {
                 );
                 heap.ComputeStatistics();
             }
+
+            Info = new HeapSnapshotInfo(index, when, filename, memory, this);
         }
 
         public HeapSnapshot (string filename, string text)
@@ -713,15 +754,6 @@ namespace HeapProfiler {
             );
         }
 
-        public float HeapFragmentation {
-            get {
-                if (Heaps.Count == 0)
-                    return 0.0f;
-
-                return (from heap in Heaps select heap.EmptySpans).Sum() / (float)Math.Max(1, (from heap in Heaps select heap.Allocations.Count).Sum());
-            }
-        }
-
         protected unsafe void MakeKeyForAllocation (Allocation allocation, out TangleKey key) {
             var buffer = new byte[12];
 
@@ -740,7 +772,7 @@ namespace HeapProfiler {
             IFuture lastAllocation = null;
 
             var sleep = new Sleep(0.005);
-            const long sleepInterval = 5000;
+            const long sleepInterval = 6000;
             long i = 0;
 
             SavedToDatabase = true;
@@ -794,6 +826,30 @@ namespace HeapProfiler {
                 yield return lastTraceback;
             if (lastAllocation != null)
                 yield return lastAllocation;
+        }
+
+        public int Index {
+            get {
+                return Info.Index;
+            }
+        }
+
+        public DateTime Timestamp {
+            get {
+                return Info.Timestamp;
+            }
+        }
+
+        public string Filename {
+            get {
+                return Info.Filename;
+            }
+        }
+
+        public MemoryStatistics Memory {
+            get {
+                return Info.Memory;
+            }
         }
 
         public override string ToString () {

@@ -25,7 +25,7 @@ using System.Linq;
 using System.Text;
 using System.Windows.Forms;
 
-using Snapshot = HeapProfiler.HeapSnapshot;
+using Snapshot = HeapProfiler.HeapSnapshotInfo;
 using Squared.Util;
 
 namespace HeapProfiler {

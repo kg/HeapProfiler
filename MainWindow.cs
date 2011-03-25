@@ -36,6 +36,7 @@ namespace HeapProfiler {
         public HeapRecording Instance = null;
 
         protected IFuture AutoCaptureFuture = null;
+        protected bool WasMinimized = false;
 
         readonly IBoundMember[] PersistedControls;
 
@@ -426,67 +427,35 @@ namespace HeapProfiler {
                 (SnapshotTimeline.Selection.First == SnapshotTimeline.Selection.Second);
         }
 
-        protected long GetPagedMemory (HeapSnapshot item) {
-            if (item.Memory == null)
-                return 0;
-
+        protected long GetPagedMemory (HeapSnapshotInfo item) {
             return item.Memory.Paged;
         }
 
-        protected long GetVirtualMemory (HeapSnapshot item) {
-            if (item.Memory == null)
-                return 0;
-
+        protected long GetVirtualMemory (HeapSnapshotInfo item) {
             return item.Memory.Virtual;
         }
 
-        protected long GetWorkingSet (HeapSnapshot item) {
-            if (item.Memory == null)
-                return 0;
-
+        protected long GetWorkingSet (HeapSnapshotInfo item) {
             return item.Memory.WorkingSet;
         }
 
-        protected long GetLargestFreeHeapBlock (HeapSnapshot item) {
-            if (item.Memory == null)
-                return 0;
-            else if (item.Heaps.Count == 0)
-                return 0;
-
-            return (long)(from heap in item.Heaps select heap.LargestFreeSpan).Max();
+        protected long GetLargestFreeHeapBlock (HeapSnapshotInfo item) {
+            return item.LargestFreeHeapBlock;
         }
 
-        protected long GetAverageFreeHeapBlockSize (HeapSnapshot item) {
-            if (item.Memory == null)
-                return 0;
-            else if (item.Heaps.Count == 0)
-                return 0;
-
-            return (long)(from heap in item.Heaps select (heap.EstimatedFree) / Math.Max(heap.EmptySpans, 1)).Average();
+        protected long GetAverageFreeHeapBlockSize (HeapSnapshotInfo item) {
+            return item.AverageFreeBlockSize;
         }
 
-        protected long GetLargestOccupiedHeapBlock (HeapSnapshot item) {
-            if (item.Memory == null)
-                return 0;
-            else if (item.Heaps.Count == 0)
-                return 0;
-
-            return (long)(from heap in item.Heaps select heap.LargestOccupiedSpan).Max();
+        protected long GetLargestOccupiedHeapBlock (HeapSnapshotInfo item) {
+            return item.LargestOccupiedHeapBlock;
         }
 
-        protected long GetAverageOccupiedHeapBlockSize (HeapSnapshot item) {
-            if (item.Memory == null)
-                return 0;
-            else if (item.Heaps.Count == 0)
-                return 0;
-
-            return (long)(from heap in item.Heaps select (heap.TotalOverhead + heap.TotalRequested) / Math.Max(heap.OccupiedSpans, 1)).Average();
+        protected long GetAverageOccupiedHeapBlockSize (HeapSnapshotInfo item) {
+            return item.AverageOccupiedBlockSize;
         }
 
-        protected long GetHeapFragmentation (HeapSnapshot item) {
-            if (item.Memory == null)
-                return 0;
-
+        protected long GetHeapFragmentation (HeapSnapshotInfo item) {
             return (long)(item.HeapFragmentation * 10000);
         }
 
@@ -579,10 +548,19 @@ namespace HeapProfiler {
             Enabled = false;
 
             try {
-                yield return Instance.Database.Move(targetFilename);
+                yield return Instance.SaveAs(targetFilename);
             } finally {
                 UseWaitCursor = false;
                 Enabled = true;
+            }
+        }
+
+        private void MainWindow_SizeChanged (object sender, EventArgs e) {
+            if (WindowState == FormWindowState.Minimized) {
+                WasMinimized = true;
+            } else if (WasMinimized) {
+                WasMinimized = false;
+                Activities_PreferredSizeChanged(Activities, EventArgs.Empty);
             }
         }
     }

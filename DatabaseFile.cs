@@ -137,9 +137,12 @@ namespace HeapProfiler {
                 Storage.Folder = targetFilename;
             });
             yield return f;
-            var temp = f.Failed;
+            var failed = f.Failed;
 
             CreateTangles();
+
+            if (failed)
+                throw f.Error;
         }
 
         public void Dispose () {

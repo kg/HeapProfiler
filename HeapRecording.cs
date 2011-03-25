@@ -35,15 +35,17 @@ namespace HeapProfiler {
     public class HeapRecording : IDisposable {
         public const int SymbolResolveBatchSize = 1024;
         public const int MaxFramesPerTraceback = 31;
-        public const int MaxConcurrentLoads = 4;
+
+        public static class SnapshotLoadState {
+            public static int Count = 0;
+        }
+
+        public static class DatabaseSaveState {
+            public static int Count = 0;
+        }
 
         public static class SymbolResolveState {
             public static int Count = 0;
-            public static ActivityIndicator.CountedItem Progress;
-        }
-
-        public static class SnapshotLoadState {
-            public static int PendingLoads = 0;
             public static ActivityIndicator.CountedItem Progress;
         }
 
@@ -60,26 +62,27 @@ namespace HeapProfiler {
         public readonly TaskScheduler Scheduler;
         public readonly ActivityIndicator Activities;
         public readonly OwnedFutureSet Futures = new OwnedFutureSet();
-        public readonly List<HeapSnapshot> Snapshots = new List<HeapSnapshot>();
+        public readonly List<HeapSnapshotInfo> Snapshots = new List<HeapSnapshotInfo>();
         public readonly HashSet<string> TemporaryFiles = new HashSet<string>();
         public readonly ProcessStartInfo StartInfo;
 
         public event EventHandler StatusChanged;
         public event EventHandler SnapshotsChanged;
 
-        public DatabaseFile Database;
         public Process Process;
+
+        protected DatabaseFile _Database;
+        protected bool DatabaseIsTemporary;
 
         protected readonly HashSet<HeapSnapshot.Module> SymbolModules = new HashSet<HeapSnapshot.Module>();
         protected readonly Dictionary<UInt32, TracebackFrame> ResolvedSymbolCache = new Dictionary<UInt32, TracebackFrame>();
         protected readonly Dictionary<UInt32, Future<TracebackFrame>> PendingSymbolResolves = new Dictionary<UInt32, Future<TracebackFrame>>();
         protected readonly BlockingQueue<PendingSymbolResolve> SymbolResolveQueue = new BlockingQueue<PendingSymbolResolve>();
         protected readonly BlockingQueue<string> SnapshotLoadQueue = new BlockingQueue<string>();
-        protected readonly BlockingQueue<int> SnapshotDatabaseSaveQueue = new BlockingQueue<int>();
+        protected readonly BlockingQueue<HeapSnapshot> SnapshotDatabaseSaveQueue = new BlockingQueue<HeapSnapshot>();
         protected readonly LRUCache<Pair<string>, string> DiffCache = new LRUCache<Pair<string>, string>(32);
         protected readonly object SymbolResolveLock = new object();
 
-        protected int MaxPendingLoads = Math.Min(Environment.ProcessorCount, MaxConcurrentLoads);
         protected int TotalFrameResolveFailures = 0;
 
         protected HeapRecording (
@@ -116,12 +119,16 @@ namespace HeapProfiler {
             DiffCache.ItemEvicted += DiffCache_ItemEvicted;
         }
 
+        public IEnumerator<object> SaveAs (string filename) {
+            DatabaseIsTemporary = false;
+            yield return _Database.Move(filename);
+        }
+
         protected void StartHelperTasks () {
             var numWorkers = Math.Max(1, Environment.ProcessorCount / 2);
 
-            SymbolResolveState.Progress = new ActivityIndicator.CountedItem(Activities, "Resolving symbols");
+            SymbolResolveState.Progress = new ActivityIndicator.CountedItem(Activities, "Caching symbols");
             SymbolResolveState.Count = 0;
-            SnapshotLoadState.Progress = new ActivityIndicator.CountedItem(Activities, "Loading snapshots");
 
             for (int i = 0; i < numWorkers; i++)
                 Futures.Add(Scheduler.Start(
@@ -171,15 +178,11 @@ namespace HeapProfiler {
         }
 
         protected IEnumerator<object> SymbolResolverTask () {
-            var sleep = new Sleep(0.1);
             var batch = new List<PendingSymbolResolve>();
             var nullProgress = new CallbackProgressListener();
             ActivityIndicator.CountedItem progress = null;
 
             while (true) {
-                while (SnapshotLoadQueue.Count > 0)
-                    yield return sleep;
-
                 var count = SymbolResolveBatchSize - batch.Count;
                 SymbolResolveQueue.DequeueMultiple(batch, count);
 
@@ -201,7 +204,7 @@ namespace HeapProfiler {
                     if (progress == null)
                         progress = SymbolResolveState.Progress.Increment();
 
-                    var maximum = SymbolResolveState.Count + Math.Max(0, SymbolResolveQueue.Count);
+                    var maximum = SymbolResolveState.Count + Math.Max(0, SymbolResolveQueue.Count) + 1;
                     progress.Maximum = maximum;
                     progress.Progress = Math.Min(maximum, SymbolResolveState.Count);
 
@@ -282,7 +285,7 @@ namespace HeapProfiler {
                                     PendingSymbolResolves.Remove(key);
                                 }
 
-                                Database.SymbolCache.Add(key, frame);
+                                _Database.SymbolCache.Add(key, frame);
                             }
 
                             foreach (var frame in batch) {
@@ -310,35 +313,43 @@ namespace HeapProfiler {
         }
 
         protected IEnumerator<object> DatabaseSaveTask () {
-            var sleep = new Sleep(0.1);
+            ActivityIndicator.Item progress = null;
+
             while (true) {
-                while (SnapshotLoadQueue.Count > 0)
-                    yield return sleep;
+                if (SnapshotDatabaseSaveQueue.Count <= 0) {
+                    DatabaseSaveState.Count = 0;
+                    if (progress != null) {
+                        progress.Dispose();
+                        progress = null;
+                    }
+                }
 
                 var f = SnapshotDatabaseSaveQueue.Dequeue();
                 using (f)
                     yield return f;
 
-                using (Activities.AddItem("Updating database")) {
-                    int maxItem = Math.Min(Snapshots.Count, f.Result);
-                    for (int i = 0; i < maxItem; i++) {
-                        if (!Snapshots[i].SavedToDatabase) {
-                            Console.WriteLine("Saving {0}", i);
-                            yield return Snapshots[i].SaveToDatabase(Database);
-                        }
-                    }
-                }
+                if (progress == null)
+                    progress = Activities.AddItem("Updating database");
+
+                var maximum = DatabaseSaveState.Count + Math.Max(0, SnapshotDatabaseSaveQueue.Count) + 1;
+                progress.Maximum = maximum;
+                progress.Progress = Math.Min(maximum, DatabaseSaveState.Count);
+
+                var snapshot = f.Result;
+                yield return snapshot.SaveToDatabase(_Database);
+                Interlocked.Increment(ref DatabaseSaveState.Count);
             }
         }
 
         protected IEnumerator<object> SnapshotIOTask () {
-            ActivityIndicator.CountedItem progress = null;
-            var sleep = new Sleep(0.25);
+            ActivityIndicator.Item progress = null;
+            IFuture previousSnapshot = null;
 
             while (true) {
                 if (SnapshotLoadQueue.Count <= 0) {
+                    SnapshotLoadState.Count = 0;
                     if (progress != null) {
-                        progress.Decrement();
+                        progress.Dispose();
                         progress = null;
                     }
                 }
@@ -347,18 +358,19 @@ namespace HeapProfiler {
                 using (f)
                     yield return f;
 
-                if (progress == null)
-                    progress = SnapshotLoadState.Progress.Increment();
-
-                while (SnapshotLoadState.PendingLoads >= MaxPendingLoads)
-                    yield return sleep;
-
                 var filename = f.Result;
+
+                if (progress == null)
+                    progress = Activities.AddItem("Loading snapshots");
 
                 using (var fda = new FileDataAdapter(
                     filename, FileMode.Open, 
                     FileAccess.Read, FileShare.Read, 1024 * 128
                 )) {
+                    var maximum = SnapshotLoadState.Count + Math.Max(0, SnapshotLoadQueue.Count) + 1;
+                    progress.Maximum = maximum;
+                    progress.Progress = Math.Min(maximum, SnapshotLoadState.Count);
+
                     var fBytes = fda.ReadToEnd();
                     yield return fBytes;
 
@@ -371,41 +383,31 @@ namespace HeapProfiler {
                     fBytes = null;
                     fText = null;
 
-                    Interlocked.Increment(ref SnapshotLoadState.PendingLoads);
-                    progress.Increment();
+                    // Wait for the last snapshot load we triggered to finish
+                    if (previousSnapshot != null)
+                        yield return previousSnapshot;
 
-                    var fSnapshot = Future.RunInThread(
-                        (Func<string, string, HeapSnapshot>)((fn, t) => new HeapSnapshot(fn, t)),
-                        filename, text
+                    previousSnapshot = Scheduler.Start(
+                        FinishLoadingSnapshot(filename, text), TaskExecutionPolicy.RunAsBackgroundTask
                     );
 
                     text = null;
-
-                    yield return new Start(FinishLoadingSnapshot(
-                        fSnapshot, progress
-                    ), TaskExecutionPolicy.RunAsBackgroundTask);
                 }
             }
         }
 
         protected IEnumerator<object> AddSnapshot (HeapSnapshot snapshot) {
-            Snapshots.Add(snapshot);
+            Snapshots.Add(snapshot.Info);
             Snapshots.Sort((lhs, rhs) => lhs.Timestamp.CompareTo(rhs.Timestamp));
 
             OnSnapshotsChanged();
 
-            SnapshotDatabaseSaveQueue.Enqueue(Snapshots.Count);
+            SnapshotDatabaseSaveQueue.Enqueue(snapshot);
 
             yield break;
         }
 
-        protected IEnumerator<object> FinishLoadingSnapshot (
-            IFuture future, ActivityIndicator.CountedItem progress
-        ) {
-            yield return future;
-
-            var snapshot = future.Result as HeapSnapshot;
-
+        private IEnumerator<object> FinishLoadingSnapshotEpilogue (HeapSnapshot snapshot) {
             // Resort the loaded snapshots, since it's possible for the user to load
             //  a subset of a full capture, or load snapshots in the wrong order
             yield return AddSnapshot(snapshot);
@@ -418,10 +420,31 @@ namespace HeapProfiler {
                 TaskExecutionPolicy.RunAsBackgroundTask
             );
 
-            if (progress != null) {
-                Interlocked.Decrement(ref SnapshotLoadState.PendingLoads);
-                progress.Decrement();
-            }
+            Interlocked.Increment(ref SnapshotLoadState.Count);
+        }
+
+        protected IEnumerator<object> FinishLoadingSnapshot (int index, DateTime when, string filename, string text) {
+            var fSnapshot = Future.RunInThread(
+                () => new HeapSnapshot(index, when, filename, text)
+            );
+            yield return fSnapshot;
+            var snapshot = fSnapshot.Result;
+            text = null;
+
+            yield return FinishLoadingSnapshotEpilogue(snapshot);
+        }
+
+        protected IEnumerator<object> FinishLoadingSnapshot (string filename, string text) {
+            var fSnapshot = Future.RunInThread(
+                () => new HeapSnapshot(filename, text)
+            );
+            yield return fSnapshot;
+            var snapshot = fSnapshot.Result;
+            text = null;
+
+            yield return FinishLoadingSnapshotEpilogue(snapshot);
+
+            snapshot.Info.ReleaseStrongReference();
         }
 
         void DiffCache_ItemEvicted (KeyValuePair<Pair<string>, string> item) {
@@ -448,9 +471,10 @@ namespace HeapProfiler {
         protected IEnumerator<object> CreateTemporaryDatabase () {
             var filename = Path.GetTempFileName();
 
+            DatabaseIsTemporary = true;
             yield return Future.RunInThread(() =>
                 new DatabaseFile(Scheduler, filename)
-            ).Bind(() => Database);
+            ).Bind(() => _Database);
         }
 
         protected IEnumerator<object> LoadExistingMainTask () {
@@ -510,6 +534,12 @@ namespace HeapProfiler {
             return new HeapRecording(scheduler, activities, psi);
         }
 
+        public DatabaseFile Database {
+            get {
+                return _Database;
+            }
+        }
+
         public bool Running {
             get {
                 if (Process == null)
@@ -521,6 +551,12 @@ namespace HeapProfiler {
 
         public void Dispose () {
             Snapshots.Clear();
+
+            var databasePath = Database.Storage.Folder;
+            Database.Dispose();
+
+            if (DatabaseIsTemporary) 
+                Directory.Delete(databasePath, true);
 
             foreach (var fn in TemporaryFiles) {
                 try {
@@ -577,14 +613,7 @@ namespace HeapProfiler {
             var text = fText.Result;
             fText = null;
 
-            var fSnapshot = Future.RunInThread(
-                () => new HeapSnapshot(
-                    Snapshots.Count, now, targetFilename, text
-            ));
-
-            yield return FinishLoadingSnapshot(
-                fSnapshot, null
-            );
+            yield return FinishLoadingSnapshot(Snapshots.Count, now, targetFilename, text);
         }
 
         public IEnumerator<object> DiffSnapshots (string file1, string file2) {

@@ -7,7 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Windows.Forms;
 
-using TItem = HeapProfiler.HeapSnapshot;
+using TItem = HeapProfiler.HeapSnapshotInfo;
 using Squared.Util;
 
 namespace HeapProfiler {

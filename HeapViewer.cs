@@ -38,7 +38,7 @@ using Squared.Util;
 
 namespace HeapProfiler {
     public partial class HeapViewer : TaskForm {
-        protected Snapshot Snapshot = null;
+        protected HeapSnapshot Snapshot = null;
         public NameTable FunctionNames = new NameTable();
 
         public List<Allocation> ListItems = new List<Allocation>();
@@ -140,7 +140,8 @@ namespace HeapProfiler {
         }
 
         private void Timeline_RangeChanged (object sender, EventArgs e) {
-            Snapshot = Timeline.Begin;
+            throw new NotImplementedException();
+            // Snapshot = Timeline.Begin;
             RefreshModules();
             RefreshHeap();
         }
