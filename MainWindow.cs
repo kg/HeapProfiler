@@ -222,21 +222,22 @@ namespace HeapProfiler {
                 dialog.ShowDialog(this);
         }
 
-        private void OpenDiffMenu_Click (object sender, EventArgs e) {
+        private void OpenFilesMenu_Click (object sender, EventArgs e) {
             using (var dialog = new OpenFileDialog()) {
-                dialog.Filter = "Heap Diffs|*.heapdiff";
+                dialog.Filter = "Heap Files|*.heaprecording;*.heapdiff|Heap Recordings|*.heaprecording|Heap Diffs|*.heapdiff";
                 dialog.CheckFileExists = true;
                 dialog.CheckPathExists = true;
-                dialog.Multiselect = false;
+                dialog.Multiselect = true;
                 dialog.ShowReadOnly = false;
-                dialog.Title = "Open Diff";
+                dialog.Title = "Open";
 
                 if (dialog.ShowDialog(this) != System.Windows.Forms.DialogResult.OK)
                     return;
 
-                var viewer = new DiffViewer(Scheduler);
-                viewer.Start(viewer.LoadDiff(dialog.FileName));
-                viewer.ShowDialog(this);
+                Scheduler.Start(
+                    Program.OpenFilenames(dialog.FileNames, this),
+                    TaskExecutionPolicy.RunAsBackgroundTask
+                );
             }
         }
 
@@ -610,6 +611,22 @@ namespace HeapProfiler {
         private void AssociateRecordingsMenu_Click (object sender, EventArgs e) {
             var assoc = HeapRecordingAssociation;
             assoc.IsAssociated = !assoc.IsAssociated;
+        }
+
+        private void MainWindow_DragDrop (object sender, DragEventArgs e) {
+            if (e.Data.GetDataPresent(DataFormats.FileDrop)) {
+                var filenames = (string[])e.Data.GetData(DataFormats.FileDrop);
+
+                Scheduler.Start(
+                    Program.OpenFilenames(filenames, this), 
+                    TaskExecutionPolicy.RunAsBackgroundTask
+                );
+            }
+        }
+
+        private void MainWindow_DragOver (object sender, DragEventArgs e) {
+            if (e.Data.GetDataPresent(DataFormats.FileDrop))
+                e.Effect = DragDropEffects.Copy;
         }
     }
 }

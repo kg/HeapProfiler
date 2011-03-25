@@ -167,16 +167,27 @@ namespace HeapProfiler {
 
             foreach (var diff in diffs) {
                 var viewer = new DiffViewer(Scheduler);
-                Scheduler.Start(viewer.LoadDiff(diff), TaskExecutionPolicy.RunAsBackgroundTask);
-                futures.Add(viewer.Show());
+                disposables.Add(viewer);
+
+                if (mainWindow != null)
+                    futures.Add(viewer.Show(mainWindow));
+                else
+                    futures.Add(viewer.Show());
+
+                yield return viewer.LoadDiff(diff);
             }
 
-            using (futures)
-            try {
-                yield return Future.WaitForAll(futures);
-            } finally {
-                foreach (var disposable in disposables)
-                    disposable.Dispose();
+            if (futures.Count == 0) {
+                if ((mainWindow == null) && (disposables.Count > 0))
+                    throw new InvalidDataException();
+            } else {
+                using (futures)
+                try {
+                    yield return Future.WaitForAll(futures);
+                } finally {
+                    foreach (var disposable in disposables)
+                        disposable.Dispose();
+                }
             }
         }
 

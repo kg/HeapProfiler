@@ -44,7 +44,7 @@
             this.SnapshotTimeline = new HeapProfiler.SnapshotTimeline();
             this.MainMenu = new System.Windows.Forms.MenuStrip();
             this.fileToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.OpenDiffMenu = new System.Windows.Forms.ToolStripMenuItem();
+            this.OpenFilesMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.SaveAsMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripMenuItem1 = new System.Windows.Forms.ToolStripSeparator();
             this.exitToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -53,6 +53,8 @@
             this.ExportSnapshotsMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.OptionsMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.SymbolPathMenu = new System.Windows.Forms.ToolStripMenuItem();
+            this.AssociateRecordingsMenu = new System.Windows.Forms.ToolStripMenuItem();
+            this.AssociateSnapshotsMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.AssociateDiffsMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.viewToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.ViewPagedMemoryMenu = new System.Windows.Forms.ToolStripMenuItem();
@@ -64,8 +66,6 @@
             this.ViewAverageHeapBlockSizeMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.ViewHeapFragmentationMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.Activities = new HeapProfiler.ActivityIndicator();
-            this.AssociateSnapshotsMenu = new System.Windows.Forms.ToolStripMenuItem();
-            this.AssociateRecordingsMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.GroupExecutable.SuspendLayout();
             this.GroupSnapshots.SuspendLayout();
             this.MainMenu.SuspendLayout();
@@ -309,7 +309,7 @@
             // fileToolStripMenuItem
             // 
             this.fileToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.OpenDiffMenu,
+            this.OpenFilesMenu,
             this.SaveAsMenu,
             this.toolStripMenuItem1,
             this.exitToolStripMenuItem});
@@ -317,29 +317,29 @@
             this.fileToolStripMenuItem.Size = new System.Drawing.Size(37, 20);
             this.fileToolStripMenuItem.Text = "&File";
             // 
-            // OpenDiffMenu
+            // OpenFilesMenu
             // 
-            this.OpenDiffMenu.Name = "OpenDiffMenu";
-            this.OpenDiffMenu.Size = new System.Drawing.Size(134, 22);
-            this.OpenDiffMenu.Text = "Open &Diff...";
-            this.OpenDiffMenu.Click += new System.EventHandler(this.OpenDiffMenu_Click);
+            this.OpenFilesMenu.Name = "OpenFilesMenu";
+            this.OpenFilesMenu.Size = new System.Drawing.Size(152, 22);
+            this.OpenFilesMenu.Text = "&Open...";
+            this.OpenFilesMenu.Click += new System.EventHandler(this.OpenFilesMenu_Click);
             // 
             // SaveAsMenu
             // 
             this.SaveAsMenu.Name = "SaveAsMenu";
-            this.SaveAsMenu.Size = new System.Drawing.Size(134, 22);
+            this.SaveAsMenu.Size = new System.Drawing.Size(152, 22);
             this.SaveAsMenu.Text = "&Save As...";
             this.SaveAsMenu.Click += new System.EventHandler(this.SaveAsMenu_Click);
             // 
             // toolStripMenuItem1
             // 
             this.toolStripMenuItem1.Name = "toolStripMenuItem1";
-            this.toolStripMenuItem1.Size = new System.Drawing.Size(131, 6);
+            this.toolStripMenuItem1.Size = new System.Drawing.Size(149, 6);
             // 
             // exitToolStripMenuItem
             // 
             this.exitToolStripMenuItem.Name = "exitToolStripMenuItem";
-            this.exitToolStripMenuItem.Size = new System.Drawing.Size(134, 22);
+            this.exitToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
             this.exitToolStripMenuItem.Text = "E&xit";
             this.exitToolStripMenuItem.Click += new System.EventHandler(this.ExitMenu_Click);
             // 
@@ -384,6 +384,20 @@
             this.SymbolPathMenu.Size = new System.Drawing.Size(281, 22);
             this.SymbolPathMenu.Text = "Sy&mbols...";
             this.SymbolPathMenu.Click += new System.EventHandler(this.SymbolPathMenu_Click);
+            // 
+            // AssociateRecordingsMenu
+            // 
+            this.AssociateRecordingsMenu.Name = "AssociateRecordingsMenu";
+            this.AssociateRecordingsMenu.Size = new System.Drawing.Size(281, 22);
+            this.AssociateRecordingsMenu.Text = "Associate &recordings with Heap Profiler";
+            this.AssociateRecordingsMenu.Click += new System.EventHandler(this.AssociateRecordingsMenu_Click);
+            // 
+            // AssociateSnapshotsMenu
+            // 
+            this.AssociateSnapshotsMenu.Name = "AssociateSnapshotsMenu";
+            this.AssociateSnapshotsMenu.Size = new System.Drawing.Size(281, 22);
+            this.AssociateSnapshotsMenu.Text = "Associate &snapshots with Heap Profiler";
+            this.AssociateSnapshotsMenu.Click += new System.EventHandler(this.AssociateSnapshotsMenu_Click);
             // 
             // AssociateDiffsMenu
             // 
@@ -475,22 +489,9 @@
             this.Activities.TabIndex = 3;
             this.Activities.PreferredSizeChanged += new System.EventHandler(this.Activities_PreferredSizeChanged);
             // 
-            // AssociateSnapshotsMenu
-            // 
-            this.AssociateSnapshotsMenu.Name = "AssociateSnapshotsMenu";
-            this.AssociateSnapshotsMenu.Size = new System.Drawing.Size(281, 22);
-            this.AssociateSnapshotsMenu.Text = "Associate &snapshots with Heap Profiler";
-            this.AssociateSnapshotsMenu.Click += new System.EventHandler(this.AssociateSnapshotsMenu_Click);
-            // 
-            // AssociateRecordingsMenu
-            // 
-            this.AssociateRecordingsMenu.Name = "AssociateRecordingsMenu";
-            this.AssociateRecordingsMenu.Size = new System.Drawing.Size(281, 22);
-            this.AssociateRecordingsMenu.Text = "Associate &recordings with Heap Profiler";
-            this.AssociateRecordingsMenu.Click += new System.EventHandler(this.AssociateRecordingsMenu_Click);
-            // 
             // MainWindow
             // 
+            this.AllowDrop = true;
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(534, 432);
@@ -507,6 +508,8 @@
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.MainWindow_FormClosing);
             this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.MainWindow_FormClosed);
             this.SizeChanged += new System.EventHandler(this.MainWindow_SizeChanged);
+            this.DragDrop += new System.Windows.Forms.DragEventHandler(this.MainWindow_DragDrop);
+            this.DragOver += new System.Windows.Forms.DragEventHandler(this.MainWindow_DragOver);
             this.GroupExecutable.ResumeLayout(false);
             this.GroupExecutable.PerformLayout();
             this.GroupSnapshots.ResumeLayout(false);
@@ -533,7 +536,7 @@
         private System.Windows.Forms.ToolStripMenuItem exitToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem OptionsMenu;
         private System.Windows.Forms.ToolStripMenuItem SymbolPathMenu;
-        private System.Windows.Forms.ToolStripMenuItem OpenDiffMenu;
+        private System.Windows.Forms.ToolStripMenuItem OpenFilesMenu;
         private System.Windows.Forms.ToolStripSeparator toolStripMenuItem1;
         private System.Windows.Forms.Button SelectWorkingDirectory;
         private System.Windows.Forms.TextBox WorkingDirectory;
