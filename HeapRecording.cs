@@ -121,7 +121,7 @@ namespace HeapProfiler {
 
         public IEnumerator<object> SaveAs (string filename) {
             DatabaseIsTemporary = false;
-            yield return _Database.Move(filename);
+            yield return _Database.Move(filename, Activities);
         }
 
         protected void StartHelperTasks () {

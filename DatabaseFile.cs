@@ -28,7 +28,7 @@ namespace HeapProfiler {
         private readonly Dictionary<string, Delegate> Serializers = new Dictionary<string, Delegate>();
 
         private readonly IBoundMember[] TangleFields;
-        private HashSet<IDisposable> Tangles = new HashSet<IDisposable>();
+        private HashSet<ITangle> Tangles = new HashSet<ITangle>();
         private string _TokenFilePath;
         private string _Filename;
 
@@ -124,7 +124,7 @@ namespace HeapProfiler {
                 Deserializers.TryGetValue(tf.Name, out deserializer);
                 Serializers.TryGetValue(tf.Name, out serializer);
 
-                var theTangle = (IDisposable)constructor.Invoke(new object[] { 
+                var theTangle = (ITangle)constructor.Invoke(new object[] { 
                     Scheduler, subStorage, serializer, deserializer, false 
                 });
                 tf.Value = theTangle;
@@ -132,9 +132,15 @@ namespace HeapProfiler {
             }
         }
 
-        public IEnumerator<object> Move (string targetFilename) {
-            foreach (var id in Tangles)
-                id.Dispose();
+        public IEnumerator<object> Move (string targetFilename, ActivityIndicator activities) {
+            // Wait for any pending operations running against the tangles
+            var cb = new BarrierCollection(true, Tangles);
+            using (activities.AddItem("Waiting for database to be idle"))
+                yield return cb;
+
+            foreach (var tangle in Tangles)
+                tangle.Dispose();
+
             Tangles.Clear();
 
             var f = Future.RunInThread(() => {
@@ -149,7 +155,10 @@ namespace HeapProfiler {
 
                 _Filename = targetFilename;
             });
-            yield return f;
+
+            using (activities.AddItem("Moving database"))
+                yield return f;
+
             var failed = f.Failed;
 
             CreateTangles();
