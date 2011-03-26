@@ -19,7 +19,7 @@ namespace HeapProfiler {
         public Tangle<HeapSnapshot.Module> Modules;
         public Tangle<HeapSnapshot.Traceback> Tracebacks;
         public Tangle<HeapSnapshot.AllocationRanges> Allocations;
-        public Tangle<HashSet<TangleKey>> HeapAllocations;
+        public Tangle<HashSet<UInt32>> HeapAllocations;
         public Tangle<TracebackFrame> SymbolCache;
         public Tangle<string[]> SnapshotModules;
         public Tangle<HeapSnapshot.HeapInfo[]> SnapshotHeaps;
@@ -50,8 +50,8 @@ namespace HeapProfiler {
             Serializers["SnapshotModules"] = (Serializer<string[]>)SerializeModuleList;
             Deserializers["SnapshotHeaps"] = (Deserializer<HeapSnapshot.HeapInfo[]>)DeserializeHeapList;
             Serializers["SnapshotHeaps"] = (Serializer<HeapSnapshot.HeapInfo[]>)SerializeHeapList;
-            Deserializers["HeapAllocations"] = (Deserializer<HashSet<TangleKey>>)DeserializeKeySet;
-            Serializers["HeapAllocations"] = (Serializer<HashSet<TangleKey>>)SerializeKeySet;
+            Deserializers["HeapAllocations"] = (Deserializer<HashSet<UInt32>>)DeserializeAddresses;
+            Serializers["HeapAllocations"] = (Serializer<HashSet<UInt32>>)SerializeAddresses;
         }
 
         public DatabaseFile (TaskScheduler scheduler, string filename)
@@ -114,7 +114,7 @@ namespace HeapProfiler {
             }
         }
 
-        static unsafe void SerializeKeySet (ref SerializationContext context, ref HashSet<TangleKey> input) {
+        static unsafe void SerializeAddresses (ref SerializationContext context, ref HashSet<UInt32> input) {
             var stream = context.Stream;
             var buffer = new byte[4];
 
@@ -122,46 +122,24 @@ namespace HeapProfiler {
                 *(int *)pBuffer = input.Count;
                 stream.Write(buffer, 0, 4);
 
-                foreach (var key in input) {
-                    var data = key.Data;
-
-                    *(ushort *)pBuffer = key.OriginalTypeId;
-                    stream.Write(buffer, 0, 2);
-
-                    *(ushort *)pBuffer = (ushort)data.Count;
-                    stream.Write(buffer, 0, 2);
-
-                    stream.Write(data.Array, data.Offset, data.Count);
+                foreach (var address in input) {
+                    *(UInt32 *)pBuffer = address;
+                    stream.Write(buffer, 0, 4);
                 }
             }
         }
 
-        static unsafe void DeserializeKeySet (ref DeserializationContext context, out HashSet<TangleKey> output) {
+        static unsafe void DeserializeAddresses (ref DeserializationContext context, out HashSet<UInt32> output) {
             var stream = context.Stream;
 
             var pointer = context.Source;
             var count = *(int *)pointer;
-            var keys = new TangleKey[count];
-            var buffer = new byte[context.SourceLength - 4];
-            int offset = 0;
+            var addresses = new UInt32[count];
 
-            fixed (byte * pBuffer = buffer)
-                Native.memmove(pBuffer, context.Source + 4, new UIntPtr((uint)buffer.Length));
+            fixed (UInt32 * pAddresses = addresses)
+                Native.memmove((byte *)pAddresses, context.Source + 4, new UIntPtr((uint)count * 4));
 
-            pointer += 4;
-
-            for (int i = 0; i < count; i++) {
-                var keyType = *(ushort *)(pointer + offset);
-                offset += 2;
-
-                var keyLength = *(ushort *)(pointer + offset);
-                offset += 2;
-
-                keys[i] = new TangleKey(new ArraySegment<byte>(buffer, offset, keyLength), keyType);
-                offset += keyLength;
-            }
-
-            output = new HashSet<TangleKey>(keys);
+            output = new HashSet<UInt32>(addresses);
         }
 
         protected void MakeTokenFile (string filename) {

@@ -160,7 +160,7 @@ namespace HeapProfiler {
                 }
 
                 if (recording != null)
-                    throw new NotImplementedException();
+                    mainWindow.OpenRecording(recording);
                 else
                     mainWindow.OpenSnapshots(snapshots);
             }

@@ -279,7 +279,7 @@ namespace HeapProfiler {
             bw.Flush();
 
             uint offset = (uint)context.Stream.Length;
-            bw.Write(offset);
+            bw.Write(offset + 4);
             bw.Flush();
 
             context.SerializeValue(input.Memory);
@@ -919,16 +919,16 @@ namespace HeapProfiler {
             UInt16 uIndex = (UInt16)Index;
 
             TangleKey key;
-            HashSet<TangleKey> keySet;
+            HashSet<UInt32> addressSet;
 
             foreach (var heap in Heaps) {
-                var fKeyset = db.HeapAllocations.Get(heap.ID);
-                yield return fKeyset;
+                var fAddressSet = db.HeapAllocations.Get(heap.ID);
+                yield return fAddressSet;
 
-                if (fKeyset.Failed)
-                    keySet = new HashSet<TangleKey>();
+                if (fAddressSet.Failed)
+                    addressSet = new HashSet<UInt32>();
                 else
-                    keySet = fKeyset.Result;
+                    addressSet = fAddressSet.Result;
 
                 var batch = db.Allocations.CreateBatch(heap.Allocations.Count);
 
@@ -944,12 +944,12 @@ namespace HeapProfiler {
                         (value) => value.Update(uIndex, tracebackId, size, overhead)
                     );
 
-                    keySet.Add(key);
+                    addressSet.Add(allocation.Address);
                 }
 
                 yield return batch.Execute(db.Allocations);
 
-                yield return db.HeapAllocations.Set(heap.ID, keySet);
+                yield return db.HeapAllocations.Set(heap.ID, addressSet);
             }
 
             yield return db.SnapshotHeaps.Set(Index, (from heap in Heaps select heap.Info).ToArray());

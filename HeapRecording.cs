@@ -21,6 +21,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Diagnostics;
+using Squared.Data.Mangler;
 using Squared.Task;
 using System.IO;
 using System.Windows.Forms;
@@ -115,6 +116,22 @@ namespace HeapProfiler {
             ));
 
             SnapshotLoadQueue.EnqueueMultiple(snapshots);
+
+            DiffCache.ItemEvicted += DiffCache_ItemEvicted;
+        }
+
+        protected HeapRecording (
+            TaskScheduler scheduler,
+            ActivityIndicator activities,
+            string recordingFilename
+        ) {
+            Scheduler = scheduler;
+            Activities = activities;
+
+            Futures.Add(Scheduler.Start(
+                LoadRecordingMainTask(recordingFilename), 
+                TaskExecutionPolicy.RunAsBackgroundTask
+            ));
 
             DiffCache.ItemEvicted += DiffCache_ItemEvicted;
         }
@@ -483,6 +500,32 @@ namespace HeapProfiler {
             StartHelperTasks();
         }
 
+        protected IEnumerator<object> LoadRecordingMainTask (string filename) {
+            if (filename.EndsWith(".heaprecording") || File.Exists(filename))
+                filename = Path.GetDirectoryName(filename);
+
+            if (!Directory.Exists(filename)) {
+                MessageBox.Show(String.Format("Recording not found: {0}", filename), "Error");
+                yield break;
+            }
+
+            yield return Future.RunInThread(() =>
+                new DatabaseFile(Scheduler, filename)
+            ).Bind(() => _Database);
+
+            StartHelperTasks();
+
+            using (Activities.AddItem("Loading snapshot info")) {
+                var fSnapshots = Database.Snapshots.GetAllValues();
+                yield return fSnapshots;
+
+                var snapshots = fSnapshots.Result.OrderBy((s) => s.Timestamp);
+                Snapshots.AddRange(snapshots);
+
+                OnSnapshotsChanged();
+            }
+        }
+
         protected IEnumerator<object> ProfileMainTask () {
             var shortName = Path.GetFileName(Path.GetFullPath(StartInfo.FileName));
 
@@ -559,17 +602,21 @@ namespace HeapProfiler {
                     var fAllocations = Database.HeapAllocations.Get(heapInfo.HeapID);
                     yield return fAllocations;
 
-                    foreach (var key in fAllocations.Result) {
-                        var fRanges = Database.Allocations.Get(key);
-                        yield return fRanges;
+                    var fRanges = Database.Allocations.Get(
+                        from address in fAllocations.Result select new TangleKey(address)
+                    );
+                    yield return fRanges;
 
+                    foreach (var kvp in fRanges.Result) {
                         HeapSnapshot.AllocationRanges.Range range;
-                        if (fRanges.Result.Get(info.Index, out range)) {
+                        if (kvp.Value.Get(info.Index, out range)) {
                             var fTraceback = Database.Tracebacks.Get(range.TracebackID);
                             yield return fTraceback;
 
                             theHeap.Allocations.Add(new HeapSnapshot.Allocation(
-                                key.
+                                BitConverter.ToUInt32(kvp.Key.Data.Array, kvp.Key.Data.Offset), 
+                                range.Size, range.Overhead, 
+                                fTraceback.Result
                             ));
                         }
                     }
@@ -712,6 +759,12 @@ namespace HeapProfiler {
         public static HeapRecording FromSnapshots (TaskScheduler scheduler, ActivityIndicator activities, IEnumerable<string> snapshots) {
             return new HeapRecording(
                 scheduler, activities, snapshots
+            );
+        }
+
+        public static HeapRecording FromRecording (TaskScheduler scheduler, ActivityIndicator activities, string recordingFilename) {
+            return new HeapRecording(
+                scheduler, activities, recordingFilename
             );
         }
     }

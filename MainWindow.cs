@@ -364,6 +364,17 @@ namespace HeapProfiler {
             }
         }
 
+        public void OpenRecording (string filename) {
+            Instance = HeapRecording.FromRecording(
+                Scheduler, Activities, filename
+            );
+            Instance.StatusChanged += (s, _) => RefreshStatus();
+            Instance.SnapshotsChanged += (s, _) => RefreshSnapshots();
+
+            RefreshStatus();
+            RefreshSnapshots();
+        }
+
         public void OpenSnapshots (IEnumerable<string> filenames) {
             Instance = HeapRecording.FromSnapshots(
                 Scheduler, Activities, filenames.OrderBy((f) => f)
