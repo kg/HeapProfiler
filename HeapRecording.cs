@@ -535,9 +535,50 @@ namespace HeapProfiler {
         }
 
         protected IEnumerator<object> LoadSnapshotFromDatabase (HeapSnapshotInfo info) {
-            var instance = new HeapSnapshot(info);
+            var result = new HeapSnapshot(info);
 
-            yield return Result.New(instance);
+            var fModules = Database.SnapshotModules.Get(info.Index);
+            var fHeaps = Database.SnapshotHeaps.Get(info.Index);
+
+            using (Activities.AddItem("Loading modules")) {
+                yield return fModules;
+
+                foreach (var moduleName in fModules.Result) {
+                    var fModule = Database.Modules.Get(moduleName);
+                    yield return fModule;
+                    result.Modules.Add(fModule.Result);
+                }
+            }
+
+            using (Activities.AddItem("Loading heaps")) {
+                yield return fHeaps;
+
+                foreach (var heapInfo in fHeaps.Result) {
+                    var theHeap = new HeapSnapshot.Heap(heapInfo);
+
+                    var fAllocations = Database.HeapAllocations.Get(heapInfo.HeapID);
+                    yield return fAllocations;
+
+                    foreach (var key in fAllocations.Result) {
+                        var fRanges = Database.Allocations.Get(key);
+                        yield return fRanges;
+
+                        HeapSnapshot.AllocationRanges.Range range;
+                        if (fRanges.Result.Get(info.Index, out range)) {
+                            var fTraceback = Database.Tracebacks.Get(range.TracebackID);
+                            yield return fTraceback;
+
+                            theHeap.Allocations.Add(new HeapSnapshot.Allocation(
+                                key.
+                            ));
+                        }
+                    }
+
+                    result.Heaps.Add(theHeap);
+                }
+            }
+
+            yield return Result.New(result);
         }
 
         public Future<HeapSnapshot> GetSnapshot (HeapSnapshotInfo info) {

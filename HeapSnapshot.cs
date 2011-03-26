@@ -139,12 +139,8 @@ namespace HeapProfiler {
             return sb.ToString();
         }
 
-        public IEnumerator<object> SaveToDatabase (DatabaseFile db, int Snapshots_ID) {
-            yield return db.MemoryStatistics.Set(Snapshots_ID, this);
-        }
-
         [TangleSerializer]
-        static void Serialize (ref SerializationContext<MemoryStatistics> context, ref MemoryStatistics input) {
+        static void Serialize (ref SerializationContext context, ref MemoryStatistics input) {
             var cv = Mapper<MemoryStatistics>.GetColumnValues(input);
 
             var bw = new BinaryWriter(context.Stream, Encoding.UTF8);
@@ -155,7 +151,7 @@ namespace HeapProfiler {
         }
 
         [TangleDeserializer]
-        static void Deserialize (ref DeserializationContext<MemoryStatistics> context, out MemoryStatistics output) {
+        static void Deserialize (ref DeserializationContext context, out MemoryStatistics output) {
             var br = new BinaryReader(context.Stream, Encoding.UTF8);
 
             output = new MemoryStatistics(br);
@@ -182,11 +178,31 @@ namespace HeapProfiler {
             Memory = memory;
             _StrongRef = snapshot;
 
+            HeapFragmentation = (from heap in snapshot.Heaps select heap.Info.EmptySpans).Sum() / (float)Math.Max(1, (from heap in snapshot.Heaps select heap.Allocations.Count).Sum());
             LargestFreeHeapBlock = (from heap in snapshot.Heaps select heap.Info.LargestFreeSpan).Max();
             LargestOccupiedHeapBlock = (from heap in snapshot.Heaps select heap.Info.LargestOccupiedSpan).Max();
             AverageFreeBlockSize = (long)(from heap in snapshot.Heaps select (heap.Info.EstimatedFree) / Math.Max(heap.Info.EmptySpans, 1)).Average();
             AverageOccupiedBlockSize = (long)(from heap in snapshot.Heaps select (heap.Info.TotalOverhead + heap.Info.TotalRequested) / Math.Max(heap.Info.OccupiedSpans, 1)).Average();
-            HeapFragmentation = (from heap in snapshot.Heaps select heap.Info.EmptySpans).Sum() / (float)Math.Max(1, (from heap in snapshot.Heaps select heap.Allocations.Count).Sum());
+        }
+
+        protected HeapSnapshotInfo (
+            int index, DateTime timestamp, string filename, MemoryStatistics memory,
+            float heapFragmentation, long largestFreeHeapBlock, long largestOccupiedHeapBlock,
+            long averageFreeBlockSize, long averageOccupiedBlockSize
+        ) {
+            Index = index;
+            Timestamp = timestamp;
+            Filename = filename;
+            Memory = memory;
+
+            HeapFragmentation = heapFragmentation;
+            LargestFreeHeapBlock = largestFreeHeapBlock;
+            LargestOccupiedHeapBlock = largestOccupiedHeapBlock;
+            AverageFreeBlockSize = averageFreeBlockSize;
+            AverageOccupiedBlockSize = averageOccupiedBlockSize;
+
+            _StrongRef = null;
+            _WeakRef = null;
         }
 
         public HeapSnapshot Snapshot {
@@ -214,6 +230,59 @@ namespace HeapProfiler {
 
             _StrongRef = heapSnapshot;
             _WeakRef = null;
+        }
+
+        [TangleDeserializer]
+        static void Deserialize (ref DeserializationContext context, out HeapSnapshotInfo output) {
+            var br = new BinaryReader(context.Stream, Encoding.UTF8);
+
+            var index = br.ReadInt32();
+            var timestamp = DateTime.Parse(br.ReadString());
+            var filename = br.ReadString();
+
+            var heapFragmentation = br.ReadSingle();
+
+            var largestFree = br.ReadInt64();
+            var largestOccupied = br.ReadInt64();
+
+            var averageFree = br.ReadInt64();
+            var averageOccupied = br.ReadInt64();
+
+            var memoryOffset = br.ReadUInt32();
+
+            MemoryStatistics memory;
+            context.DeserializeValue(memoryOffset, out memory);
+
+            output = new HeapSnapshotInfo(
+                index, timestamp, filename, memory,
+                heapFragmentation, largestFree, largestOccupied,
+                averageFree, averageOccupied
+            );
+        }
+
+        [TangleSerializer]
+        static void Serialize (ref SerializationContext context, ref HeapSnapshotInfo input) {
+            var bw = new BinaryWriter(context.Stream, Encoding.UTF8);
+
+            bw.Write(input.Index);
+            bw.Write(input.Timestamp.ToString("O"));
+            bw.Write(input.Filename);
+
+            bw.Write(input.HeapFragmentation);
+
+            bw.Write(input.LargestFreeHeapBlock);
+            bw.Write(input.LargestOccupiedHeapBlock);
+
+            bw.Write(input.AverageFreeBlockSize);
+            bw.Write(input.AverageOccupiedBlockSize);
+
+            bw.Flush();
+
+            uint offset = (uint)context.Stream.Length;
+            bw.Write(offset);
+            bw.Flush();
+
+            context.SerializeValue(input.Memory);
         }
     }
 
@@ -249,7 +318,7 @@ namespace HeapProfiler {
             }
 
             [TangleSerializer]
-            static void Serialize (ref SerializationContext<Module> context, ref Module input) {
+            static void Serialize (ref SerializationContext context, ref Module input) {
                 var bw = new BinaryWriter(context.Stream, Encoding.UTF8);
                 bw.Write(input.BaseAddress);
                 bw.Write(input.Size);
@@ -258,7 +327,7 @@ namespace HeapProfiler {
             }
 
             [TangleDeserializer]
-            static void Deserialize (ref SerializationContext<Module> context, out Module output) {
+            static void Deserialize (ref DeserializationContext context, out Module output) {
                 var br = new BinaryReader(context.Stream, Encoding.UTF8);
 
                 var baseAddress = br.ReadUInt32();
@@ -306,6 +375,11 @@ namespace HeapProfiler {
             public Heap (int snapshotID, UInt32 id) {
                 BaseAddress = ID = id;
                 Info = new HeapInfo(snapshotID, id);
+            }
+
+            public Heap (HeapInfo info) {
+                Info = info;
+                BaseAddress = ID = info.HeapID;
             }
 
             internal void ComputeStatistics () {
@@ -419,14 +493,18 @@ namespace HeapProfiler {
         public struct AllocationRanges {
             public struct Range {
                 public readonly UInt16 First, Last;
+                public readonly UInt32 TracebackID, Size, Overhead;
 
-                public Range (UInt16 id) {
-                    First = Last = id;
+                public Range (UInt16 id, UInt32 tracebackId, UInt32 size, UInt32 overhead)
+                    : this(id, id, tracebackId, size, overhead) {
                 }
 
-                public Range (UInt16 first, UInt16 last) {
+                public Range (UInt16 first, UInt16 last, UInt32 tracebackId, UInt32 size, UInt32 overhead) {
                     First = first;
                     Last = last;
+                    TracebackID = tracebackId;
+                    Size = size;
+                    Overhead = overhead;
                 }
             }
 
@@ -441,19 +519,32 @@ namespace HeapProfiler {
             }
 
             [TangleSerializer]
-            static unsafe void Serialize (ref SerializationContext<AllocationRanges> context, ref AllocationRanges input) {
+            static unsafe void Serialize (ref SerializationContext context, ref AllocationRanges input) {
                 var count = input.Ranges.Count;
+                const int itemSize = (2 * 2) + (4 * 3);
 
-                var buffer = new byte[4 + (count * 3)];
+                var buffer = new byte[4 + (count * itemSize)];
                 fixed (byte* pBuffer = buffer) {
-                    *(int*)(pBuffer + 0) = count;
+                    *(int*)(pBuffer) = count;
+                    int offset = 4;
 
                     for (int i = 0; i < count; i++) {
-                        int offset = 4 + (3 * i);
                         var range = input.Ranges.Array[i + input.Ranges.Offset];
-                        *(ushort*)(pBuffer + offset) = range.First;
-                        byte delta = (byte)(range.Last - range.First);
-                        *(byte*)(pBuffer + offset + 2) = delta;
+
+                        *(ushort *)(pBuffer + offset) = range.First;
+                        offset += 2;
+
+                        *(ushort *)(pBuffer + offset) = range.Last;
+                        offset += 2;
+
+                        *(UInt32 *)(pBuffer + offset) = range.TracebackID;
+                        offset += 4;
+
+                        *(UInt32 *)(pBuffer + offset) = range.Size;
+                        offset += 4;
+
+                        *(UInt32 *)(pBuffer + offset) = range.Overhead;
+                        offset += 4;
                     }
                 }
 
@@ -461,49 +552,83 @@ namespace HeapProfiler {
             }
 
             [TangleDeserializer]
-            static unsafe void Deserialize (ref DeserializationContext<AllocationRanges> context, out AllocationRanges output) {
+            static unsafe void Deserialize (ref DeserializationContext context, out AllocationRanges output) {
                 if (context.SourceLength < 4)
                     throw new InvalidDataException();
 
                 int count = *(int *)(context.Source + 0);
                 var array = new Range[count];
+                int offset = 4;
 
-                if (context.SourceLength < (4 + (3 * count)))
+                const int itemSize = (2 * 2) + (4 * 3);
+
+                if (context.SourceLength < (4 + (itemSize * count)))
                     throw new InvalidDataException();
 
                 for (int i = 0; i < count; i++) {
-                    var first = *(ushort*)(context.Source + 4 + (i * 3));
-                    var delta = *(context.Source + 4 + (i * 3) + 2);
-                    array[i] = new Range(first, (ushort)(first + delta));
+                    var first = *(ushort*)(context.Source + offset);
+                    offset += 2;
+
+                    var last = *(ushort *)(context.Source + offset);
+                    offset += 2;
+
+                    var tracebackId = *(UInt32 *)(context.Source + offset);
+                    offset += 4;
+
+                    var size = *(UInt32 *)(context.Source + offset);
+                    offset += 4;
+
+                    var overhead = *(UInt32 *)(context.Source + offset);
+                    offset += 4;
+
+                    array[i] = new Range(first, last, tracebackId, size, overhead);
                 }
 
                 output = new AllocationRanges(array);
             }
 
-            public static AllocationRanges New (UInt16 index) {
-                return new AllocationRanges(new Range(index));
+            public static AllocationRanges New (UInt16 snapshotId, UInt32 tracebackId, UInt32 size, UInt32 overhead) {
+                return new AllocationRanges(new Range(snapshotId, tracebackId, size, overhead));
             }
 
-            public AllocationRanges Update (UInt16 index) {
+            public AllocationRanges Update (UInt16 snapshotId, UInt32 tracebackId, UInt32 size, UInt32 overhead) {
                 Range[] result;
 
-                for (int i = 0; i < Ranges.Count; i++) {
-                    var range = Ranges.Array[i + Ranges.Offset];
-                    if (range.First <= index && range.Last >= index)
+                var a = Ranges.Array;
+                for (int i = 0, c = Ranges.Count, o = Ranges.Offset; i < c; i++) {
+                    var range = a[i + o];
+
+                    if ((range.TracebackID != tracebackId) || (range.Size != size) || (range.Overhead != overhead))
+                        continue;
+
+                    if (range.First <= snapshotId && range.Last >= snapshotId)
                         return this;
 
-                    if (range.Last == index - 1) {
+                    if (range.Last == snapshotId - 1) {
                         result = new Range[Ranges.Count];
                         Array.Copy(Ranges.Array, Ranges.Offset, result, 0, Ranges.Count);
-                        result[i] = new Range(range.First, index);
+                        result[i] = new Range(range.First, snapshotId, tracebackId, size, overhead);
                         return new AllocationRanges(result);
                     }
                 }
 
                 result = new Range[Ranges.Count + 1];
                 Array.Copy(Ranges.Array, Ranges.Offset, result, 0, Ranges.Count);
-                result[result.Length - 1] = new Range(index);
+                result[result.Length - 1] = new Range(snapshotId, tracebackId, size, overhead);
                 return new AllocationRanges(result);
+            }
+
+            public bool Get (int snapshotId, out Range range) {
+                var a = Ranges.Array;
+
+                for (int i = 0, c = Ranges.Count, o = Ranges.Offset; i < c; i++) {
+                    range = a[i + o];
+                    if ((snapshotId >= range.First) && (snapshotId <= range.Last))
+                        return true;
+                }
+
+                range = default(Range);
+                return false;
             }
         }
 
@@ -557,7 +682,7 @@ namespace HeapProfiler {
             }
 
             [TangleSerializer]
-            static unsafe void Serialize (ref SerializationContext<Traceback> context, ref Traceback input) {
+            static unsafe void Serialize (ref SerializationContext context, ref Traceback input) {
                 var buffer = new byte[8 + input.Frames.Count * 4];
 
                 fixed (uint * pFrames = &input.Frames.Array[input.Frames.Offset])
@@ -574,7 +699,7 @@ namespace HeapProfiler {
             }
 
             [TangleDeserializer]
-            static unsafe void Deserialize (ref DeserializationContext<Traceback> context, out Traceback output) {
+            static unsafe void Deserialize (ref DeserializationContext context, out Traceback output) {
                 if (context.SourceLength < 8)
                     throw new InvalidDataException();
 
@@ -756,16 +881,8 @@ namespace HeapProfiler {
             );
         }
 
-        protected unsafe void MakeKeyForAllocation (Allocation allocation, out TangleKey key) {
-            var buffer = new byte[12];
-
-            fixed (byte* pBuffer = buffer) {
-                *(uint*)(pBuffer + 0) = allocation.Traceback.ID;
-                *(uint*)(pBuffer + 4) = allocation.Address;
-                *(uint*)(pBuffer + 8) = allocation.Size + allocation.Overhead;
-            }
-
-            key = new TangleKey(buffer);
+        protected void MakeKeyForAllocation (Allocation allocation, out TangleKey key) {
+            key = new TangleKey(allocation.Address);
         }
 
         public static IEnumerator<object> LoadFromDatabase (DatabaseFile db, HeapSnapshotInfo info) {
@@ -777,9 +894,7 @@ namespace HeapProfiler {
         public IEnumerator<object> SaveToDatabase (DatabaseFile db) {
             SavedToDatabase = true;
 
-            yield return db.Snapshots.Set(Index, this);
-
-            yield return Memory.SaveToDatabase(db, Index);
+            yield return db.Snapshots.Set(Index, this.Info);
 
             {
                 var batch = db.Modules.CreateBatch(Modules.Count);
@@ -802,25 +917,39 @@ namespace HeapProfiler {
             }
 
             UInt16 uIndex = (UInt16)Index;
-            var nullRange = AllocationRanges.New(uIndex);
-
-            Tangle<AllocationRanges>.UpdateCallback updateRanges =
-                (value) => value.Update(uIndex);
 
             TangleKey key;
+            HashSet<TangleKey> keySet;
 
             foreach (var heap in Heaps) {
+                var fKeyset = db.HeapAllocations.Get(heap.ID);
+                yield return fKeyset;
+
+                if (fKeyset.Failed)
+                    keySet = new HashSet<TangleKey>();
+                else
+                    keySet = fKeyset.Result;
+
                 var batch = db.Allocations.CreateBatch(heap.Allocations.Count);
 
                 foreach (var allocation in heap.Allocations) {
                     MakeKeyForAllocation(allocation, out key);
 
+                    var tracebackId = allocation.Traceback.ID;
+                    var size = allocation.Size;
+                    var overhead = allocation.Overhead;
+
                     batch.AddOrUpdate(
-                        key, nullRange, updateRanges
+                        key, AllocationRanges.New(uIndex, tracebackId, size, overhead),
+                        (value) => value.Update(uIndex, tracebackId, size, overhead)
                     );
+
+                    keySet.Add(key);
                 }
 
                 yield return batch.Execute(db.Allocations);
+
+                yield return db.HeapAllocations.Set(heap.ID, keySet);
             }
 
             yield return db.SnapshotHeaps.Set(Index, (from heap in Heaps select heap.Info).ToArray());
@@ -852,52 +981,6 @@ namespace HeapProfiler {
 
         public override string ToString () {
             return String.Format("#{0} - {1}", Index, Timestamp.ToLongTimeString());
-        }
-
-        [TangleSerializer]
-        static void Serialize (ref SerializationContext<HeapSnapshot> context, ref HeapSnapshot input) {
-            var bw = new BinaryWriter(context.Stream, Encoding.UTF8);
-            bw.Write(input.Index);
-            bw.Write(input.Timestamp.ToString("O"));
-            bw.Write(input.Filename);
-
-            bw.Write(input.Heaps.Count);
-
-            foreach (var heap in input.Heaps) {
-                bw.Write(heap.ID);
-                bw.Write(heap.Allocations.Count);
-            }
-
-            bw.Flush();
-        }
-
-        public static void Deserialize (DatabaseFile db, ref DeserializationContext<HeapSnapshot> context, out HeapSnapshot output) {
-            var br = new BinaryReader(context.Stream, Encoding.UTF8);
-            var index = br.ReadInt32();
-            var timestamp = DateTime.Parse(br.ReadString());
-            var filename = br.ReadString();
-
-            output = new HeapSnapshot(index, timestamp, filename, "");
-
-            // TODO
-
-            var ids = new List<UInt32>();
-
-            int count = br.ReadInt32();
-            for (int i = 0; i < count; i++)
-                ids.Add(br.ReadUInt32());
-
-            Console.WriteLine(String.Join(", ", (from id in ids select id.ToString()).ToArray()));
-            ids.Clear();
-
-            count = br.ReadInt32();
-            for (int i = 0; i < count; i++)
-                ids.Add(br.ReadUInt32());
-
-            Console.WriteLine(String.Join(", ", (from id in ids select id.ToString()).ToArray()));
-            ids.Clear();
-
-            throw new NotImplementedException();
         }
     }
 }
