@@ -534,6 +534,28 @@ namespace HeapProfiler {
             return new HeapRecording(scheduler, activities, psi);
         }
 
+        protected IEnumerator<object> LoadSnapshotFromDatabase (HeapSnapshotInfo info) {
+            var instance = new HeapSnapshot(info);
+
+            yield return Result.New(instance);
+        }
+
+        public Future<HeapSnapshot> GetSnapshot (HeapSnapshotInfo info) {
+            var snapshot = info.Snapshot;
+
+            if (snapshot != null)
+                return new Future<HeapSnapshot>(snapshot);
+
+            var f = new Future<HeapSnapshot>();
+
+            Scheduler.Start(
+                f, new SchedulableGeneratorThunk(LoadSnapshotFromDatabase(info)), 
+                TaskExecutionPolicy.RunAsBackgroundTask
+            );
+
+            return f;
+        }
+
         public DatabaseFile Database {
             get {
                 return _Database;

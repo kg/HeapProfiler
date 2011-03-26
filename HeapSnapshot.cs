@@ -182,11 +182,11 @@ namespace HeapProfiler {
             Memory = memory;
             _StrongRef = snapshot;
 
-            LargestFreeHeapBlock = (from heap in snapshot.Heaps select heap.LargestFreeSpan).Max();
-            LargestOccupiedHeapBlock = (from heap in snapshot.Heaps select heap.LargestOccupiedSpan).Max();
-            AverageFreeBlockSize = (long)(from heap in snapshot.Heaps select (heap.EstimatedFree) / Math.Max(heap.EmptySpans, 1)).Average();
-            AverageOccupiedBlockSize = (long)(from heap in snapshot.Heaps select (heap.TotalOverhead + heap.TotalRequested) / Math.Max(heap.OccupiedSpans, 1)).Average();
-            HeapFragmentation = (from heap in snapshot.Heaps select heap.EmptySpans).Sum() / (float)Math.Max(1, (from heap in snapshot.Heaps select heap.Allocations.Count).Sum());
+            LargestFreeHeapBlock = (from heap in snapshot.Heaps select heap.Info.LargestFreeSpan).Max();
+            LargestOccupiedHeapBlock = (from heap in snapshot.Heaps select heap.Info.LargestOccupiedSpan).Max();
+            AverageFreeBlockSize = (long)(from heap in snapshot.Heaps select (heap.Info.EstimatedFree) / Math.Max(heap.Info.EmptySpans, 1)).Average();
+            AverageOccupiedBlockSize = (long)(from heap in snapshot.Heaps select (heap.Info.TotalOverhead + heap.Info.TotalRequested) / Math.Max(heap.Info.OccupiedSpans, 1)).Average();
+            HeapFragmentation = (from heap in snapshot.Heaps select heap.Info.EmptySpans).Sum() / (float)Math.Max(1, (from heap in snapshot.Heaps select heap.Allocations.Count).Sum());
         }
 
         public HeapSnapshot Snapshot {
@@ -205,6 +205,15 @@ namespace HeapProfiler {
                 _WeakRef = new WeakReference(_StrongRef);
             }
             _StrongRef = null;
+        }
+
+        internal void SetSnapshot (HeapSnapshot heapSnapshot) {
+            var oldSnapshot = Snapshot;
+            if (oldSnapshot != null)
+                throw new InvalidOperationException();
+
+            _StrongRef = heapSnapshot;
+            _WeakRef = null;
         }
     }
 
@@ -266,54 +275,62 @@ namespace HeapProfiler {
             }
         }
 
-        [Mapper(Explicit=true)]
+        public struct HeapInfo {
+            public readonly int SnapshotID;
+            public readonly UInt32 HeapID;
+
+            public long EstimatedStart, EstimatedSize, EstimatedFree;
+            public long TotalOverhead, TotalRequested;
+            public long LargestFreeSpan, LargestOccupiedSpan;
+            public long OccupiedSpans, EmptySpans;
+
+            public HeapInfo (int snapshotID, UInt32 heapID) {
+                SnapshotID = snapshotID;
+                HeapID = heapID;
+
+                EstimatedStart = EstimatedSize = EstimatedFree = 0;
+                TotalOverhead = TotalRequested = 0;
+                LargestFreeSpan = LargestOccupiedSpan = 0;
+                OccupiedSpans = EmptySpans = 0;
+            }
+        }
+
         public class Heap {
             public readonly UInt32 ID;
             public readonly List<Allocation> Allocations = new List<Allocation>();
 
             public UInt32 BaseAddress;
 
-            [Column]
-            public long EstimatedStart, EstimatedSize, EstimatedFree;
-            [Column]
-            public long TotalOverhead, TotalRequested;
-            [Column]
-            public long LargestFreeSpan, LargestOccupiedSpan;
-            [Column]
-            public long OccupiedSpans, EmptySpans;
+            public HeapInfo Info;
 
-            // Needed for Mapper :(
-            public Heap () {
-                throw new InvalidOperationException();
-            }
-
-            public Heap (UInt32 id) {
+            public Heap (int snapshotID, UInt32 id) {
                 BaseAddress = ID = id;
+                Info = new HeapInfo(snapshotID, id);
             }
 
             internal void ComputeStatistics () {
-                EstimatedStart = BaseAddress = ID;
-                OccupiedSpans = EmptySpans = 0;
-                EstimatedSize = EstimatedFree = 0;
-                LargestFreeSpan = LargestOccupiedSpan = 0;
-                TotalOverhead = TotalRequested = 0;
+                Info.EstimatedStart = BaseAddress = ID;
+                Info.OccupiedSpans = Info.EmptySpans = 0;
+                Info.EstimatedSize = Info.EstimatedFree = 0;
+                Info.LargestFreeSpan = Info.LargestOccupiedSpan = 0;
+                Info.TotalOverhead = Info.TotalRequested = 0;
 
                 if (Allocations.Count == 0)
                     return;
 
-                EstimatedStart = Allocations[0].Address;
+                Info.EstimatedStart = Allocations[0].Address;
 
                 var currentPair = new Pair<UInt32>(Allocations[0].Address, Allocations[0].NextOffset);
                 // Detect free space at the front of the heap
                 if (currentPair.First > ID) {
-                    EmptySpans += 1;
-                    EstimatedFree += currentPair.First - ID;
-                    LargestFreeSpan = Math.Max(LargestFreeSpan, currentPair.First - ID);
+                    Info.EmptySpans += 1;
+                    Info.EstimatedFree += currentPair.First - ID;
+                    Info.LargestFreeSpan = Math.Max(Info.LargestFreeSpan, currentPair.First - ID);
                 }
 
                 var a = Allocations[0];
-                TotalRequested += a.Size;
-                TotalOverhead += a.Overhead;
+                Info.TotalRequested += a.Size;
+                Info.TotalOverhead += a.Overhead;
 
                 for (int i = 1; i < Allocations.Count; i++) {
                     a = Allocations[i];
@@ -323,13 +340,13 @@ namespace HeapProfiler {
                         //  and update the statistics
                         var emptySize = a.Address - currentPair.Second;
 
-                        OccupiedSpans += 1;
-                        EmptySpans += 1;
+                        Info.OccupiedSpans += 1;
+                        Info.EmptySpans += 1;
 
-                        EstimatedFree += emptySize;
+                        Info.EstimatedFree += emptySize;
 
-                        LargestFreeSpan = Math.Max(LargestFreeSpan, emptySize);
-                        LargestOccupiedSpan = Math.Max(LargestOccupiedSpan, currentPair.Second - currentPair.First);
+                        Info.LargestFreeSpan = Math.Max(Info.LargestFreeSpan, emptySize);
+                        Info.LargestOccupiedSpan = Math.Max(Info.LargestOccupiedSpan, currentPair.Second - currentPair.First);
 
                         currentPair.First = a.Address;
                         currentPair.Second = a.NextOffset;
@@ -337,54 +354,19 @@ namespace HeapProfiler {
                         currentPair.Second = a.NextOffset;
                     }
 
-                    TotalRequested += a.Size;
-                    TotalOverhead += a.Overhead;
+                    Info.TotalRequested += a.Size;
+                    Info.TotalOverhead += a.Overhead;
                 }
 
                 // We aren't given the size of the heap, so we treat the end of the last allocation as the end of the heap.
-                OccupiedSpans += 1;
-                LargestOccupiedSpan = Math.Max(LargestOccupiedSpan, currentPair.Second - currentPair.First);
-                EstimatedSize = currentPair.Second - BaseAddress;
+                Info.OccupiedSpans += 1;
+                Info.LargestOccupiedSpan = Math.Max(Info.LargestOccupiedSpan, currentPair.Second - currentPair.First);
+                Info.EstimatedSize = currentPair.Second - BaseAddress;
             }
 
             public float Fragmentation {
                 get {
-                    return EmptySpans / (float)Math.Max(1, Allocations.Count);
-                }
-            }
-
-            [TangleSerializer]
-            static void Serialize (ref SerializationContext<Heap> context, ref Heap input) {
-                var cv = Mapper<Heap>.GetColumnValues(input);
-
-                var bw = new BinaryWriter(context.Stream, Encoding.UTF8);
-
-                bw.Write(input.ID);
-
-                bw.Write(cv.Length);
-                for (int i = 0; i < cv.Length; i++)
-                    bw.Write((long)cv[i]);
-
-                bw.Flush();
-            }
-
-            [TangleDeserializer]
-            static void Deserialize (ref SerializationContext<Heap> context, out Heap output) {
-                var br = new BinaryReader(context.Stream, Encoding.UTF8);
-
-                var id = br.ReadUInt32();
-                output = new Heap(id);
-
-                var t = typeof(Heap);
-                var cn = Mapper<Heap>.ColumnNames;
-
-                var count = br.ReadInt32();
-                if (count != cn.Length)
-                    throw new InvalidDataException();
-
-                for (int i = 0; i < count; i++) {
-                    long value = br.ReadInt64();
-                    BoundMember.New(output, t.GetField(cn[i])).Value = value;
+                    return Info.EmptySpans / (float)Math.Max(1, Allocations.Count);
                 }
             }
         }
@@ -702,7 +684,7 @@ namespace HeapProfiler {
                     }
                 } else if (scanningForMemory) {
                     if (regexes.HeapHeader.TryMatch(ref line, out m)) {
-                        scanningHeap = new Heap(UInt32.Parse(m.Groups[groupHeaderId].Value, NumberStyles.HexNumber));
+                        scanningHeap = new Heap(index, UInt32.Parse(m.Groups[groupHeaderId].Value, NumberStyles.HexNumber));
                         Heaps.Add(scanningHeap);
                     } else if (line.StartsWith("// Memory=")) {
                         memory = new MemoryStatistics(line.ToString());
@@ -753,6 +735,11 @@ namespace HeapProfiler {
         ) {
         }
 
+        internal HeapSnapshot (HeapSnapshotInfo info) {
+            Info = info;
+            info.SetSnapshot(this);
+        }
+
         static int IndexFromFilename (string filename) {
             var parts = Path.GetFileNameWithoutExtension(filename)
                 .Split(new[] { '_' }, 2);
@@ -788,10 +775,6 @@ namespace HeapProfiler {
         }
 
         public IEnumerator<object> SaveToDatabase (DatabaseFile db) {
-            IFuture lastModule = null;
-            IFuture lastTraceback = null;
-            IFuture lastAllocation = null;
-
             SavedToDatabase = true;
 
             yield return db.Snapshots.Set(Index, this);
@@ -827,8 +810,6 @@ namespace HeapProfiler {
             TangleKey key;
 
             foreach (var heap in Heaps) {
-                yield return db.Heaps.Set(heap.ID, heap);
-
                 var batch = db.Allocations.CreateBatch(heap.Allocations.Count);
 
                 foreach (var allocation in heap.Allocations) {
@@ -842,7 +823,7 @@ namespace HeapProfiler {
                 yield return batch.Execute(db.Allocations);
             }
 
-            yield return db.SnapshotHeaps.Set(Index, Heaps.Keys.ToArray());
+            yield return db.SnapshotHeaps.Set(Index, (from heap in Heaps select heap.Info).ToArray());
         }
 
         public int Index {

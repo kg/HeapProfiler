@@ -116,7 +116,7 @@ namespace HeapProfiler {
 
                 foreach (var heapId in Snapshot.Heaps.Keys) {
                     var heap = Snapshot.Heaps[heapId];
-                    var itemHeight = (int)(Math.Ceiling(heap.EstimatedSize / (float)BytesPerRow) + 1) * RowHeight;
+                    var itemHeight = (int)(Math.Ceiling(heap.Info.EstimatedSize / (float)BytesPerRow) + 1) * RowHeight;
                     var rgn = new Rectangle(0, y, width, itemHeight);
                     var maxX = width - MarginWidth;
 
@@ -134,7 +134,7 @@ namespace HeapProfiler {
                         foreach (var allocation in heap.Allocations) {
                             var color = SelectItemColor(allocation);
 
-                            int pos = (int)(allocation.Address - heap.EstimatedStart);
+                            int pos = (int)(allocation.Address - heap.Info.EstimatedStart);
                             int y1 = y + ((pos / BytesPerRow) * RowHeight),
                                 y2 = y1 + RowHeight;
                             float x1 = (pos % BytesPerRow) / (float)BytesPerPixel,
@@ -303,7 +303,7 @@ namespace HeapProfiler {
                 long bytes = 0;
                 foreach (var heapId in Snapshot.Heaps.Keys) {
                     var heap = Snapshot.Heaps[heapId];
-                    bytes += heap.EstimatedSize;
+                    bytes += heap.Info.EstimatedSize;
                 }
 
                 return (int)((bytes / BytesPerRow) + Snapshot.Heaps.Count);

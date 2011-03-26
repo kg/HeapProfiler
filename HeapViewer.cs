@@ -139,11 +139,23 @@ namespace HeapProfiler {
             TracebackFilter.Width = ViewSplit.Panel1.ClientSize.Width - FindIcon.Width;
         }
 
+        private IEnumerator<object> SetCurrentSnapshot (HeapSnapshotInfo info) {
+            using (Finally.Do(() => {
+                UseWaitCursor = false;
+            })) {
+                var fSnapshot = Instance.GetSnapshot(info);
+                yield return fSnapshot;
+
+                Snapshot = fSnapshot.Result;
+                RefreshModules();
+                RefreshHeap();
+            }
+        }
+
         private void Timeline_RangeChanged (object sender, EventArgs e) {
-            throw new NotImplementedException();
-            // Snapshot = Timeline.Begin;
-            RefreshModules();
-            RefreshHeap();
+            var info = Timeline.Begin;
+            UseWaitCursor = true;
+            Start(SetCurrentSnapshot(info));
         }
 
         public void SetSnapshot (int index) {

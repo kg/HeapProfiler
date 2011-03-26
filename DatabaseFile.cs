@@ -17,12 +17,11 @@ namespace HeapProfiler {
         public Tangle<HeapSnapshot> Snapshots;
         public Tangle<MemoryStatistics> MemoryStatistics;
         public Tangle<HeapSnapshot.Module> Modules;
-        public Tangle<HeapSnapshot.Heap> Heaps;
         public Tangle<HeapSnapshot.Traceback> Tracebacks;
         public Tangle<HeapSnapshot.AllocationRanges> Allocations;
         public Tangle<TracebackFrame> SymbolCache;
         public Tangle<string[]> SnapshotModules;
-        public Tangle<uint[]> SnapshotHeaps;
+        public Tangle<HeapSnapshot.HeapInfo[]> SnapshotHeaps;
 
         private readonly Dictionary<string, Delegate> Deserializers = new Dictionary<string, Delegate>();
         private readonly Dictionary<string, Delegate> Serializers = new Dictionary<string, Delegate>();
@@ -39,7 +38,6 @@ namespace HeapProfiler {
                 BoundMember.New(() => Snapshots),
                 BoundMember.New(() => MemoryStatistics),
                 BoundMember.New(() => Modules),
-                BoundMember.New(() => Heaps),
                 BoundMember.New(() => Tracebacks),
                 BoundMember.New(() => Allocations),
                 BoundMember.New(() => SnapshotModules),
@@ -49,8 +47,8 @@ namespace HeapProfiler {
 
             Deserializers["SnapshotModules"] = (Deserializer<string[]>)DeserializeModuleList;
             Serializers["SnapshotModules"] = (Serializer<string[]>)SerializeModuleList;
-            Deserializers["SnapshotHeaps"] = (Deserializer<uint[]>)DeserializeHeapList;
-            Serializers["SnapshotHeaps"] = (Serializer<uint[]>)SerializeHeapList;
+            Deserializers["SnapshotHeaps"] = (Deserializer<HeapSnapshot.HeapInfo[]>)DeserializeHeapList;
+            Serializers["SnapshotHeaps"] = (Serializer<HeapSnapshot.HeapInfo[]>)SerializeHeapList;
             Deserializers["Snapshots"] = (Deserializer<HeapSnapshot>)(
                 (ref DeserializationContext<HeapSnapshot> context, out HeapSnapshot output) =>
                     HeapSnapshot.Deserialize(this, ref context, out output)
@@ -92,25 +90,29 @@ namespace HeapProfiler {
                 output[i] = br.ReadString();
         }
 
-        protected void SerializeHeapList (ref SerializationContext<uint[]> context, ref uint[] input) {
+        protected void SerializeHeapList (ref SerializationContext<HeapSnapshot.HeapInfo[]> context, ref HeapSnapshot.HeapInfo[] input) {
             var bw = new BinaryWriter(context.Stream);
 
             bw.Write(input.Length);
 
-            foreach (var id in input)
-                bw.Write(id);
+            foreach (var heap in input)
+                context.SerializeValue(BlittableSerializer<HeapSnapshot.HeapInfo>.Serialize, heap);
 
             bw.Flush();
         }
 
-        protected void DeserializeHeapList (ref DeserializationContext<uint[]> context, out uint[] output) {
+        protected void DeserializeHeapList (ref DeserializationContext<HeapSnapshot.HeapInfo[]> context, out HeapSnapshot.HeapInfo[] output) {
             var br = new BinaryReader(context.Stream);
 
             int count = br.ReadInt32();
-            output = new uint[count];
+            output = new HeapSnapshot.HeapInfo[count];
 
-            for (int i = 0; i < count; i++)
-                output[i] = br.ReadUInt32();
+            uint offset = 4;
+            uint size = BlittableSerializer<HeapSnapshot.HeapInfo>.Size;
+            for (int i = 0; i < count; i++) {
+                context.DeserializeValue(BlittableSerializer<HeapSnapshot.HeapInfo>.Deserialize, offset, size, out output[i]);
+                offset += size;
+            }
         }
 
         protected void MakeTokenFile (string filename) {
