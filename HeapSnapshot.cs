@@ -23,6 +23,7 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Diagnostics;
+using Squared.Data.Mangler.Serialization;
 using Squared.Task.Data.Mapper;
 using System.Web.Script.Serialization;
 using Squared.Util.Bind;
@@ -491,6 +492,7 @@ namespace HeapProfiler {
         }
 
         public struct AllocationRanges {
+            [StructLayout(LayoutKind.Sequential, Pack = 1)]
             public struct Range {
                 public readonly UInt16 First, Last;
                 public readonly UInt32 TracebackID, Size, Overhead;
@@ -520,35 +522,19 @@ namespace HeapProfiler {
 
             [TangleSerializer]
             static unsafe void Serialize (ref SerializationContext context, ref AllocationRanges input) {
+                var buffer = new byte[4];
                 var count = input.Ranges.Count;
-                const int itemSize = (2 * 2) + (4 * 3);
 
-                var buffer = new byte[4 + (count * itemSize)];
-                fixed (byte* pBuffer = buffer) {
-                    *(int*)(pBuffer) = count;
-                    int offset = 4;
-
-                    for (int i = 0; i < count; i++) {
-                        var range = input.Ranges.Array[i + input.Ranges.Offset];
-
-                        *(ushort *)(pBuffer + offset) = range.First;
-                        offset += 2;
-
-                        *(ushort *)(pBuffer + offset) = range.Last;
-                        offset += 2;
-
-                        *(UInt32 *)(pBuffer + offset) = range.TracebackID;
-                        offset += 4;
-
-                        *(UInt32 *)(pBuffer + offset) = range.Size;
-                        offset += 4;
-
-                        *(UInt32 *)(pBuffer + offset) = range.Overhead;
-                        offset += 4;
-                    }
+                fixed (byte * pBuffer = buffer) {
+                    *(int *)(pBuffer) = count;
+                    context.Stream.Write(buffer, 0, 4);
                 }
 
-                context.SetResult(buffer);
+                var array = input.Ranges.Array;
+                for (int i = 0, o = input.Ranges.Offset; i < count; i++)
+                    context.SerializeValue(
+                        BlittableSerializer<Range>.Serialize, ref array[i + o]
+                    );
             }
 
             [TangleDeserializer]
@@ -558,30 +544,19 @@ namespace HeapProfiler {
 
                 int count = *(int *)(context.Source + 0);
                 var array = new Range[count];
-                int offset = 4;
-
-                const int itemSize = (2 * 2) + (4 * 3);
+                uint offset = 4;
+                uint itemSize = BlittableSerializer<Range>.Size;
 
                 if (context.SourceLength < (4 + (itemSize * count)))
                     throw new InvalidDataException();
 
                 for (int i = 0; i < count; i++) {
-                    var first = *(ushort*)(context.Source + offset);
-                    offset += 2;
+                    context.DeserializeValue(
+                        BlittableSerializer<Range>.Deserialize, 
+                        offset, itemSize, out array[i]
+                    );
 
-                    var last = *(ushort *)(context.Source + offset);
-                    offset += 2;
-
-                    var tracebackId = *(UInt32 *)(context.Source + offset);
-                    offset += 4;
-
-                    var size = *(UInt32 *)(context.Source + offset);
-                    offset += 4;
-
-                    var overhead = *(UInt32 *)(context.Source + offset);
-                    offset += 4;
-
-                    array[i] = new Range(first, last, tracebackId, size, overhead);
+                    offset += itemSize;
                 }
 
                 output = new AllocationRanges(array);
@@ -636,13 +611,13 @@ namespace HeapProfiler {
             public readonly UInt32 Address;
             public readonly UInt32 Size;
             public readonly UInt32 Overhead;
-            public readonly Traceback Traceback;
+            public readonly UInt32 TracebackID;
 
-            public Allocation (UInt32 offset, UInt32 size, UInt32 overhead, Traceback traceback) {
+            public Allocation (UInt32 offset, UInt32 size, UInt32 overhead, UInt32 tracebackId) {
                 Address = offset;
                 Size = size;
                 Overhead = overhead;
-                Traceback = traceback;
+                TracebackID = tracebackId;
             }
 
             public UInt32 NextOffset {
@@ -804,7 +779,7 @@ namespace HeapProfiler {
                             UInt32.Parse(m.Groups[groupAllocOffset].Value, NumberStyles.HexNumber),
                             UInt32.Parse(m.Groups[groupAllocSize].Value, NumberStyles.HexNumber),
                             UInt32.Parse(m.Groups[groupAllocOverhead].Value, NumberStyles.HexNumber),
-                            traceback
+                            traceback.ID
                         ));
                     }
                 } else if (scanningForMemory) {
@@ -935,7 +910,7 @@ namespace HeapProfiler {
                 foreach (var allocation in heap.Allocations) {
                     MakeKeyForAllocation(allocation, out key);
 
-                    var tracebackId = allocation.Traceback.ID;
+                    var tracebackId = allocation.TracebackID;
                     var size = allocation.Size;
                     var overhead = allocation.Overhead;
 

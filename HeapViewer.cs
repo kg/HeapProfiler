@@ -18,19 +18,10 @@ Original Author: Kevin Gadd (kevin.gadd@gmail.com)
 
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
 using System.Drawing;
 using System.Linq;
-using System.Text;
 using System.Windows.Forms;
 using Squared.Task;
-using System.Diagnostics;
-using System.IO;
-using Squared.Task.IO;
-using System.Text.RegularExpressions;
-using Squared.Util.RegexExtensions;
-using System.Globalization;
 
 using Snapshot = HeapProfiler.HeapSnapshot;
 using Allocation = HeapProfiler.HeapSnapshot.Allocation;
@@ -102,6 +93,11 @@ namespace HeapProfiler {
 
         private void HeapViewer_FormClosed (object sender, FormClosedEventArgs e) {
             Dispose();
+
+            Snapshot.Info.ReleaseStrongReference();
+            ModuleList.Items = new string[0];
+            Timeline.Items = new HeapSnapshotInfo[0];
+            LayoutView.Snapshot = Snapshot = null;
         }
 
         private void CloseMenu_Click (object sender, EventArgs e) {
@@ -140,6 +136,10 @@ namespace HeapProfiler {
         }
 
         private IEnumerator<object> SetCurrentSnapshot (HeapSnapshotInfo info) {
+            var oldSnapshot = Snapshot;
+            if (oldSnapshot != null)
+                oldSnapshot.Info.ReleaseStrongReference();
+
             using (Finally.Do(() => {
                 UseWaitCursor = false;
             })) {

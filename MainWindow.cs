@@ -204,9 +204,7 @@ namespace HeapProfiler {
 
             viewer.Start(viewer.LoadRange(Pair.New(index1, index2)));
 
-            Scheduler.QueueWorkItem(() => {
-                viewer.ShowDialog(this);
-            });
+            viewer.Show(this);
         }
 
         private void MainWindow_FormClosed (object sender, FormClosedEventArgs e) {
@@ -517,7 +515,7 @@ namespace HeapProfiler {
             var index = SnapshotTimeline.Selection.First;
             var viewer = new HeapViewer(Scheduler, Instance);
             viewer.SetSnapshot(index);
-            viewer.ShowDialog(this);
+            viewer.Show(this);
         }
 
         private void SaveAsMenu_Click (object sender, EventArgs e) {

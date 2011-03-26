@@ -253,8 +253,10 @@ namespace HeapProfiler {
                     }
                 }
 
+                var cursorPos = PointToClient(Cursor.Position);
+
                 DateTime mouseTime;
-                if (TimeFromPoint(_MouseMoveLocation, out mouseTime)) {
+                if (ClientRectangle.Contains(cursorPos) && TimeFromPoint(_MouseMoveLocation, out mouseTime)) {
                     using (var pen = new Pen(Color.FromArgb(127, SystemColors.HighlightText))) {
                         pen.Width = 2.0f;
                         g.DrawLine(pen, _MouseMoveLocation.X, 0, _MouseMoveLocation.X, height);
@@ -461,6 +463,12 @@ namespace HeapProfiler {
             Invalidate();
 
             base.OnMouseUp(e);
+        }
+
+        protected override void OnMouseLeave (EventArgs e) {
+            Invalidate();
+
+            base.OnMouseLeave(e);
         }
 
         protected override void OnMouseWheel (MouseEventArgs e) {

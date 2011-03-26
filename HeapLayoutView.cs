@@ -85,7 +85,7 @@ namespace HeapProfiler {
         }
 
         protected Color SelectItemColor (HeapSnapshot.Allocation alloc) {
-            var id = BitConverter.ToInt32(BitConverter.GetBytes(alloc.Traceback.ID), 0);
+            var id = BitConverter.ToInt32(BitConverter.GetBytes(alloc.TracebackID), 0);
 
             int hue = (id & 0xFFFF) % (HSV.HueMax);
             int value = ((id & (0xFFFF << 16)) % (HSV.ValueMax * 70 / 100)) + (HSV.ValueMax * 25 / 100);

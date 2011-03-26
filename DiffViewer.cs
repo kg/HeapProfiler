@@ -96,7 +96,7 @@ namespace HeapProfiler {
 
             Timeline.Indices = range;
 
-            var f = Start(Instance.DiffSnapshots(s1.Filename, s2.Filename));
+            var f = Start(Instance.DiffSnapshots(s1, s2));
             using (f)
                 yield return f;
 

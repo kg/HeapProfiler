@@ -41,10 +41,6 @@ namespace HeapProfiler {
             public static int Count = 0;
         }
 
-        public static class DatabaseSaveState {
-            public static int Count = 0;
-        }
-
         public static class SymbolResolveState {
             public static int Count = 0;
             public static ActivityIndicator.CountedItem Progress;
@@ -80,7 +76,6 @@ namespace HeapProfiler {
         protected readonly Dictionary<UInt32, Future<TracebackFrame>> PendingSymbolResolves = new Dictionary<UInt32, Future<TracebackFrame>>();
         protected readonly BlockingQueue<PendingSymbolResolve> SymbolResolveQueue = new BlockingQueue<PendingSymbolResolve>();
         protected readonly BlockingQueue<string> SnapshotLoadQueue = new BlockingQueue<string>();
-        protected readonly BlockingQueue<HeapSnapshot> SnapshotDatabaseSaveQueue = new BlockingQueue<HeapSnapshot>();
         protected readonly LRUCache<Pair<string>, string> DiffCache = new LRUCache<Pair<string>, string>(32);
         protected readonly object SymbolResolveLock = new object();
 
@@ -154,10 +149,6 @@ namespace HeapProfiler {
 
             Futures.Add(Scheduler.Start(
                 SnapshotIOTask(), TaskExecutionPolicy.RunAsBackgroundTask
-            ));
-
-            Futures.Add(Scheduler.Start(
-                DatabaseSaveTask(), TaskExecutionPolicy.RunAsBackgroundTask
             ));
         }
 
@@ -329,35 +320,6 @@ namespace HeapProfiler {
             }
         }
 
-        protected IEnumerator<object> DatabaseSaveTask () {
-            ActivityIndicator.Item progress = null;
-
-            while (true) {
-                if (SnapshotDatabaseSaveQueue.Count <= 0) {
-                    DatabaseSaveState.Count = 0;
-                    if (progress != null) {
-                        progress.Dispose();
-                        progress = null;
-                    }
-                }
-
-                var f = SnapshotDatabaseSaveQueue.Dequeue();
-                using (f)
-                    yield return f;
-
-                if (progress == null)
-                    progress = Activities.AddItem("Updating database");
-
-                var maximum = DatabaseSaveState.Count + Math.Max(0, SnapshotDatabaseSaveQueue.Count) + 1;
-                progress.Maximum = maximum;
-                progress.Progress = Math.Min(maximum, DatabaseSaveState.Count);
-
-                var snapshot = f.Result;
-                yield return snapshot.SaveToDatabase(_Database);
-                Interlocked.Increment(ref DatabaseSaveState.Count);
-            }
-        }
-
         protected IEnumerator<object> SnapshotIOTask () {
             ActivityIndicator.Item progress = null;
             IFuture previousSnapshot = null;
@@ -413,29 +375,31 @@ namespace HeapProfiler {
             }
         }
 
-        protected IEnumerator<object> AddSnapshot (HeapSnapshot snapshot) {
+        protected void AddSnapshot (HeapSnapshot snapshot) {
             Snapshots.Add(snapshot.Info);
+
+            // Resort the loaded snapshots, since it's possible for the user to load
+            //  a subset of a full capture, or load snapshots in the wrong order
             Snapshots.Sort((lhs, rhs) => lhs.Timestamp.CompareTo(rhs.Timestamp));
 
             OnSnapshotsChanged();
-
-            SnapshotDatabaseSaveQueue.Enqueue(snapshot);
-
-            yield break;
         }
 
         private IEnumerator<object> FinishLoadingSnapshotEpilogue (HeapSnapshot snapshot) {
-            // Resort the loaded snapshots, since it's possible for the user to load
-            //  a subset of a full capture, or load snapshots in the wrong order
-            yield return AddSnapshot(snapshot);
+            using (Activities.AddItem("Updating database")) {
+                AddSnapshot(snapshot);
 
-            foreach (var module in snapshot.Modules)
-                SymbolModules.Add(module);
+                foreach (var module in snapshot.Modules)
+                    SymbolModules.Add(module);
 
-            yield return new Start(
-                ResolveSymbolsForSnapshot(snapshot),
-                TaskExecutionPolicy.RunAsBackgroundTask
-            );
+                yield return new Start(
+                    ResolveSymbolsForSnapshot(snapshot),
+                    TaskExecutionPolicy.RunAsBackgroundTask
+                );
+
+                if (!snapshot.SavedToDatabase)
+                    yield return snapshot.SaveToDatabase(Database);
+            }
 
             Interlocked.Increment(ref SnapshotLoadState.Count);
         }
@@ -602,6 +566,8 @@ namespace HeapProfiler {
                     var fAllocations = Database.HeapAllocations.Get(heapInfo.HeapID);
                     yield return fAllocations;
 
+                    theHeap.Allocations.Capacity = fAllocations.Result.Count;
+
                     var fRanges = Database.Allocations.Get(
                         from address in fAllocations.Result select new TangleKey(address)
                     );
@@ -609,16 +575,12 @@ namespace HeapProfiler {
 
                     foreach (var kvp in fRanges.Result) {
                         HeapSnapshot.AllocationRanges.Range range;
-                        if (kvp.Value.Get(info.Index, out range)) {
-                            var fTraceback = Database.Tracebacks.Get(range.TracebackID);
-                            yield return fTraceback;
 
+                        if (kvp.Value.Get(info.Index, out range))
                             theHeap.Allocations.Add(new HeapSnapshot.Allocation(
                                 BitConverter.ToUInt32(kvp.Key.Data.Array, kvp.Key.Data.Offset), 
-                                range.Size, range.Overhead, 
-                                fTraceback.Result
+                                range.Size, range.Overhead, range.TracebackID
                             ));
-                        }
                     }
 
                     result.Heaps.Add(theHeap);
@@ -726,9 +688,9 @@ namespace HeapProfiler {
             yield return FinishLoadingSnapshot(Snapshots.Count, now, targetFilename, text);
         }
 
-        public IEnumerator<object> DiffSnapshots (string file1, string file2) {
-            file1 = Path.GetFullPath(file1);
-            file2 = Path.GetFullPath(file2);
+        public IEnumerator<object> DiffSnapshots (HeapSnapshotInfo s1, HeapSnapshotInfo s2) {
+            var file1 = Path.GetFullPath(s1.Filename);
+            var file2 = Path.GetFullPath(s2.Filename);
             var pair = Pair.New(file1, file2);
 
             string filename;
