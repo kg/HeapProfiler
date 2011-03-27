@@ -869,7 +869,7 @@ namespace HeapProfiler {
             yield return db.Snapshots.Set(Index, this.Info);
 
             {
-                var batch = db.Modules.CreateBatch(Modules.Count);
+                var batch = new Batch<Module>(Modules.Count);
 
                 foreach (var module in Modules)
                     batch.Add(module.Filename, module);
@@ -880,7 +880,7 @@ namespace HeapProfiler {
             yield return db.SnapshotModules.Set(Index, Modules.Keys.ToArray());
 
             {
-                var batch = db.Tracebacks.CreateBatch(Tracebacks.Count);
+                var batch = new Batch<Traceback>(Tracebacks.Count);
 
                 foreach (var traceback in Tracebacks)
                     batch.Add(traceback.ID, traceback);
@@ -902,7 +902,7 @@ namespace HeapProfiler {
                 else
                     addressSet = fAddressSet.Result;
 
-                var batch = db.Allocations.CreateBatch(heap.Allocations.Count);
+                var batch = new Batch<AllocationRanges>(heap.Allocations.Count);
 
                 foreach (var allocation in heap.Allocations) {
                     var tracebackId = allocation.TracebackID;

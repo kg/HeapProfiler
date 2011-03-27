@@ -289,7 +289,7 @@ namespace HeapProfiler {
                             yield return rtc;
 
                         var fProcess = Future.RunInThread(() => {
-                            var cacheBatch = _Database.SymbolCache.CreateBatch(batch.Count);
+                            var cacheBatch = new Batch<TracebackFrame>(batch.Count);
 
                             foreach (var traceback in rtc.Result.Tracebacks) {
                                 var index = (int)(traceback.Key) - 1;
