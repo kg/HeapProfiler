@@ -158,7 +158,7 @@ namespace HeapProfiler {
                     g.DrawLine(outlinePen, x + xOffset, 0, x + xOffset, height - 1);
 
                     VisibleItems.Add(new VisibleItem {
-                        Index = i, X = x
+                        Index = i, X = x + xOffset
                     });
                 }
 

@@ -857,10 +857,6 @@ namespace HeapProfiler {
             );
         }
 
-        protected void MakeKeyForAllocation (Allocation allocation, out TangleKey key) {
-            key = new TangleKey(allocation.Address);
-        }
-
         public static IEnumerator<object> LoadFromDatabase (DatabaseFile db, HeapSnapshotInfo info) {
             var fResult = db.Snapshots.Get(info.Index);
 
@@ -909,14 +905,12 @@ namespace HeapProfiler {
                 var batch = db.Allocations.CreateBatch(heap.Allocations.Count);
 
                 foreach (var allocation in heap.Allocations) {
-                    MakeKeyForAllocation(allocation, out key);
-
                     var tracebackId = allocation.TracebackID;
                     var size = allocation.Size;
                     var overhead = allocation.Overhead;
 
                     batch.AddOrUpdate(
-                        key, AllocationRanges.New(uIndex, tracebackId, size, overhead),
+                        allocation.Address, AllocationRanges.New(uIndex, tracebackId, size, overhead),
                         (value) => value.Update(uIndex, tracebackId, size, overhead)
                     );
 
