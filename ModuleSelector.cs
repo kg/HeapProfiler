@@ -96,5 +96,9 @@ namespace HeapProfiler {
             if (FilterChanged != null)
                 FilterChanged(this, EventArgs.Empty);
         }
+
+        private void ModuleSelector_SizeChanged (object sender, EventArgs e) {
+            List.SetBounds(0, Toolbar.Height, ClientSize.Width, ClientSize.Height - Toolbar.Height);
+        }
     }
 }

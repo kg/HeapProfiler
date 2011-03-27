@@ -37,7 +37,7 @@ using Squared.Util;
 
 namespace HeapProfiler {
     public partial class DiffViewer : TaskForm {
-        public Dictionary<string, ModuleInfo> Modules = new Dictionary<string, ModuleInfo>();
+        public NameTable Modules = new NameTable();
         public NameTable FunctionNames = new NameTable();
         public List<DeltaInfo> Deltas = new List<DeltaInfo>();
 
@@ -69,6 +69,8 @@ namespace HeapProfiler {
                 Timeline.Visible = false;
                 MainSplit.Height += Timeline.Bottom - MainSplit.Bottom;
             }
+
+            ViewSplit_SizeChanged(ViewSplit, EventArgs.Empty);
         }
 
         public DiffViewer (TaskScheduler scheduler)
@@ -101,14 +103,39 @@ namespace HeapProfiler {
                 yield return f;
 
             var filename = f.Result as string;
-            f = Start(LoadDiff(filename));
-            using (f)
-                yield return f;
+            if (filename != null) {
+                f = Start(LoadDiff(filename));
+                using (f)
+                    yield return f;
+            } else {
+                DiffLoaded(f.Result as HeapDiff, "unknown");
+            }
 
             PendingLoadPair = Pair.New(-1, -1);
             CurrentPair = range;
 
             Text = "Diff Viewer - " + String.Format("{0} - {1}", s1.Timestamp.ToLongTimeString(), s2.Timestamp.ToLongTimeString());
+        }
+
+        protected void DiffLoaded (HeapDiff diff, string filename) {
+            Modules = diff.Modules;
+            FunctionNames = diff.FunctionNames;
+            Deltas = diff.Deltas;
+
+            TracebackFilter.AutoCompleteCustomSource.Clear();
+            TracebackFilter.AutoCompleteCustomSource.AddRange(FunctionNames.ToArray());
+
+            Text = "Diff Viewer - " + filename;
+            Filename = filename;
+
+            RefreshModules();
+            RefreshDeltas();
+
+            MainMenuStrip.Enabled = true;
+            LoadingPanel.Visible = false;
+            MainSplit.Visible = true;
+            Timeline.Enabled = true;
+            UseWaitCursor = false;
         }
 
         public IEnumerator<object> LoadDiff (string filename) {
@@ -139,24 +166,7 @@ namespace HeapProfiler {
             using (rtc)
                 yield return rtc;
 
-            Modules = rtc.Result.Modules;
-            FunctionNames = rtc.Result.FunctionNames;
-            Deltas = rtc.Result.Deltas;
-
-            TracebackFilter.AutoCompleteCustomSource.Clear();
-            TracebackFilter.AutoCompleteCustomSource.AddRange(FunctionNames.ToArray());
-
-            Text = "Diff Viewer - " + filename;
-            Filename = filename;
-
-            RefreshModules();
-            RefreshDeltas();
-
-            MainMenuStrip.Enabled = true;
-            LoadingPanel.Visible = false;
-            MainSplit.Visible = true;
-            Timeline.Enabled = true;
-            UseWaitCursor = false;
+            DiffLoaded(rtc.Result, filename);
         }
 
         public void RefreshModules () {

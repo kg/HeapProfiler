@@ -160,7 +160,7 @@ namespace HeapProfiler {
                     var rgn = new Rectangle(
                         0, y, width, 
                         data.Expanded ? 
-                            (int)Math.Ceiling(lineHeight * (item.Traceback.Frames.Length + 1)) :
+                            (int)Math.Ceiling(lineHeight * (item.Traceback.Frames.Count + 1)) :
                             CollapsedSize
                     );
 

@@ -58,8 +58,8 @@
             this.MainSplit.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)
                         | System.Windows.Forms.AnchorStyles.Left)
                         | System.Windows.Forms.AnchorStyles.Right)));
-            this.MainSplit.Location = new System.Drawing.Point(0, 32);
-            this.MainSplit.Margin = new System.Windows.Forms.Padding(5);
+            this.MainSplit.Location = new System.Drawing.Point(0, 26);
+            this.MainSplit.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
             this.MainSplit.Name = "MainSplit";
             // 
             // MainSplit.Panel1
@@ -70,17 +70,18 @@
             // MainSplit.Panel2
             // 
             this.MainSplit.Panel2.Controls.Add(this.ViewSplit);
-            this.MainSplit.Size = new System.Drawing.Size(779, 434);
-            this.MainSplit.SplitterDistance = 162;
-            this.MainSplit.SplitterWidth = 7;
+            this.MainSplit.Size = new System.Drawing.Size(584, 353);
+            this.MainSplit.SplitterDistance = 121;
+            this.MainSplit.SplitterWidth = 5;
             this.MainSplit.TabIndex = 1;
             // 
             // ModuleList
             // 
             this.ModuleList.Dock = System.Windows.Forms.DockStyle.Fill;
             this.ModuleList.Location = new System.Drawing.Point(0, 0);
+            this.ModuleList.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
             this.ModuleList.Name = "ModuleList";
-            this.ModuleList.Size = new System.Drawing.Size(162, 434);
+            this.ModuleList.Size = new System.Drawing.Size(121, 353);
             this.ModuleList.TabIndex = 0;
             // 
             // ViewSplit
@@ -89,6 +90,7 @@
             this.ViewSplit.FixedPanel = System.Windows.Forms.FixedPanel.Panel1;
             this.ViewSplit.IsSplitterFixed = true;
             this.ViewSplit.Location = new System.Drawing.Point(0, 0);
+            this.ViewSplit.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
             this.ViewSplit.Name = "ViewSplit";
             this.ViewSplit.Orientation = System.Windows.Forms.Orientation.Horizontal;
             // 
@@ -100,7 +102,7 @@
             // ViewSplit.Panel2
             // 
             this.ViewSplit.Panel2.Controls.Add(this.LayoutView);
-            this.ViewSplit.Size = new System.Drawing.Size(610, 434);
+            this.ViewSplit.Size = new System.Drawing.Size(458, 353);
             this.ViewSplit.SplitterDistance = 30;
             this.ViewSplit.SplitterWidth = 1;
             this.ViewSplit.TabIndex = 3;
@@ -112,9 +114,9 @@
             this.FindIcon.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Center;
             this.FindIcon.Dock = System.Windows.Forms.DockStyle.Left;
             this.FindIcon.Location = new System.Drawing.Point(0, 0);
-            this.FindIcon.Margin = new System.Windows.Forms.Padding(5);
+            this.FindIcon.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
             this.FindIcon.Name = "FindIcon";
-            this.FindIcon.Size = new System.Drawing.Size(24, 30);
+            this.FindIcon.Size = new System.Drawing.Size(18, 30);
             this.FindIcon.TabIndex = 5;
             this.FindIcon.TabStop = false;
             // 
@@ -124,10 +126,10 @@
             this.TracebackFilter.AutoCompleteSource = System.Windows.Forms.AutoCompleteSource.CustomSource;
             this.TracebackFilter.Dock = System.Windows.Forms.DockStyle.Right;
             this.TracebackFilter.Font = new System.Drawing.Font("Consolas", 11.25F);
-            this.TracebackFilter.Location = new System.Drawing.Point(24, 0);
-            this.TracebackFilter.Margin = new System.Windows.Forms.Padding(5);
+            this.TracebackFilter.Location = new System.Drawing.Point(18, 0);
+            this.TracebackFilter.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
             this.TracebackFilter.Name = "TracebackFilter";
-            this.TracebackFilter.Size = new System.Drawing.Size(586, 29);
+            this.TracebackFilter.Size = new System.Drawing.Size(440, 25);
             this.TracebackFilter.TabIndex = 4;
             this.ToolTips.SetToolTip(this.TracebackFilter, "Filter Tracebacks By Function");
             this.TracebackFilter.TextChanged += new System.EventHandler(this.TracebackFilter_TextChanged);
@@ -138,8 +140,9 @@
             this.LayoutView.Dock = System.Windows.Forms.DockStyle.Fill;
             this.LayoutView.ForeColor = System.Drawing.SystemColors.WindowText;
             this.LayoutView.Location = new System.Drawing.Point(0, 0);
+            this.LayoutView.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
             this.LayoutView.Name = "LayoutView";
-            this.LayoutView.Size = new System.Drawing.Size(610, 403);
+            this.LayoutView.Size = new System.Drawing.Size(458, 322);
             this.LayoutView.TabIndex = 0;
             // 
             // MainMenu
@@ -149,8 +152,7 @@
             this.viewToolStripMenuItem});
             this.MainMenu.Location = new System.Drawing.Point(0, 0);
             this.MainMenu.Name = "MainMenu";
-            this.MainMenu.Padding = new System.Windows.Forms.Padding(8, 2, 0, 2);
-            this.MainMenu.Size = new System.Drawing.Size(779, 28);
+            this.MainMenu.Size = new System.Drawing.Size(584, 24);
             this.MainMenu.TabIndex = 2;
             this.MainMenu.Text = "menuStrip1";
             // 
@@ -160,18 +162,18 @@
             this.toolStripMenuItem1,
             this.CloseMenu});
             this.fileToolStripMenuItem.Name = "fileToolStripMenuItem";
-            this.fileToolStripMenuItem.Size = new System.Drawing.Size(44, 24);
+            this.fileToolStripMenuItem.Size = new System.Drawing.Size(37, 20);
             this.fileToolStripMenuItem.Text = "&File";
             // 
             // toolStripMenuItem1
             // 
             this.toolStripMenuItem1.Name = "toolStripMenuItem1";
-            this.toolStripMenuItem1.Size = new System.Drawing.Size(111, 6);
+            this.toolStripMenuItem1.Size = new System.Drawing.Size(100, 6);
             // 
             // CloseMenu
             // 
             this.CloseMenu.Name = "CloseMenu";
-            this.CloseMenu.Size = new System.Drawing.Size(114, 24);
+            this.CloseMenu.Size = new System.Drawing.Size(103, 22);
             this.CloseMenu.Text = "&Close";
             this.CloseMenu.Click += new System.EventHandler(this.CloseMenu_Click);
             // 
@@ -182,14 +184,14 @@
             this.ViewHistogramMenu,
             this.ViewLayoutMenu});
             this.viewToolStripMenuItem.Name = "viewToolStripMenuItem";
-            this.viewToolStripMenuItem.Size = new System.Drawing.Size(53, 24);
+            this.viewToolStripMenuItem.Size = new System.Drawing.Size(44, 20);
             this.viewToolStripMenuItem.Text = "&View";
             // 
             // ViewListMenu
             // 
             this.ViewListMenu.Enabled = false;
             this.ViewListMenu.Name = "ViewListMenu";
-            this.ViewListMenu.Size = new System.Drawing.Size(171, 24);
+            this.ViewListMenu.Size = new System.Drawing.Size(149, 22);
             this.ViewListMenu.Text = "&Traceback List";
             this.ViewListMenu.Click += new System.EventHandler(this.ViewListMenu_Click);
             // 
@@ -197,7 +199,7 @@
             // 
             this.ViewHistogramMenu.Enabled = false;
             this.ViewHistogramMenu.Name = "ViewHistogramMenu";
-            this.ViewHistogramMenu.Size = new System.Drawing.Size(171, 24);
+            this.ViewHistogramMenu.Size = new System.Drawing.Size(149, 22);
             this.ViewHistogramMenu.Text = "&Histogram";
             this.ViewHistogramMenu.Click += new System.EventHandler(this.ViewHistogramMenu_Click);
             // 
@@ -206,7 +208,7 @@
             this.ViewLayoutMenu.Checked = true;
             this.ViewLayoutMenu.CheckState = System.Windows.Forms.CheckState.Checked;
             this.ViewLayoutMenu.Name = "ViewLayoutMenu";
-            this.ViewLayoutMenu.Size = new System.Drawing.Size(171, 24);
+            this.ViewLayoutMenu.Size = new System.Drawing.Size(149, 22);
             this.ViewLayoutMenu.Text = "Heap &Layout";
             // 
             // Timeline
@@ -216,24 +218,24 @@
             this.Timeline.BackColor = System.Drawing.SystemColors.Control;
             this.Timeline.Enabled = false;
             this.Timeline.ForeColor = System.Drawing.SystemColors.ControlText;
-            this.Timeline.Location = new System.Drawing.Point(0, 466);
-            this.Timeline.Margin = new System.Windows.Forms.Padding(5);
+            this.Timeline.Location = new System.Drawing.Point(0, 379);
+            this.Timeline.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
             this.Timeline.Name = "Timeline";
-            this.Timeline.Size = new System.Drawing.Size(779, 39);
+            this.Timeline.Size = new System.Drawing.Size(584, 32);
             this.Timeline.TabIndex = 4;
             this.Timeline.RangeChanged += new System.EventHandler(this.Timeline_RangeChanged);
             // 
             // HeapViewer
             // 
-            this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
+            this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(779, 507);
+            this.ClientSize = new System.Drawing.Size(584, 412);
             this.Controls.Add(this.Timeline);
             this.Controls.Add(this.MainMenu);
             this.Controls.Add(this.MainSplit);
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.MainMenuStrip = this.MainMenu;
-            this.Margin = new System.Windows.Forms.Padding(5);
+            this.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
             this.Name = "HeapViewer";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
             this.Text = "Heap Viewer";

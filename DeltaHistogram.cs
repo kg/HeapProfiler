@@ -443,7 +443,7 @@ namespace HeapProfiler {
                     lineHeight = g.MeasureString("AaBbYyZz", font, width, sf).Height;
                     rgn = new Rectangle(
                         0, 0, width,
-                        (int)Math.Ceiling(lineHeight * (item.Traceback.Frames.Length + 1))
+                        (int)Math.Ceiling(lineHeight * (item.Traceback.Frames.Count + 1))
                     );
 
                     if (fontSize <= MinTooltipSizeEm)

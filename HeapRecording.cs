@@ -31,6 +31,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using Squared.Task.IO;
 using System.Reflection;
+using Squared.Data.Mangler.Internal;
 
 namespace HeapProfiler {
     public class HeapRecording : IDisposable {
@@ -280,12 +281,14 @@ namespace HeapProfiler {
                         using (rtc)
                             yield return rtc;
 
-                        yield return Future.RunInThread(() => {
+                        var fProcess = Future.RunInThread(() => {
+                            var cacheBatch = _Database.SymbolCache.CreateBatch(batch.Count);
+
                             foreach (var traceback in rtc.Result.Tracebacks) {
                                 var index = (int)(traceback.Key) - 1;
 
                                 var key = batch[index].Frame;
-                                var frame = traceback.Value.Frames[0];
+                                var frame = traceback.Value.Frames.Array[traceback.Value.Frames.Offset];
                                 batch[index].Result.Complete(frame);
 
                                 lock (SymbolResolveLock) {
@@ -293,7 +296,7 @@ namespace HeapProfiler {
                                     PendingSymbolResolves.Remove(key);
                                 }
 
-                                _Database.SymbolCache.Add(key, frame);
+                                cacheBatch.Add(key, frame);
                             }
 
                             foreach (var frame in batch) {
@@ -310,13 +313,44 @@ namespace HeapProfiler {
                                     ResolvedSymbolCache[frame.Frame] = tf;
                                     PendingSymbolResolves.Remove(frame.Frame);
                                 }
+
+                                cacheBatch.Add(frame.Frame, tf);
+
+                                Console.WriteLine("Could not resolve: {0:X8}", frame.Frame);
                             }
+
+                            return cacheBatch;
                         });
+
+                        yield return fProcess;
+
+                        var fUpdateCache = fProcess.Result;
+                        yield return fUpdateCache.Execute(Database.SymbolCache);
 
                         Interlocked.Add(ref SymbolResolveState.Count, batch.Count);
                         batch.Clear();
                     }
                 }
+            }
+        }
+
+        public IEnumerator<object> VerifySymbolCache () {
+            var fCacheContents = Database.SymbolCache.Get(
+                from key in ResolvedSymbolCache.Keys select new TangleKey(key)
+            );
+
+            using (Activities.AddItem("Reading symbol cache"))
+                yield return fCacheContents;
+
+            using (Activities.AddItem("Verifying symbol cache"))
+            foreach (var kvp in fCacheContents.Result) {
+                var rawFrame = BitConverter.ToUInt32(kvp.Key.Data.Array, kvp.Key.Data.Offset);
+
+                var expectedInfo = ResolvedSymbolCache[rawFrame];
+                var actualInfo = kvp.Value;
+
+                if (expectedInfo.ToString() != actualInfo.ToString())
+                    Debugger.Break();
             }
         }
 
@@ -558,11 +592,13 @@ namespace HeapProfiler {
             using (Activities.AddItem("Loading modules")) {
                 yield return fModules;
 
-                foreach (var moduleName in fModules.Result) {
-                    var fModule = Database.Modules.Get(moduleName);
-                    yield return fModule;
-                    result.Modules.Add(fModule.Result);
-                }
+                var fModuleInfos = Database.Modules.Get(
+                    from moduleName in fModules.Result select new TangleKey(moduleName)
+                );
+                yield return fModuleInfos;
+
+                foreach (var kvp in fModuleInfos.Result)
+                    result.Modules.Add(kvp.Value);
             }
 
             using (Activities.AddItem("Loading heaps")) {
@@ -704,9 +740,7 @@ namespace HeapProfiler {
             yield return FinishLoadingSnapshot(Snapshots.Count, now, targetFilename, text);
         }
 
-        public IEnumerator<object> DiffSnapshots (HeapSnapshotInfo s1, HeapSnapshotInfo s2) {
-            var file1 = Path.GetFullPath(s1.Filename);
-            var file2 = Path.GetFullPath(s2.Filename);
+        protected IEnumerator<object> DiffSnapshotFiles (string file1, string file2) {
             var pair = Pair.New(file1, file2);
 
             string filename;
@@ -732,6 +766,149 @@ namespace HeapProfiler {
 
                 yield return new Result(filename);
             }
+        }
+
+        public IEnumerator<object> DiffSnapshots (HeapSnapshotInfo first, HeapSnapshotInfo last) {
+            var moduleNames = new NameTable(StringComparer.Ordinal);
+            var heapIds = new HashSet<UInt32>();
+            var functionNames = new NameTable();
+            var deltas = new List<DeltaInfo>();
+            var tracebacks = new Dictionary<UInt32, TracebackInfo>();
+
+            {
+                var fModulesFirst = Database.SnapshotModules.Get(first.Index);
+                var fModulesLast = Database.SnapshotModules.Get(last.Index);
+                var fHeapsFirst = Database.SnapshotHeaps.Get(first.Index);
+                var fHeapsLast = Database.SnapshotHeaps.Get(last.Index);
+
+                yield return fModulesFirst;
+                foreach (var moduleName in fModulesFirst.Result)
+                    moduleNames.Add(Path.GetFileNameWithoutExtension(moduleName));
+
+                yield return fHeapsFirst;
+                foreach (var heap in fHeapsFirst.Result)
+                    heapIds.Add(heap.HeapID);
+
+                yield return fModulesLast;
+                foreach (var moduleName in fModulesLast.Result)
+                    moduleNames.Add(Path.GetFileNameWithoutExtension(moduleName));
+
+                yield return fHeapsLast;
+                foreach (var heap in fHeapsLast.Result)
+                    heapIds.Add(heap.HeapID);
+            }
+
+            var allocationIds = new HashSet<UInt32>();
+
+            {
+                var fAllocations = Database.HeapAllocations.Get(
+                    from heapId in heapIds select new TangleKey(heapId)
+                );
+                yield return fAllocations;
+
+                foreach (var kvp in fAllocations.Result)
+                    allocationIds.UnionWith(kvp.Value);
+            }
+
+            {
+                var tracebackIds = new HashSet<UInt32>();
+
+                var fAllocationRanges = Database.Allocations.Get(
+                    from allocationId in allocationIds select new TangleKey(allocationId)
+                );
+                yield return fAllocationRanges;
+
+                foreach (var kvp in fAllocationRanges.Result) {
+                    var address = BitConverter.ToUInt32(kvp.Key.Data.Array, kvp.Key.Data.Offset);
+
+                    var ranges = kvp.Value.Ranges.Array;
+                    for (int i = 0, c = kvp.Value.Ranges.Count, o = kvp.Value.Ranges.Offset; i < c; i++) {
+                        var range = ranges[i + o];
+
+                        if ((range.First <= first.Index) && (range.Last < last.Index)) {
+                            // deallocation
+                            deltas.Add(new DeltaInfo {
+                                Added = false,
+                                BytesDelta = (int)(range.Size + range.Overhead),
+                                CountDelta = 1,
+                                NewBytes = 0,
+                                NewCount = 0,
+                                OldBytes = (int)(range.Size + range.Overhead),
+                                OldCount = 1,
+                                TracebackID = range.TracebackID,
+                                Traceback = null
+                            });
+                            tracebackIds.Add(range.TracebackID);
+                        } else if ((range.First > first.Index) && (range.Last <= last.Index)) {
+                            // allocation
+                            deltas.Add(new DeltaInfo {
+                                Added = true,
+                                BytesDelta = (int)(range.Size + range.Overhead),
+                                CountDelta = 1,
+                                NewBytes = (int)(range.Size + range.Overhead),
+                                NewCount = 1,
+                                OldBytes = 0,
+                                OldCount = 0,
+                                TracebackID = range.TracebackID,
+                                Traceback = null
+                            });
+                            tracebackIds.Add(range.TracebackID);
+                        }
+                    }
+                }
+
+                var fTracebacks = Database.Tracebacks.Get(
+                    from tracebackId in tracebackIds select new TangleKey(tracebackId)
+                );
+                yield return fTracebacks;
+
+                foreach (var kvp in fTracebacks.Result) {
+                    var tracebackId = BitConverter.ToUInt32(kvp.Key.Data.Array, kvp.Key.Data.Offset);
+                    var tracebackFunctions = new NameTable(StringComparer.Ordinal);
+                    var tracebackModules = new NameTable(StringComparer.Ordinal);
+                    var tracebackFrames = ImmutableArrayPool<TracebackFrame>.Allocate(kvp.Value.Frames.Count);
+
+                    var fSymbols = Database.SymbolCache.Get(
+                        from rawFrame in kvp.Value.Frames.AsEnumerable() select new TangleKey(rawFrame)
+                    );
+                    yield return fSymbols;
+
+                    for (int i = 0, o = tracebackFrames.Offset; i < fSymbols.Result.Length; i++) {
+                        var item = fSymbols.Result[i];
+                        var rawOffset = BitConverter.ToUInt32(item.Key.Data.Array, item.Key.Data.Offset);
+                        var symbol = item.Value;
+
+                        if ((symbol.Offset == 0) && (!symbol.Offset2.HasValue))
+                            tracebackFrames.Array[i + o] = new TracebackFrame(rawOffset);
+                        else
+                            tracebackFrames.Array[i + o] = symbol;
+                    }
+
+                    var tracebackInfo = new TracebackInfo {
+                        Frames = tracebackFrames,
+                        Functions = tracebackFunctions,
+                        Modules = tracebackModules,
+                        TraceId = tracebackId
+                    };
+
+                    tracebacks[tracebackId] = tracebackInfo;
+                }
+
+                foreach (var delta in deltas)
+                    delta.Traceback = tracebacks[delta.TracebackID];
+            }
+
+            yield return Future.RunInThread(() =>
+                deltas.Sort((lhs, rhs) => {
+                    var lhsBytes = (lhs.Added ? 1 : -1) * lhs.BytesDelta;
+                    var rhsBytes = (rhs.Added ? 1 : -1) * rhs.BytesDelta;
+                    return lhsBytes.CompareTo(rhsBytes);
+                })
+            );
+
+            yield return Result.New(new HeapDiff(
+                null, moduleNames, functionNames, deltas, tracebacks
+            ));
         }
 
         public static HeapRecording FromSnapshots (TaskScheduler scheduler, ActivityIndicator activities, IEnumerable<string> snapshots) {

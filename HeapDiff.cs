@@ -36,17 +36,6 @@ using Squared.Task.IO;
 using Squared.Data.Mangler;
 
 namespace HeapProfiler {
-    public class ModuleInfo {
-        public string ModuleName;
-        public string SymbolType;
-        public string SymbolPath;
-        public int References = 0;
-
-        public override string ToString () {
-            return ModuleName;
-        }
-    }
-
     public class DeltaInfo {
         public struct RenderParams : IDisposable {
             public bool IsSelected, IsExpanded;
@@ -77,6 +66,7 @@ namespace HeapProfiler {
         public bool Added;
         public int BytesDelta, OldBytes, NewBytes, NewCount;
         public int? CountDelta, OldCount;
+        public UInt32 TracebackID;
         public TracebackInfo Traceback;
 
         protected string FormattedBytesCache = null;
@@ -103,7 +93,8 @@ namespace HeapProfiler {
             y += g.MeasureString(text, rp.Font, rp.Region.Width, rp.StringFormat).Height;
 
             int f = 0;
-            foreach (var frame in Traceback.Frames) {
+            for (int i = 0, c = Traceback.Frames.Count, o = Traceback.Frames.Offset; i < c; i++) {
+                var frame = Traceback.Frames.Array[i + o];
                 text = frame.ToString();
 
                 var layoutRect = new RectangleF(
@@ -111,7 +102,7 @@ namespace HeapProfiler {
                 );
                 Region[] fillRegions = null;
 
-                if (rp.FunctionFilter == frame.Function) {
+                if ((rp.FunctionFilter != null) && (rp.FunctionFilter == frame.Function)) {
                     var startIndex = text.IndexOf(rp.FunctionFilter);
                     var endIndex = startIndex + rp.FunctionFilter.Length;
 
@@ -149,11 +140,11 @@ namespace HeapProfiler {
 
                 f += 1;
                 if ((f == 2) && !rp.IsExpanded) {
-                    if (Traceback.Frames.Length > 2) {
+                    if (Traceback.Frames.Count > 2) {
                         rp.StringFormat.Alignment = StringAlignment.Far;
 
                         var elideString = String.Format(
-                            "(+{0} frame(s))", Traceback.Frames.Length - 2
+                            "(+{0} frame(s))", Traceback.Frames.Count - 2
                         );
                         rp.StringFormat.SetMeasurableCharacterRanges(
                             new[] { new CharacterRange(0, elideString.Length) }
@@ -194,18 +185,18 @@ namespace HeapProfiler {
 
     public class TracebackInfo {
         public UInt32 TraceId;
-        public TracebackFrame[] Frames;
+        public ArraySegment<TracebackFrame> Frames;
         public NameTable Functions;
         public NameTable Modules;
 
         public override string ToString () {
             var sb = new StringBuilder();
 
-            foreach (var frame in Frames) {
+            for (int i = 0, c = Frames.Count, o = Frames.Offset; i < c; i++) {
                 if (sb.Length > 0)
                     sb.AppendLine();
 
-                sb.Append(frame.ToString());
+                sb.Append(Frames.Array[i + o].ToString());
             }
 
             return sb.ToString();
@@ -291,21 +282,21 @@ namespace HeapProfiler {
     }
 
     public class HeapDiff {
-        public const int ProgressInterval = 200;
+        public const int ProgressInterval = 100;
 
         public readonly string Filename;
-        public readonly Dictionary<string, ModuleInfo> Modules;
+        public readonly NameTable Modules;
         public readonly NameTable FunctionNames;
         public readonly List<DeltaInfo> Deltas;
         public readonly Dictionary<UInt32, TracebackInfo> Tracebacks;
 
-        protected HeapDiff (
-            string filename, Dictionary<string, ModuleInfo> modules,
+        public HeapDiff (
+            string filename, NameTable moduleNames,
             NameTable functionNames, List<DeltaInfo> deltas,
             Dictionary<UInt32, TracebackInfo> tracebacks
         ) {
             Filename = filename;
-            Modules = modules;
+            Modules = moduleNames;
             FunctionNames = functionNames;
             Deltas = deltas;
             Tracebacks = tracebacks;
@@ -338,7 +329,7 @@ namespace HeapProfiler {
 
             progress.Status = "Parsing diff...";
 
-            var modules = new Dictionary<string, ModuleInfo>(StringComparer.Ordinal);
+            var frames = new List<TracebackFrame>();
             var moduleNames = new NameTable(StringComparer.Ordinal);
             var symbolTypes = new NameTable(StringComparer.Ordinal);
             var functionNames = new NameTable(StringComparer.Ordinal);
@@ -379,23 +370,15 @@ namespace HeapProfiler {
 
                 Match m;
                 if (regexes.DiffModule.TryMatch(ref line, out m)) {
-                    var moduleName = moduleNames[m.Groups[groupModule].Value];
-                    var symbolType = symbolTypes[m.Groups[groupSymbolType].Value];
-
-                    var info = new ModuleInfo {
-                        ModuleName = moduleName,
-                        SymbolType = symbolType,
-                    };
-
+                    moduleNames.Add(m.Groups[groupModule].Value);
+                    
                     if (lr.ReadLine(out line)) {
                         if (!regexes.DiffModule.IsMatch(ref line)) {
-                            info.SymbolPath = line.ToString().Trim();
+                            // symbol path; ignored
                         } else {
                             goto retryFromHere;
                         }
                     }
-
-                    modules[moduleName] = info;
                 } else if (regexes.BytesDelta.TryMatch(ref line, out m)) {
                     var traceId = UInt32.Parse(m.Groups[groupTraceId].Value, NumberStyles.HexNumber);
                     var info = new DeltaInfo {
@@ -415,7 +398,7 @@ namespace HeapProfiler {
 
                     bool readingLeadingWhitespace = true;
 
-                    var frames = new List<TracebackFrame>();
+                    frames.Clear();
                     var itemModules = new NameTable(StringComparer.Ordinal);
                     var itemFunctions = new NameTable(StringComparer.Ordinal);
 
@@ -433,16 +416,6 @@ namespace HeapProfiler {
 
                             var functionName = functionNames[m.Groups[groupTracebackFunction].Value];
                             itemFunctions.Add(functionName);
-
-                            if (!modules.ContainsKey(moduleName)) {
-                                modules[moduleName] = new ModuleInfo {
-                                    ModuleName = moduleName,
-                                    SymbolType = "Unknown",
-                                    References = 1
-                                };
-                            } else {
-                                modules[moduleName].References += 1;
-                            }
 
                             var frame = new TracebackFrame {
                                 Module = moduleName,
@@ -469,9 +442,12 @@ namespace HeapProfiler {
                         info.Traceback = tracebacks[traceId];
                         Console.WriteLine("Duplicate traceback for id {0}!", traceId);
                     } else {
+                        var frameArray = ImmutableArrayPool<TracebackFrame>.Allocate(frames.Count);
+                        frames.CopyTo(frameArray.Array, frameArray.Offset);
+
                         info.Traceback = tracebacks[traceId] = new TracebackInfo {
                             TraceId = traceId,
-                            Frames = frames.ToArray(),
+                            Frames = frameArray,
                             Modules = itemModules,
                             Functions = itemFunctions
                         };
@@ -482,13 +458,8 @@ namespace HeapProfiler {
                 }
             }
 
-            foreach (var key in modules.Keys.ToArray()) {
-                if (modules[key].References == 0)
-                    modules.Remove(key);
-            }
-
             var result = new HeapDiff(
-                filename, modules, functionNames, deltas, tracebacks
+                filename, moduleNames, functionNames, deltas, tracebacks
             );
             yield return new Result(result);
         }

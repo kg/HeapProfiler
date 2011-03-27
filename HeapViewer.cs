@@ -58,6 +58,8 @@ namespace HeapProfiler {
                 Timeline.Visible = false;
                 MainSplit.Height += Timeline.Bottom - MainSplit.Bottom;
             }
+
+            ViewSplit_SizeChanged(ViewSplit, EventArgs.Empty);
         }
 
         public HeapViewer (TaskScheduler scheduler)

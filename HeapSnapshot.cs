@@ -296,7 +296,7 @@ namespace HeapProfiler {
 
             public Module (string filename, UInt32 baseAddress, UInt32 size) {
                 Filename = filename;
-                ShortFilename = Path.GetFileName(Filename);
+                ShortFilename = Path.GetFileNameWithoutExtension(Filename);
                 BaseAddress = baseAddress;
                 Size = size;
             }

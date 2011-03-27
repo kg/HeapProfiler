@@ -637,5 +637,12 @@ namespace HeapProfiler {
             if (e.Data.GetDataPresent(DataFormats.FileDrop))
                 e.Effect = DragDropEffects.Copy;
         }
+
+        private void VerifyCache_Click (object sender, EventArgs e) {
+            Scheduler.Start(
+                Instance.VerifySymbolCache(),
+                TaskExecutionPolicy.RunAsBackgroundTask
+            );
+        }
     }
 }
