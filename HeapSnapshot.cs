@@ -323,7 +323,6 @@ namespace HeapProfiler {
                 var bw = new BinaryWriter(context.Stream, Encoding.UTF8);
                 bw.Write(input.BaseAddress);
                 bw.Write(input.Size);
-                bw.Write(input.Filename);
                 bw.Flush();
             }
 
@@ -333,7 +332,7 @@ namespace HeapProfiler {
 
                 var baseAddress = br.ReadUInt32();
                 var size = br.ReadUInt32();
-                var filename = br.ReadString();
+                var filename = context.Key.Value as string;
 
                 output = new Module(filename, baseAddress, size);
             }
@@ -512,7 +511,7 @@ namespace HeapProfiler {
 
             public readonly ArraySegment<Range> Ranges;
 
-            public AllocationRanges (params Range[] ranges)
+            public AllocationRanges (Range[] ranges)
                 : this(new ArraySegment<Range>(ranges)) {
             }
 
@@ -543,7 +542,7 @@ namespace HeapProfiler {
                     throw new InvalidDataException();
 
                 int count = *(int *)(context.Source + 0);
-                var array = new Range[count];
+                var array = ImmutableArrayPool<Range>.Allocate(count);
                 uint offset = 4;
                 uint itemSize = BlittableSerializer<Range>.Size;
 
@@ -553,7 +552,7 @@ namespace HeapProfiler {
                 for (int i = 0; i < count; i++) {
                     context.DeserializeValue(
                         BlittableSerializer<Range>.Deserialize, 
-                        offset, itemSize, out array[i]
+                        offset, itemSize, out array.Array[array.Offset + i]
                     );
 
                     offset += itemSize;
@@ -563,11 +562,13 @@ namespace HeapProfiler {
             }
 
             public static AllocationRanges New (UInt16 snapshotId, UInt32 tracebackId, UInt32 size, UInt32 overhead) {
-                return new AllocationRanges(new Range(snapshotId, tracebackId, size, overhead));
+                var ranges = ImmutableArrayPool<Range>.Allocate(1);
+                ranges.Array[ranges.Offset] = new Range(snapshotId, tracebackId, size, overhead);
+                return new AllocationRanges(ranges);
             }
 
             public AllocationRanges Update (UInt16 snapshotId, UInt32 tracebackId, UInt32 size, UInt32 overhead) {
-                Range[] result;
+                ArraySegment<Range> result;
 
                 var a = Ranges.Array;
                 for (int i = 0, c = Ranges.Count, o = Ranges.Offset; i < c; i++) {
@@ -580,16 +581,16 @@ namespace HeapProfiler {
                         return this;
 
                     if (range.Last == snapshotId - 1) {
-                        result = new Range[Ranges.Count];
-                        Array.Copy(Ranges.Array, Ranges.Offset, result, 0, Ranges.Count);
-                        result[i] = new Range(range.First, snapshotId, tracebackId, size, overhead);
+                        result = ImmutableArrayPool<Range>.Allocate(Ranges.Count);
+                        Array.Copy(Ranges.Array, Ranges.Offset, result.Array, result.Offset, Ranges.Count);
+                        result.Array[result.Offset + i] = new Range(range.First, snapshotId, tracebackId, size, overhead);
                         return new AllocationRanges(result);
                     }
                 }
 
-                result = new Range[Ranges.Count + 1];
-                Array.Copy(Ranges.Array, Ranges.Offset, result, 0, Ranges.Count);
-                result[result.Length - 1] = new Range(snapshotId, tracebackId, size, overhead);
+                result = ImmutableArrayPool<Range>.Allocate(Ranges.Count + 1);
+                Array.Copy(Ranges.Array, Ranges.Offset, result.Array, result.Offset, Ranges.Count);
+                result.Array[result.Offset + result.Count - 1] = new Range(snapshotId, tracebackId, size, overhead);
                 return new AllocationRanges(result);
             }
 
@@ -684,13 +685,13 @@ namespace HeapProfiler {
                 if (context.SourceLength < 8 + (count * 4))
                     throw new InvalidDataException();
 
-                var array = new UInt32[count];
-                fixed (uint * pFrames = array)
+                var array = ImmutableArrayPool<UInt32>.Allocate(count);
+                fixed (uint * pFrames = array.Array)
                     Squared.Data.Mangler.Internal.Native.memmove(
-                        (byte*)pFrames, context.Source + 8, new UIntPtr((uint)(count * 4))
+                        (byte *)(&pFrames[array.Offset]), context.Source + 8, new UIntPtr((uint)(count * 4))
                     );
 
-                output = new Traceback(id, new ArraySegment<uint>(array));
+                output = new Traceback(id, array);
             }
         }
 

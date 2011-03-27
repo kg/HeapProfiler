@@ -541,6 +541,14 @@ namespace HeapProfiler {
             return new HeapRecording(scheduler, activities, psi);
         }
 
+        private static unsafe TangleKey GetKeyForAddress (UInt32 address) {
+            var bytes = ImmutableArrayPool<byte>.Allocate(4);
+            fixed (byte * pBytes = bytes.Array)
+                *(UInt32 *)(pBytes + bytes.Offset) = address;
+
+            return new TangleKey(bytes, typeof(UInt32));
+        }
+
         protected IEnumerator<object> LoadSnapshotFromDatabase (HeapSnapshotInfo info) {
             var result = new HeapSnapshot(info);
 
@@ -560,17 +568,25 @@ namespace HeapProfiler {
             using (Activities.AddItem("Loading heaps")) {
                 yield return fHeaps;
 
+                var fAllocations = Database.HeapAllocations.Get(
+                    from heap in fHeaps.Result select new TangleKey(heap.HeapID)
+                );
+                yield return fAllocations;
+
+                var allocations = (from kvp in fAllocations.Result
+                                   select new KeyValuePair<UInt32, HashSet<uint>>(
+                                       BitConverter.ToUInt32(kvp.Key.Data.Array, kvp.Key.Data.Offset), kvp.Value
+                                    )).ToDictionary((kvp) => kvp.Key, (kvp) => kvp.Value);
+
                 foreach (var heapInfo in fHeaps.Result) {
                     var theHeap = new HeapSnapshot.Heap(heapInfo);
 
-                    var fAllocations = Database.HeapAllocations.Get(heapInfo.HeapID);
-                    yield return fAllocations;
+                    var allocationIds = allocations[heapInfo.HeapID];
+                    theHeap.Allocations.Capacity = allocationIds.Count;
 
-                    theHeap.Allocations.Capacity = fAllocations.Result.Count;
+                    var keys = (from address in allocationIds select GetKeyForAddress(address)).ToArray();
 
-                    var fRanges = Database.Allocations.Get(
-                        from address in fAllocations.Result select new TangleKey(address)
-                    );
+                    var fRanges = Database.Allocations.Get(keys);
                     yield return fRanges;
 
                     foreach (var kvp in fRanges.Result) {
