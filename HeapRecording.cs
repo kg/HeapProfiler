@@ -218,6 +218,14 @@ namespace HeapProfiler {
 
                     string infile = Path.GetTempFileName(), outfile = Path.GetTempFileName();
 
+                    var padNumberRight = (Func<uint, int, string>)((num, length) => {
+                        var result = String.Format("{0:X}", num);
+                        if (result.Length < length)
+                            result = new String(' ', length - result.Length) + result;
+
+                        return result;
+                    });
+
                     var symbolModules = SymbolModules.ToArray();
                     yield return Future.RunInThread(() => {
                         using (var sw = new StreamWriter(infile, false, Encoding.ASCII)) {
@@ -226,8 +234,10 @@ namespace HeapProfiler {
 
                             foreach (var module in symbolModules)
                                 sw.WriteLine(
-                                    "//            {0:X8} {1:X8} {2}", 
-                                    module.BaseAddress, module.Size, module.Filename
+                                    "//            {0} {1} {2}", 
+                                    padNumberRight(module.BaseAddress, 8), 
+                                    padNumberRight(module.Size, 8), 
+                                    Path.GetFullPath(module.Filename)
                                 );
 
                             sw.WriteLine("//");
@@ -237,10 +247,10 @@ namespace HeapProfiler {
                             sw.WriteLine("*- - - - - - - - - - Heap 0 Hogs - - - - - - - - - -");
                             sw.WriteLine();
 
-                            for (int i = 1; i < batch.Count; i++) {
+                            for (int i = 0; i < batch.Count; i++) {
                                 sw.WriteLine(
                                     "{0:X8} bytes + {1:X8} at {2:X8} by BackTrace{3:X8}",
-                                    1, 0, i, i
+                                    1, 0, i + 1, i + 1
                                 );
 
                                 sw.WriteLine("\t{0:X8}", batch[i].Frame);
@@ -694,7 +704,7 @@ namespace HeapProfiler {
 
             var psi = new ProcessStartInfo(
                 Settings.UmdhPath, String.Format(
-                    "-p:{0} -f:\"{1}\"", Process.Id, targetFilename
+                    "-g -p:{0} -f:\"{1}\"", Process.Id, targetFilename
                 )
             );
 
