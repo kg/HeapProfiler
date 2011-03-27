@@ -371,32 +371,24 @@ namespace HeapProfiler {
                 Match m;
                 if (regexes.DiffModule.TryMatch(ref line, out m)) {
                     moduleNames.Add(m.Groups[groupModule].Value);
-                    
-                    if (lr.ReadLine(out line)) {
-                        if (!regexes.DiffModule.IsMatch(ref line)) {
-                            // symbol path; ignored
-                        } else {
-                            goto retryFromHere;
-                        }
-                    }
                 } else if (regexes.BytesDelta.TryMatch(ref line, out m)) {
                     var traceId = UInt32.Parse(m.Groups[groupTraceId].Value, NumberStyles.HexNumber);
                     var info = new DeltaInfo {
                         Added = (m.Groups[groupType].Value == "+"),
-                        BytesDelta = int.Parse(m.Groups[groupDeltaBytes].Value),
-                        NewBytes = int.Parse(m.Groups[groupNewBytes].Value),
-                        OldBytes = int.Parse(m.Groups[groupOldBytes].Value),
-                        NewCount = int.Parse(m.Groups[groupNewCount].Value),
+                        BytesDelta = int.Parse(m.Groups[groupDeltaBytes].Value, NumberStyles.HexNumber),
+                        NewBytes = int.Parse(m.Groups[groupNewBytes].Value, NumberStyles.HexNumber),
+                        OldBytes = int.Parse(m.Groups[groupOldBytes].Value, NumberStyles.HexNumber),
+                        NewCount = int.Parse(m.Groups[groupNewCount].Value, NumberStyles.HexNumber),
                     };
 
                     if (lr.ReadLine(out line)) {
                         if (regexes.CountDelta.TryMatch(ref line, out m)) {
-                            info.OldCount = int.Parse(m.Groups[groupOldCount].Value);
-                            info.CountDelta = int.Parse(m.Groups[groupCountDelta].Value);
+                            info.OldCount = int.Parse(m.Groups[groupOldCount].Value, NumberStyles.HexNumber);
+                            info.CountDelta = int.Parse(m.Groups[groupCountDelta].Value, NumberStyles.HexNumber);
                         }
                     }
 
-                    bool readingLeadingWhitespace = true;
+                    bool readingLeadingWhitespace = true, doRetry = false;
 
                     frames.Clear();
                     var itemModules = new NameTable(StringComparer.Ordinal);
@@ -433,7 +425,8 @@ namespace HeapProfiler {
 
                             frames.Add(frame);
                         } else {
-                            i--;
+                            // We hit the beginning of a new allocation, so make sure it gets parsed
+                            doRetry = true;
                             break;
                         }
                     }
@@ -454,7 +447,17 @@ namespace HeapProfiler {
                     }
 
                     deltas.Add(info);
+
+                    if (doRetry)
+                        goto retryFromHere;
+                } else if (line.StartsWith("//")) {
+                    // Comment, ignore it
+                } else if (line.StartsWith("Total increase") || line.StartsWith("Total decrease")) {
+                    // Ignore this too
+                } else if (line.StartsWith("         ") && (line.EndsWith(".pdb"))) {
+                    // Symbol path for a module, ignore it
                 } else {
+                    Console.WriteLine("Unrecognized diff content: {0}", line.ToString());
                 }
             }
 

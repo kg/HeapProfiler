@@ -713,6 +713,19 @@ namespace HeapProfiler {
                 ) == 0;
             }
 
+            public bool EndsWith (string text) {
+                if (Length < text.Length)
+                    return false;
+
+                var compareLength = Math.Min(Length, text.Length);
+
+                return String.Compare(
+                    Reader.Text, Start + (Length - compareLength),
+                    text, 0,
+                    compareLength, false
+                ) == 0;
+            }
+
             public bool Contains (string text) {
                 if (Length < text.Length)
                     return false;

@@ -36,7 +36,6 @@ using Squared.Data.Mangler.Internal;
 namespace HeapProfiler {
     public class HeapRecording : IDisposable {
         public const int SymbolResolveBatchSize = 1024;
-        public const int MaxFramesPerTraceback = 31;
 
         public static class SnapshotLoadState {
             public static int Count = 0;
@@ -252,16 +251,10 @@ namespace HeapProfiler {
 
                     var psi = new ProcessStartInfo(
                         Settings.UmdhPath, String.Format(
-                            "-d \"{0}\" -f:\"{1}\"", infile, outfile
+                            "\"{0}\" -f:\"{1}\"", infile, outfile
                         )
                     );
 
-                    using (Finally.Do(() => {
-                        try {
-                            File.Delete(infile);
-                        } catch {
-                        }
-                    }))
                     using (var rp = Scheduler.Start(
                         Program.RunProcess(psi, ProcessPriorityClass.Idle), 
                         TaskExecutionPolicy.RunAsBackgroundTask
@@ -269,6 +262,10 @@ namespace HeapProfiler {
                         yield return rp;
 
                     using (Finally.Do(() => {
+                        try {
+                            File.Delete(infile);
+                        } catch {
+                        }
                         try {
                             File.Delete(outfile);
                         } catch {
@@ -316,7 +313,7 @@ namespace HeapProfiler {
 
                                 cacheBatch.Add(frame.Frame, tf);
 
-                                Console.WriteLine("Could not resolve: {0:X8}", frame.Frame);
+                                // Console.WriteLine("Could not resolve: {0:X8}", frame.Frame);
                             }
 
                             return cacheBatch;
@@ -334,31 +331,14 @@ namespace HeapProfiler {
             }
         }
 
-        public IEnumerator<object> VerifySymbolCache () {
-            var fCacheContents = Database.SymbolCache.Get(
-                from key in ResolvedSymbolCache.Keys select new TangleKey(key)
-            );
-
-            using (Activities.AddItem("Reading symbol cache"))
-                yield return fCacheContents;
-
-            using (Activities.AddItem("Verifying symbol cache"))
-            foreach (var kvp in fCacheContents.Result) {
-                var rawFrame = BitConverter.ToUInt32(kvp.Key.Data.Array, kvp.Key.Data.Offset);
-
-                var expectedInfo = ResolvedSymbolCache[rawFrame];
-                var actualInfo = kvp.Value;
-
-                if (expectedInfo.ToString() != actualInfo.ToString())
-                    Debugger.Break();
-            }
-        }
-
         protected IEnumerator<object> SnapshotIOTask () {
             ActivityIndicator.Item progress = null;
             IFuture previousSnapshot = null;
 
             while (true) {
+                if ((SnapshotLoadQueue.Count <= 0) && (previousSnapshot != null))
+                    yield return previousSnapshot;
+
                 if (SnapshotLoadQueue.Count <= 0) {
                     SnapshotLoadState.Count = 0;
                     if (progress != null) {
@@ -420,20 +400,18 @@ namespace HeapProfiler {
         }
 
         private IEnumerator<object> FinishLoadingSnapshotEpilogue (HeapSnapshot snapshot) {
-            using (Activities.AddItem("Updating database")) {
-                AddSnapshot(snapshot);
+            AddSnapshot(snapshot);
 
-                foreach (var module in snapshot.Modules)
-                    SymbolModules.Add(module);
+            foreach (var module in snapshot.Modules)
+                SymbolModules.Add(module);
 
-                yield return new Start(
-                    ResolveSymbolsForSnapshot(snapshot),
-                    TaskExecutionPolicy.RunAsBackgroundTask
-                );
+            yield return new Start(
+                ResolveSymbolsForSnapshot(snapshot),
+                TaskExecutionPolicy.RunAsBackgroundTask
+            );
 
-                if (!snapshot.SavedToDatabase)
-                    yield return snapshot.SaveToDatabase(Database);
-            }
+            if (!snapshot.SavedToDatabase)
+                yield return snapshot.SaveToDatabase(Database);
 
             Interlocked.Increment(ref SnapshotLoadState.Count);
         }
@@ -751,7 +729,7 @@ namespace HeapProfiler {
 
                 var psi = new ProcessStartInfo(
                     Settings.UmdhPath, String.Format(
-                        "-d \"{0}\" \"{1}\" -f:\"{2}\"", file1, file2, filename
+                        "\"{0}\" \"{1}\" -f:\"{2}\"", file1, file2, filename
                     )
                 );
 
@@ -825,7 +803,10 @@ namespace HeapProfiler {
                     for (int i = 0, c = kvp.Value.Ranges.Count, o = kvp.Value.Ranges.Offset; i < c; i++) {
                         var range = ranges[i + o];
 
-                        if ((range.First <= first.Index) && (range.Last < last.Index)) {
+                        if ((range.First <= first.Index) && 
+                            (range.Last >= first.Index) && 
+                            (range.Last < last.Index)
+                        ) {
                             // deallocation
                             deltas.Add(new DeltaInfo {
                                 Added = false,
@@ -839,7 +820,11 @@ namespace HeapProfiler {
                                 Traceback = null
                             });
                             tracebackIds.Add(range.TracebackID);
-                        } else if ((range.First > first.Index) && (range.Last <= last.Index)) {
+                        } else if (
+                            (range.First <= last.Index) &&
+                            (range.First > first.Index) && 
+                            (range.Last >= last.Index)
+                        ) {
                             // allocation
                             deltas.Add(new DeltaInfo {
                                 Added = true,

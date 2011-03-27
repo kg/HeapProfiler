@@ -66,7 +66,6 @@
             this.ViewAverageHeapBlockSizeMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.ViewHeapFragmentationMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.Activities = new HeapProfiler.ActivityIndicator();
-            this.VerifyCache = new System.Windows.Forms.Button();
             this.GroupExecutable.SuspendLayout();
             this.GroupSnapshots.SuspendLayout();
             this.MainMenu.SuspendLayout();
@@ -211,7 +210,6 @@
             this.GroupSnapshots.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)
                         | System.Windows.Forms.AnchorStyles.Left)
                         | System.Windows.Forms.AnchorStyles.Right)));
-            this.GroupSnapshots.Controls.Add(this.VerifyCache);
             this.GroupSnapshots.Controls.Add(this.ViewSelection);
             this.GroupSnapshots.Controls.Add(this.AutoCapture);
             this.GroupSnapshots.Controls.Add(this.DiffSelection);
@@ -491,17 +489,6 @@
             this.Activities.TabIndex = 3;
             this.Activities.PreferredSizeChanged += new System.EventHandler(this.Activities_PreferredSizeChanged);
             // 
-            // VerifyCache
-            // 
-            this.VerifyCache.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.VerifyCache.Location = new System.Drawing.Point(415, 231);
-            this.VerifyCache.Name = "VerifyCache";
-            this.VerifyCache.Size = new System.Drawing.Size(99, 23);
-            this.VerifyCache.TabIndex = 8;
-            this.VerifyCache.Text = "Verify Cache";
-            this.VerifyCache.UseVisualStyleBackColor = true;
-            this.VerifyCache.Click += new System.EventHandler(this.VerifyCache_Click);
-            // 
             // MainWindow
             // 
             this.AllowDrop = true;
@@ -576,7 +563,6 @@
         private System.Windows.Forms.ToolStripMenuItem ExportSnapshotsMenu;
         private System.Windows.Forms.ToolStripMenuItem AssociateRecordingsMenu;
         private System.Windows.Forms.ToolStripMenuItem AssociateSnapshotsMenu;
-        private System.Windows.Forms.Button VerifyCache;
     }
 }
 
