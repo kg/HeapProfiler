@@ -792,7 +792,8 @@ namespace HeapProfiler {
                 var fAllocations = Database.HeapAllocations.Get(
                     from heapId in heapIds select new TangleKey(heapId)
                 );
-                yield return fAllocations;
+                using (fAllocations)
+                    yield return fAllocations;
 
                 foreach (var kvp in fAllocations.Result)
                     allocationIds.UnionWith(kvp.Value);
@@ -804,7 +805,8 @@ namespace HeapProfiler {
                 var fAllocationRanges = Database.Allocations.Get(
                     from allocationId in allocationIds select new TangleKey(allocationId)
                 );
-                yield return fAllocationRanges;
+                using (fAllocationRanges)
+                    yield return fAllocationRanges;
 
                 foreach (var kvp in fAllocationRanges.Result) {
                     var address = BitConverter.ToUInt32(kvp.Key.Data.Array, kvp.Key.Data.Offset);
@@ -813,8 +815,8 @@ namespace HeapProfiler {
                     for (int i = 0, c = kvp.Value.Ranges.Count, o = kvp.Value.Ranges.Offset; i < c; i++) {
                         var range = ranges[i + o];
 
-                        if ((range.First <= first.Index) && 
-                            (range.Last >= first.Index) && 
+                        if ((range.First <= first.Index) &&
+                            (range.Last >= first.Index) &&
                             (range.Last < last.Index)
                         ) {
                             // deallocation
@@ -832,7 +834,7 @@ namespace HeapProfiler {
                             tracebackIds.Add(range.TracebackID);
                         } else if (
                             (range.First <= last.Index) &&
-                            (range.First > first.Index) && 
+                            (range.First > first.Index) &&
                             (range.Last >= last.Index)
                         ) {
                             // allocation
@@ -855,7 +857,28 @@ namespace HeapProfiler {
                 var fTracebacks = Database.Tracebacks.Get(
                     from tracebackId in tracebackIds select new TangleKey(tracebackId)
                 );
-                yield return fTracebacks;
+                using (fTracebacks)
+                    yield return fTracebacks;
+
+                Dictionary<UInt32, TracebackFrame> frameSymbols;
+                {
+                    var rawFrames = new HashSet<UInt32>();
+
+                    foreach (var kvp in fTracebacks.Result)
+                        foreach (var rawFrame in kvp.Value)
+                            rawFrames.Add(rawFrame);
+
+                    var fSymbols = Database.SymbolCache.Get(
+                        from rawFrame in rawFrames select new TangleKey(rawFrame)
+                    );
+                    using (fSymbols)
+                        yield return fSymbols;
+
+                    frameSymbols = fSymbols.Result.ToDictionary(
+                        (kvp) => BitConverter.ToUInt32(kvp.Key.Data.Array, kvp.Key.Data.Offset),
+                        (kvp) => kvp.Value
+                    );
+                }
 
                 foreach (var kvp in fTracebacks.Result) {
                     var tracebackId = BitConverter.ToUInt32(kvp.Key.Data.Array, kvp.Key.Data.Offset);
@@ -863,18 +886,12 @@ namespace HeapProfiler {
                     var tracebackModules = new NameTable(StringComparer.Ordinal);
                     var tracebackFrames = ImmutableArrayPool<TracebackFrame>.Allocate(kvp.Value.Frames.Count);
 
-                    var fSymbols = Database.SymbolCache.Get(
-                        from rawFrame in kvp.Value.Frames.AsEnumerable() select new TangleKey(rawFrame)
-                    );
-                    yield return fSymbols;
-
-                    for (int i = 0, o = tracebackFrames.Offset; i < fSymbols.Result.Length; i++) {
-                        var item = fSymbols.Result[i];
-                        var rawOffset = BitConverter.ToUInt32(item.Key.Data.Array, item.Key.Data.Offset);
-                        var symbol = item.Value;
+                    for (int i = 0, o = tracebackFrames.Offset, c = tracebackFrames.Count; i < c; i++) {
+                        var rawFrame = kvp.Value.Frames.Array[kvp.Value.Frames.Offset + i];
+                        var symbol = frameSymbols[rawFrame];
 
                         if ((symbol.Offset == 0) && (!symbol.Offset2.HasValue))
-                            tracebackFrames.Array[i + o] = new TracebackFrame(rawOffset);
+                            tracebackFrames.Array[i + o] = new TracebackFrame(rawFrame);
                         else
                             tracebackFrames.Array[i + o] = symbol;
                     }
@@ -897,7 +914,7 @@ namespace HeapProfiler {
                 deltas.Sort((lhs, rhs) => {
                     var lhsBytes = (lhs.Added ? 1 : -1) * lhs.BytesDelta;
                     var rhsBytes = (rhs.Added ? 1 : -1) * rhs.BytesDelta;
-                    return lhsBytes.CompareTo(rhsBytes);
+                    return rhsBytes.CompareTo(lhsBytes);
                 })
             );
 
