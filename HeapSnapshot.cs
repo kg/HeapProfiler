@@ -893,6 +893,13 @@ namespace HeapProfiler {
             TangleKey key;
             HashSet<UInt32> addressSet;
 
+            DecisionUpdateCallback<AllocationRanges> rangeUpdater =
+                (ref AllocationRanges oldValue, ref AllocationRanges newValue) => {
+                    var r = newValue.Ranges.Array[newValue.Ranges.Offset];
+                    newValue = oldValue.Update(r.First, r.TracebackID, r.Size, r.Overhead);
+                    return true;
+                };
+
             foreach (var heap in Heaps) {
                 var fAddressSet = db.HeapAllocations.Get(heap.ID);
                 yield return fAddressSet;
@@ -905,13 +912,10 @@ namespace HeapProfiler {
                 var batch = new Batch<AllocationRanges>(heap.Allocations.Count);
 
                 foreach (var allocation in heap.Allocations) {
-                    var tracebackId = allocation.TracebackID;
-                    var size = allocation.Size;
-                    var overhead = allocation.Overhead;
-
                     batch.AddOrUpdate(
-                        allocation.Address, AllocationRanges.New(uIndex, tracebackId, size, overhead),
-                        (value) => value.Update(uIndex, tracebackId, size, overhead)
+                        allocation.Address, AllocationRanges.New(
+                            uIndex, allocation.TracebackID, allocation.Size, allocation.Overhead
+                        ), rangeUpdater
                     );
 
                     addressSet.Add(allocation.Address);
