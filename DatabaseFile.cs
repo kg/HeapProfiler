@@ -43,7 +43,7 @@ namespace HeapProfiler {
                 BoundMember.New(() => HeapAllocations),
                 BoundMember.New(() => SnapshotModules),
                 BoundMember.New(() => SnapshotHeaps),
-                BoundMember.New(() => SymbolCache)
+                BoundMember.New(() => SymbolCache),
             };
 
             Deserializers["SnapshotModules"] = (Deserializer<string[]>)DeserializeModuleList;
@@ -65,7 +65,7 @@ namespace HeapProfiler {
 
             MakeTokenFile(filename);
 
-            CreateTangles();
+            Scheduler.Start(CreateTangles(), TaskExecutionPolicy.RunAsBackgroundTask);
         }
 
         static void SerializeModuleList (ref SerializationContext context, ref string[] input) {
@@ -147,7 +147,7 @@ namespace HeapProfiler {
             File.WriteAllText(_TokenFilePath, "");
         }
 
-        protected void CreateTangles () {
+        protected IEnumerator<object> CreateTangles () {
             Delegate deserializer = null, serializer = null;
 
             foreach (var tf in TangleFields) {
@@ -163,6 +163,16 @@ namespace HeapProfiler {
                 tf.Value = theTangle;
                 Tangles.Add(theTangle);
             }
+
+            yield return SymbolCache.CreateIndex(
+                "ByFunction", 
+                (tf) => {
+                    var fn = (tf.Function ?? "").ToLower();
+                    if (fn.Length > 64)
+                        fn = fn.Substring(0, 64);
+                    return new TangleKey(fn);
+                }
+            );
         }
 
         public IEnumerator<object> Move (string targetFilename, ActivityIndicator activities) {
@@ -194,7 +204,7 @@ namespace HeapProfiler {
 
             var failed = f.Failed;
 
-            CreateTangles();
+            yield return CreateTangles();
 
             if (failed)
                 throw f.Error;

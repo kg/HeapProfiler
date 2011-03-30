@@ -637,5 +637,9 @@ namespace HeapProfiler {
             if (e.Data.GetDataPresent(DataFormats.FileDrop))
                 e.Effect = DragDropEffects.Copy;
         }
+
+        private void FilterPanel_SizeChanged (object sender, EventArgs e) {
+            TracebackFilter.Width = FilterPanel.ClientSize.Width - FindIcon.Width;
+        }
     }
 }

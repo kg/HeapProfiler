@@ -869,28 +869,27 @@ namespace HeapProfiler {
             yield return db.Snapshots.Set(Index, this.Info);
 
             {
-                var batch = new Batch<Module>(Modules.Count);
+                var batch = db.Modules.CreateBatch(Modules.Count);
 
                 foreach (var module in Modules)
                     batch.Add(module.Filename, module);
 
-                yield return batch.Execute(db.Modules);
+                yield return batch.Execute();
             }
 
             yield return db.SnapshotModules.Set(Index, Modules.Keys.ToArray());
 
             {
-                var batch = new Batch<Traceback>(Tracebacks.Count);
+                var tracebackBatch = db.Tracebacks.CreateBatch(Tracebacks.Count);
 
                 foreach (var traceback in Tracebacks)
-                    batch.Add(traceback.ID, traceback);
+                    tracebackBatch.Add(traceback.ID, traceback);
 
-                yield return batch.Execute(db.Tracebacks);
+                yield return tracebackBatch.Execute();
             }
 
             UInt16 uIndex = (UInt16)Index;
 
-            TangleKey key;
             HashSet<UInt32> addressSet;
 
             DecisionUpdateCallback<AllocationRanges> rangeUpdater =
@@ -909,7 +908,7 @@ namespace HeapProfiler {
                 else
                     addressSet = fAddressSet.Result;
 
-                var batch = new Batch<AllocationRanges>(heap.Allocations.Count);
+                var batch = db.Allocations.CreateBatch(heap.Allocations.Count);
 
                 foreach (var allocation in heap.Allocations) {
                     batch.AddOrUpdate(
@@ -921,7 +920,7 @@ namespace HeapProfiler {
                     addressSet.Add(allocation.Address);
                 }
 
-                yield return batch.Execute(db.Allocations);
+                yield return batch.Execute();
 
                 yield return db.HeapAllocations.Set(heap.ID, addressSet);
             }

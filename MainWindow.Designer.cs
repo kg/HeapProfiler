@@ -28,6 +28,7 @@
             this.ToolTips = new System.Windows.Forms.ToolTip(this.components);
             this.SelectExecutable = new System.Windows.Forms.Button();
             this.SelectWorkingDirectory = new System.Windows.Forms.Button();
+            this.TracebackFilter = new System.Windows.Forms.TextBox();
             this.GroupExecutable = new System.Windows.Forms.GroupBox();
             this.WorkingDirectory = new System.Windows.Forms.TextBox();
             this.label2 = new System.Windows.Forms.Label();
@@ -37,6 +38,8 @@
             this.ExecutablePath = new System.Windows.Forms.TextBox();
             this.LaunchProcess = new System.Windows.Forms.Button();
             this.GroupSnapshots = new System.Windows.Forms.GroupBox();
+            this.FilterPanel = new System.Windows.Forms.Panel();
+            this.FindIcon = new System.Windows.Forms.PictureBox();
             this.ViewSelection = new System.Windows.Forms.Button();
             this.AutoCapture = new System.Windows.Forms.CheckBox();
             this.DiffSelection = new System.Windows.Forms.Button();
@@ -56,18 +59,26 @@
             this.AssociateRecordingsMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.AssociateSnapshotsMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.AssociateDiffsMenu = new System.Windows.Forms.ToolStripMenuItem();
-            this.viewToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.ViewMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.ViewPagedMemoryMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.ViewVirtualMemoryMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.ViewWorkingSetMenu = new System.Windows.Forms.ToolStripMenuItem();
+            this.toolStripMenuItem2 = new System.Windows.Forms.ToolStripSeparator();
             this.ViewLargestFreeHeapMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.ViewAverageFreeBlockSizeMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.ViewLargestOccupiedHeapMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.ViewAverageHeapBlockSizeMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.ViewHeapFragmentationMenu = new System.Windows.Forms.ToolStripMenuItem();
+            this.toolStripMenuItem3 = new System.Windows.Forms.ToolStripSeparator();
+            this.ViewBytesAllocatedMenu = new System.Windows.Forms.ToolStripMenuItem();
+            this.ViewBytesOverheadMenu = new System.Windows.Forms.ToolStripMenuItem();
+            this.ViewBytesAllocatedPlusOverheadMenu = new System.Windows.Forms.ToolStripMenuItem();
+            this.ViewAllocationCountMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.Activities = new HeapProfiler.ActivityIndicator();
             this.GroupExecutable.SuspendLayout();
             this.GroupSnapshots.SuspendLayout();
+            this.FilterPanel.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.FindIcon)).BeginInit();
             this.MainMenu.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -98,6 +109,19 @@
             this.ToolTips.SetToolTip(this.SelectWorkingDirectory, "Select Executable");
             this.SelectWorkingDirectory.UseVisualStyleBackColor = true;
             this.SelectWorkingDirectory.Click += new System.EventHandler(this.SelectWorkingDirectory_Click);
+            // 
+            // TracebackFilter
+            // 
+            this.TracebackFilter.AutoCompleteMode = System.Windows.Forms.AutoCompleteMode.SuggestAppend;
+            this.TracebackFilter.AutoCompleteSource = System.Windows.Forms.AutoCompleteSource.CustomSource;
+            this.TracebackFilter.Dock = System.Windows.Forms.DockStyle.Right;
+            this.TracebackFilter.Font = new System.Drawing.Font("Consolas", 11.25F);
+            this.TracebackFilter.Location = new System.Drawing.Point(19, 0);
+            this.TracebackFilter.Margin = new System.Windows.Forms.Padding(4);
+            this.TracebackFilter.Name = "TracebackFilter";
+            this.TracebackFilter.Size = new System.Drawing.Size(387, 25);
+            this.TracebackFilter.TabIndex = 6;
+            this.ToolTips.SetToolTip(this.TracebackFilter, "Filter Tracebacks By Function");
             // 
             // GroupExecutable
             // 
@@ -210,6 +234,7 @@
             this.GroupSnapshots.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)
                         | System.Windows.Forms.AnchorStyles.Left)
                         | System.Windows.Forms.AnchorStyles.Right)));
+            this.GroupSnapshots.Controls.Add(this.FilterPanel);
             this.GroupSnapshots.Controls.Add(this.ViewSelection);
             this.GroupSnapshots.Controls.Add(this.AutoCapture);
             this.GroupSnapshots.Controls.Add(this.DiffSelection);
@@ -219,10 +244,34 @@
             this.GroupSnapshots.Margin = new System.Windows.Forms.Padding(2);
             this.GroupSnapshots.Name = "GroupSnapshots";
             this.GroupSnapshots.Padding = new System.Windows.Forms.Padding(2);
-            this.GroupSnapshots.Size = new System.Drawing.Size(519, 259);
+            this.GroupSnapshots.Size = new System.Drawing.Size(519, 264);
             this.GroupSnapshots.TabIndex = 2;
             this.GroupSnapshots.TabStop = false;
             this.GroupSnapshots.Text = "Snapshots";
+            // 
+            // FilterPanel
+            // 
+            this.FilterPanel.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)
+                        | System.Windows.Forms.AnchorStyles.Right)));
+            this.FilterPanel.Controls.Add(this.FindIcon);
+            this.FilterPanel.Controls.Add(this.TracebackFilter);
+            this.FilterPanel.Location = new System.Drawing.Point(4, 233);
+            this.FilterPanel.Name = "FilterPanel";
+            this.FilterPanel.Size = new System.Drawing.Size(406, 26);
+            this.FilterPanel.TabIndex = 8;
+            this.FilterPanel.SizeChanged += new System.EventHandler(this.FilterPanel_SizeChanged);
+            // 
+            // FindIcon
+            // 
+            this.FindIcon.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("FindIcon.BackgroundImage")));
+            this.FindIcon.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Center;
+            this.FindIcon.Dock = System.Windows.Forms.DockStyle.Left;
+            this.FindIcon.Location = new System.Drawing.Point(0, 0);
+            this.FindIcon.Margin = new System.Windows.Forms.Padding(4);
+            this.FindIcon.Name = "FindIcon";
+            this.FindIcon.Size = new System.Drawing.Size(18, 26);
+            this.FindIcon.TabIndex = 7;
+            this.FindIcon.TabStop = false;
             // 
             // ViewSelection
             // 
@@ -288,7 +337,7 @@
             this.SnapshotTimeline.Location = new System.Drawing.Point(4, 17);
             this.SnapshotTimeline.Margin = new System.Windows.Forms.Padding(2);
             this.SnapshotTimeline.Name = "SnapshotTimeline";
-            this.SnapshotTimeline.Size = new System.Drawing.Size(406, 237);
+            this.SnapshotTimeline.Size = new System.Drawing.Size(406, 213);
             this.SnapshotTimeline.TabIndex = 6;
             this.SnapshotTimeline.SelectionChanged += new System.EventHandler(this.SnapshotTimeline_SelectionChanged);
             this.SnapshotTimeline.ItemValueGetterChanged += new System.EventHandler(this.SnapshotTimeline_ItemValueGetterChanged);
@@ -299,7 +348,7 @@
             this.fileToolStripMenuItem,
             this.snapshotsToolStripMenuItem,
             this.OptionsMenu,
-            this.viewToolStripMenuItem});
+            this.ViewMenu});
             this.MainMenu.Location = new System.Drawing.Point(0, 0);
             this.MainMenu.Name = "MainMenu";
             this.MainMenu.Size = new System.Drawing.Size(534, 24);
@@ -406,20 +455,26 @@
             this.AssociateDiffsMenu.Text = "&Associate &diffs with Heap Profiler";
             this.AssociateDiffsMenu.Click += new System.EventHandler(this.AssociateDiffsMenu_Click);
             // 
-            // viewToolStripMenuItem
+            // ViewMenu
             // 
-            this.viewToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.ViewMenu.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.ViewPagedMemoryMenu,
             this.ViewVirtualMemoryMenu,
             this.ViewWorkingSetMenu,
+            this.toolStripMenuItem2,
             this.ViewLargestFreeHeapMenu,
             this.ViewAverageFreeBlockSizeMenu,
             this.ViewLargestOccupiedHeapMenu,
             this.ViewAverageHeapBlockSizeMenu,
-            this.ViewHeapFragmentationMenu});
-            this.viewToolStripMenuItem.Name = "viewToolStripMenuItem";
-            this.viewToolStripMenuItem.Size = new System.Drawing.Size(44, 20);
-            this.viewToolStripMenuItem.Text = "&View";
+            this.ViewHeapFragmentationMenu,
+            this.toolStripMenuItem3,
+            this.ViewBytesAllocatedMenu,
+            this.ViewBytesOverheadMenu,
+            this.ViewBytesAllocatedPlusOverheadMenu,
+            this.ViewAllocationCountMenu});
+            this.ViewMenu.Name = "ViewMenu";
+            this.ViewMenu.Size = new System.Drawing.Size(44, 20);
+            this.ViewMenu.Text = "&View";
             // 
             // ViewPagedMemoryMenu
             // 
@@ -443,6 +498,11 @@
             this.ViewWorkingSetMenu.Size = new System.Drawing.Size(226, 22);
             this.ViewWorkingSetMenu.Text = "Working Set";
             this.ViewWorkingSetMenu.Click += new System.EventHandler(this.ViewWorkingSetMenu_Click);
+            // 
+            // toolStripMenuItem2
+            // 
+            this.toolStripMenuItem2.Name = "toolStripMenuItem2";
+            this.toolStripMenuItem2.Size = new System.Drawing.Size(223, 6);
             // 
             // ViewLargestFreeHeapMenu
             // 
@@ -479,11 +539,40 @@
             this.ViewHeapFragmentationMenu.Text = "Heap Fragmentation";
             this.ViewHeapFragmentationMenu.Click += new System.EventHandler(this.ViewHeapFragmentationMenu_Click);
             // 
+            // toolStripMenuItem3
+            // 
+            this.toolStripMenuItem3.Name = "toolStripMenuItem3";
+            this.toolStripMenuItem3.Size = new System.Drawing.Size(223, 6);
+            // 
+            // ViewBytesAllocatedMenu
+            // 
+            this.ViewBytesAllocatedMenu.Name = "ViewBytesAllocatedMenu";
+            this.ViewBytesAllocatedMenu.Size = new System.Drawing.Size(226, 22);
+            this.ViewBytesAllocatedMenu.Text = "Bytes Allocated";
+            // 
+            // ViewBytesOverheadMenu
+            // 
+            this.ViewBytesOverheadMenu.Name = "ViewBytesOverheadMenu";
+            this.ViewBytesOverheadMenu.Size = new System.Drawing.Size(226, 22);
+            this.ViewBytesOverheadMenu.Text = "Bytes of Overhead";
+            // 
+            // ViewBytesAllocatedPlusOverheadMenu
+            // 
+            this.ViewBytesAllocatedPlusOverheadMenu.Name = "ViewBytesAllocatedPlusOverheadMenu";
+            this.ViewBytesAllocatedPlusOverheadMenu.Size = new System.Drawing.Size(226, 22);
+            this.ViewBytesAllocatedPlusOverheadMenu.Text = "Bytes Allocated + Overhead";
+            // 
+            // ViewAllocationCountMenu
+            // 
+            this.ViewAllocationCountMenu.Name = "ViewAllocationCountMenu";
+            this.ViewAllocationCountMenu.Size = new System.Drawing.Size(226, 22);
+            this.ViewAllocationCountMenu.Text = "Number of Allocations";
+            // 
             // Activities
             // 
             this.Activities.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)
                         | System.Windows.Forms.AnchorStyles.Right)));
-            this.Activities.Location = new System.Drawing.Point(8, 410);
+            this.Activities.Location = new System.Drawing.Point(8, 415);
             this.Activities.Name = "Activities";
             this.Activities.Size = new System.Drawing.Size(519, 10);
             this.Activities.TabIndex = 3;
@@ -513,6 +602,9 @@
             this.GroupExecutable.ResumeLayout(false);
             this.GroupExecutable.PerformLayout();
             this.GroupSnapshots.ResumeLayout(false);
+            this.FilterPanel.ResumeLayout(false);
+            this.FilterPanel.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.FindIcon)).EndInit();
             this.MainMenu.ResumeLayout(false);
             this.MainMenu.PerformLayout();
             this.ResumeLayout(false);
@@ -547,7 +639,7 @@
         private System.Windows.Forms.ToolStripMenuItem AssociateDiffsMenu;
         private ActivityIndicator Activities;
         private SnapshotTimeline SnapshotTimeline;
-        private System.Windows.Forms.ToolStripMenuItem viewToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem ViewMenu;
         private System.Windows.Forms.ToolStripMenuItem ViewPagedMemoryMenu;
         private System.Windows.Forms.ToolStripMenuItem ViewVirtualMemoryMenu;
         private System.Windows.Forms.ToolStripMenuItem ViewWorkingSetMenu;
@@ -563,6 +655,15 @@
         private System.Windows.Forms.ToolStripMenuItem ExportSnapshotsMenu;
         private System.Windows.Forms.ToolStripMenuItem AssociateRecordingsMenu;
         private System.Windows.Forms.ToolStripMenuItem AssociateSnapshotsMenu;
+        private System.Windows.Forms.Panel FilterPanel;
+        private System.Windows.Forms.PictureBox FindIcon;
+        private System.Windows.Forms.TextBox TracebackFilter;
+        private System.Windows.Forms.ToolStripSeparator toolStripMenuItem2;
+        private System.Windows.Forms.ToolStripSeparator toolStripMenuItem3;
+        private System.Windows.Forms.ToolStripMenuItem ViewBytesAllocatedMenu;
+        private System.Windows.Forms.ToolStripMenuItem ViewBytesOverheadMenu;
+        private System.Windows.Forms.ToolStripMenuItem ViewBytesAllocatedPlusOverheadMenu;
+        private System.Windows.Forms.ToolStripMenuItem ViewAllocationCountMenu;
     }
 }
 

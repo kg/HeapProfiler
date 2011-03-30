@@ -289,7 +289,12 @@ namespace HeapProfiler {
                             yield return rtc;
 
                         var fProcess = Future.RunInThread(() => {
-                            var cacheBatch = new Batch<TracebackFrame>(batch.Count);
+                            var cacheBatch = Database.SymbolCache.CreateBatch(batch.Count);
+
+                            DecisionUpdateCallback<HashSet<UInt32>> updateCallback = (ref HashSet<UInt32> oldValue, ref HashSet<UInt32> newValue) => {
+                                newValue.UnionWith(oldValue);
+                                return true;
+                            };
 
                             foreach (var traceback in rtc.Result.Tracebacks) {
                                 var index = (int)(traceback.Key) - 1;
@@ -304,6 +309,10 @@ namespace HeapProfiler {
                                 }
 
                                 cacheBatch.Add(key, frame);
+                                if (frame.Function != null) {
+                                    var tempHash = new HashSet<uint>();
+                                    tempHash.Add(key);
+                                }
                             }
 
                             foreach (var frame in batch) {
@@ -326,13 +335,13 @@ namespace HeapProfiler {
                                 // Console.WriteLine("Could not resolve: {0:X8}", frame.Frame);
                             }
 
-                            return cacheBatch;
+                            return new IBatch[] { cacheBatch };
                         });
 
                         yield return fProcess;
 
-                        var fUpdateCache = fProcess.Result;
-                        yield return fUpdateCache.Execute(Database.SymbolCache);
+                        foreach (var manglerBatch in fProcess.Result)
+                            yield return manglerBatch.Execute();
 
                         Interlocked.Add(ref SymbolResolveState.Count, batch.Count);
                         batch.Clear();

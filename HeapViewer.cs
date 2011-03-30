@@ -51,15 +51,15 @@ namespace HeapProfiler {
                 FormatFlags = StringFormatFlags.NoWrap | StringFormatFlags.FitBlackBox
             };
 
+
+
             Instance = instance;
             if (Instance != null) {
                 Timeline.Items = Instance.Snapshots;
             } else {
                 Timeline.Visible = false;
-                MainSplit.Height += Timeline.Bottom - MainSplit.Bottom;
+                LayoutView.Height += Timeline.Bottom - LayoutView.Bottom;
             }
-
-            ViewSplit_SizeChanged(ViewSplit, EventArgs.Empty);
         }
 
         public HeapViewer (TaskScheduler scheduler)
@@ -68,17 +68,6 @@ namespace HeapProfiler {
 
         protected void SetBusy (bool busy) {
             UseWaitCursor = Updating = busy;
-        }
-
-        public void RefreshModules () {
-            if (Updating)
-                return;
-
-            SetBusy(true);
-
-            ModuleList.Items = (from m in Snapshot.Modules select m.ShortFilename).ToArray();
-
-            SetBusy(false);
         }
 
         public void RefreshHeap () {
@@ -97,44 +86,12 @@ namespace HeapProfiler {
             Dispose();
 
             Snapshot.Info.ReleaseStrongReference();
-            ModuleList.Items = new string[0];
             Timeline.Items = new HeapSnapshotInfo[0];
             LayoutView.Snapshot = Snapshot = null;
         }
 
         private void CloseMenu_Click (object sender, EventArgs e) {
             Close();
-        }
-
-        private void TracebackFilter_TextChanged (object sender, EventArgs e) {
-            string newFilter = null;
-            if (FunctionNames.Contains(TracebackFilter.Text))
-                newFilter = TracebackFilter.Text;
-
-            var newColor =
-                (TracebackFilter.Text.Length > 0) ?
-                    ((newFilter == null) ?
-                        Color.LightPink : Color.LightGoldenrodYellow)
-                    : SystemColors.Window;
-
-            if (newColor != TracebackFilter.BackColor)
-                TracebackFilter.BackColor = newColor;
-
-            if (newFilter != FunctionFilter) {
-                // TODO
-                // DeltaHistogram.FunctionFilter = DeltaList.FunctionFilter = FunctionFilter = newFilter;
-                RefreshHeap();
-            }
-        }
-
-        private void ViewListMenu_Click (object sender, EventArgs e) {
-        }
-
-        private void ViewHistogramMenu_Click (object sender, EventArgs e) {
-        }
-
-        private void ViewSplit_SizeChanged (object sender, EventArgs e) {
-            TracebackFilter.Width = ViewSplit.Panel1.ClientSize.Width - FindIcon.Width;
         }
 
         private IEnumerator<object> SetCurrentSnapshot (HeapSnapshotInfo info) {
@@ -149,7 +106,6 @@ namespace HeapProfiler {
                 yield return fSnapshot;
 
                 Snapshot = fSnapshot.Result;
-                RefreshModules();
                 RefreshHeap();
             }
         }
