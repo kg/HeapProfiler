@@ -166,13 +166,29 @@ namespace HeapProfiler {
 
             yield return SymbolCache.CreateIndex(
                 "ByFunction", 
-                (tf) => {
-                    var fn = (tf.Function ?? "").ToLower();
-                    if (fn.Length > 64)
-                        fn = fn.Substring(0, 64);
-                    return new TangleKey(fn);
-                }
+                IndexSymbolByFunction
             );
+
+            /*
+            yield return Tracebacks.CreateIndex(
+                "ByFramePrefix",
+                IndexTracebackByFrames
+            );
+             */
+        }
+
+        protected static IEnumerable<UInt32> IndexTracebackByFrames (HeapSnapshot.Traceback traceback) {
+            var a = traceback.Frames.Array;
+            for (int i = 0, c = traceback.Frames.Count, o = traceback.Frames.Offset; i < c; i++)
+                yield return a[i + o];
+        }
+
+        protected static string IndexSymbolByFunction (ref TracebackFrame frame) {
+            var fn = (frame.Function ?? "").ToLower();
+            if (fn.Length > 64)
+                fn = fn.Substring(0, 64);
+
+            return fn;
         }
 
         public IEnumerator<object> Move (string targetFilename, ActivityIndicator activities) {
