@@ -549,24 +549,28 @@
             this.ViewBytesAllocatedMenu.Name = "ViewBytesAllocatedMenu";
             this.ViewBytesAllocatedMenu.Size = new System.Drawing.Size(226, 22);
             this.ViewBytesAllocatedMenu.Text = "Bytes Allocated";
+            this.ViewBytesAllocatedMenu.Click += new System.EventHandler(this.ViewBytesAllocatedMenu_Click);
             // 
             // ViewBytesOverheadMenu
             // 
             this.ViewBytesOverheadMenu.Name = "ViewBytesOverheadMenu";
             this.ViewBytesOverheadMenu.Size = new System.Drawing.Size(226, 22);
             this.ViewBytesOverheadMenu.Text = "Bytes of Overhead";
+            this.ViewBytesOverheadMenu.Click += new System.EventHandler(this.ViewBytesOverheadMenu_Click);
             // 
             // ViewBytesAllocatedPlusOverheadMenu
             // 
             this.ViewBytesAllocatedPlusOverheadMenu.Name = "ViewBytesAllocatedPlusOverheadMenu";
             this.ViewBytesAllocatedPlusOverheadMenu.Size = new System.Drawing.Size(226, 22);
             this.ViewBytesAllocatedPlusOverheadMenu.Text = "Bytes Allocated + Overhead";
+            this.ViewBytesAllocatedPlusOverheadMenu.Click += new System.EventHandler(this.ViewBytesAllocatedPlusOverheadMenu_Click);
             // 
             // ViewAllocationCountMenu
             // 
             this.ViewAllocationCountMenu.Name = "ViewAllocationCountMenu";
             this.ViewAllocationCountMenu.Size = new System.Drawing.Size(226, 22);
             this.ViewAllocationCountMenu.Text = "Number of Allocations";
+            this.ViewAllocationCountMenu.Click += new System.EventHandler(this.ViewAllocationCountMenu_Click);
             // 
             // Activities
             // 

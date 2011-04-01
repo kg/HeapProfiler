@@ -451,12 +451,39 @@ namespace HeapProfiler {
             return (long)(item.HeapFragmentation * 10000);
         }
 
+        protected long GetAllocationCount (HeapSnapshotInfo item) {
+            return (long)(item.AllocationCount);
+        }
+
+        protected long GetBytesAllocated (HeapSnapshotInfo item) {
+            return (long)(item.BytesAllocated);
+        }
+
+        protected long GetBytesOverhead (HeapSnapshotInfo item) {
+            return (long)(item.BytesOverhead);
+        }
+
+        protected long GetBytesTotal (HeapSnapshotInfo item) {
+            return (long)(item.BytesTotal);
+        }
+
         protected string FormatSizeBytes (long bytes) {
             return FileSize.Format(bytes);
         }
 
         protected string FormatPercentage (long percentage) {
             return String.Format("{0}%", (percentage / 100.0f));
+        }
+
+        protected string FormatCount (long count) {
+            if (count < 1000)
+                return count.ToString();
+            else if (count < 1000000)
+                return String.Format("{0:###,000}", count);
+            else if (count < 1000000000)
+                return String.Format("{0:###,000,000}", count);
+            else
+                return String.Format("{0:###,000,000,000}", count);
         }
 
         private void ViewPagedMemoryMenu_Click (object sender, EventArgs e) {
@@ -499,6 +526,26 @@ namespace HeapProfiler {
             SnapshotTimeline.ItemValueFormatter = FormatPercentage;
         }
 
+        private void ViewBytesAllocatedMenu_Click (object sender, EventArgs e) {
+            SnapshotTimeline.ItemValueGetter = GetBytesAllocated;
+            SnapshotTimeline.ItemValueFormatter = FormatSizeBytes;
+        }
+
+        private void ViewBytesOverheadMenu_Click (object sender, EventArgs e) {
+            SnapshotTimeline.ItemValueGetter = GetBytesOverhead;
+            SnapshotTimeline.ItemValueFormatter = FormatSizeBytes;
+        }
+
+        private void ViewBytesAllocatedPlusOverheadMenu_Click (object sender, EventArgs e) {
+            SnapshotTimeline.ItemValueGetter = GetBytesTotal;
+            SnapshotTimeline.ItemValueFormatter = FormatSizeBytes;
+        }
+
+        private void ViewAllocationCountMenu_Click (object sender, EventArgs e) {
+            SnapshotTimeline.ItemValueGetter = GetAllocationCount;
+            SnapshotTimeline.ItemValueFormatter = FormatCount;
+        }
+
         private void SnapshotTimeline_ItemValueGetterChanged (object sender, EventArgs e) {
             var getter = SnapshotTimeline.ItemValueGetter;
             ViewPagedMemoryMenu.Checked = (getter == GetPagedMemory);
@@ -509,6 +556,10 @@ namespace HeapProfiler {
             ViewLargestOccupiedHeapMenu.Checked = (getter == GetLargestOccupiedHeapBlock);
             ViewAverageHeapBlockSizeMenu.Checked = (getter == GetAverageOccupiedHeapBlockSize);
             ViewHeapFragmentationMenu.Checked = (getter == GetHeapFragmentation);
+            ViewAllocationCountMenu.Checked = (getter == GetAllocationCount);
+            ViewBytesAllocatedMenu.Checked = (getter == GetBytesAllocated);
+            ViewBytesOverheadMenu.Checked = (getter == GetBytesOverhead);
+            ViewBytesAllocatedPlusOverheadMenu.Checked = (getter == GetBytesTotal);
         }
 
         private void ViewSelection_Click (object sender, EventArgs e) {
