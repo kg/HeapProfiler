@@ -28,12 +28,7 @@
             this.LoadingPanel = new System.Windows.Forms.GroupBox();
             this.LoadingProgress = new System.Windows.Forms.ProgressBar();
             this.MainSplit = new System.Windows.Forms.SplitContainer();
-            this.ModuleList = new HeapProfiler.ModuleSelector();
             this.ViewSplit = new System.Windows.Forms.SplitContainer();
-            this.FindIcon = new System.Windows.Forms.PictureBox();
-            this.TracebackFilter = new System.Windows.Forms.TextBox();
-            this.DeltaHistogram = new HeapProfiler.DeltaHistogram();
-            this.DeltaList = new HeapProfiler.DeltaList();
             this.MainMenu = new System.Windows.Forms.MenuStrip();
             this.fileToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.SaveDiffMenu = new System.Windows.Forms.ToolStripMenuItem();
@@ -47,6 +42,10 @@
             this.StatusLabel = new System.Windows.Forms.ToolStripStatusLabel();
             this.AllocationTotals = new System.Windows.Forms.ToolStripStatusLabel();
             this.Timeline = new HeapProfiler.SnapshotTimeline();
+            this.ModuleList = new HeapProfiler.ModuleSelector();
+            this.TracebackFilter = new HeapProfiler.FilterControl();
+            this.DeltaHistogram = new HeapProfiler.DeltaHistogram();
+            this.DeltaList = new HeapProfiler.DeltaList();
             this.LoadingPanel.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.MainSplit)).BeginInit();
             this.MainSplit.Panel1.SuspendLayout();
@@ -56,7 +55,6 @@
             this.ViewSplit.Panel1.SuspendLayout();
             this.ViewSplit.Panel2.SuspendLayout();
             this.ViewSplit.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.FindIcon)).BeginInit();
             this.MainMenu.SuspendLayout();
             this.StatusBar.SuspendLayout();
             this.SuspendLayout();
@@ -110,16 +108,6 @@
             this.MainSplit.TabIndex = 1;
             this.MainSplit.Visible = false;
             // 
-            // ModuleList
-            // 
-            this.ModuleList.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.ModuleList.Location = new System.Drawing.Point(0, 0);
-            this.ModuleList.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
-            this.ModuleList.Name = "ModuleList";
-            this.ModuleList.Size = new System.Drawing.Size(161, 404);
-            this.ModuleList.TabIndex = 0;
-            this.ModuleList.FilterChanged += new System.EventHandler(this.ModuleList_FilterChanged);
-            // 
             // ViewSplit
             // 
             this.ViewSplit.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -132,7 +120,6 @@
             // 
             // ViewSplit.Panel1
             // 
-            this.ViewSplit.Panel1.Controls.Add(this.FindIcon);
             this.ViewSplit.Panel1.Controls.Add(this.TracebackFilter);
             // 
             // ViewSplit.Panel2
@@ -143,58 +130,6 @@
             this.ViewSplit.SplitterDistance = 30;
             this.ViewSplit.SplitterWidth = 1;
             this.ViewSplit.TabIndex = 2;
-            this.ViewSplit.SizeChanged += new System.EventHandler(this.ViewSplit_SizeChanged);
-            // 
-            // FindIcon
-            // 
-            this.FindIcon.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("FindIcon.BackgroundImage")));
-            this.FindIcon.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Center;
-            this.FindIcon.Dock = System.Windows.Forms.DockStyle.Left;
-            this.FindIcon.Location = new System.Drawing.Point(0, 0);
-            this.FindIcon.Margin = new System.Windows.Forms.Padding(5);
-            this.FindIcon.Name = "FindIcon";
-            this.FindIcon.Size = new System.Drawing.Size(24, 30);
-            this.FindIcon.TabIndex = 5;
-            this.FindIcon.TabStop = false;
-            // 
-            // TracebackFilter
-            // 
-            this.TracebackFilter.AutoCompleteMode = System.Windows.Forms.AutoCompleteMode.SuggestAppend;
-            this.TracebackFilter.AutoCompleteSource = System.Windows.Forms.AutoCompleteSource.CustomSource;
-            this.TracebackFilter.Dock = System.Windows.Forms.DockStyle.Right;
-            this.TracebackFilter.Font = new System.Drawing.Font("Consolas", 11.25F);
-            this.TracebackFilter.Location = new System.Drawing.Point(24, 0);
-            this.TracebackFilter.Margin = new System.Windows.Forms.Padding(5);
-            this.TracebackFilter.Name = "TracebackFilter";
-            this.TracebackFilter.Size = new System.Drawing.Size(587, 29);
-            this.TracebackFilter.TabIndex = 4;
-            this.ToolTips.SetToolTip(this.TracebackFilter, "Filter Tracebacks By Function");
-            this.TracebackFilter.TextChanged += new System.EventHandler(this.TracebackFilter_TextChanged);
-            // 
-            // DeltaHistogram
-            // 
-            this.DeltaHistogram.BackColor = System.Drawing.SystemColors.Window;
-            this.DeltaHistogram.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.DeltaHistogram.Font = new System.Drawing.Font("Consolas", 11.25F);
-            this.DeltaHistogram.ForeColor = System.Drawing.SystemColors.WindowText;
-            this.DeltaHistogram.Location = new System.Drawing.Point(0, 0);
-            this.DeltaHistogram.Margin = new System.Windows.Forms.Padding(5);
-            this.DeltaHistogram.Name = "DeltaHistogram";
-            this.DeltaHistogram.Size = new System.Drawing.Size(611, 373);
-            this.DeltaHistogram.TabIndex = 4;
-            this.DeltaHistogram.Visible = false;
-            // 
-            // DeltaList
-            // 
-            this.DeltaList.BackColor = System.Drawing.SystemColors.Window;
-            this.DeltaList.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.DeltaList.Font = new System.Drawing.Font("Consolas", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.DeltaList.ForeColor = System.Drawing.SystemColors.WindowText;
-            this.DeltaList.Location = new System.Drawing.Point(0, 0);
-            this.DeltaList.Margin = new System.Windows.Forms.Padding(5);
-            this.DeltaList.Name = "DeltaList";
-            this.DeltaList.Size = new System.Drawing.Size(611, 373);
-            this.DeltaList.TabIndex = 3;
             // 
             // MainMenu
             // 
@@ -310,6 +245,51 @@
             this.Timeline.TabIndex = 4;
             this.Timeline.SelectionChanged += new System.EventHandler(this.Timeline_RangeChanged);
             // 
+            // ModuleList
+            // 
+            this.ModuleList.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.ModuleList.Location = new System.Drawing.Point(0, 0);
+            this.ModuleList.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
+            this.ModuleList.Name = "ModuleList";
+            this.ModuleList.Size = new System.Drawing.Size(161, 404);
+            this.ModuleList.TabIndex = 0;
+            this.ModuleList.FilterChanged += new System.EventHandler(this.ModuleList_FilterChanged);
+            // 
+            // TracebackFilter
+            // 
+            this.TracebackFilter.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.TracebackFilter.Location = new System.Drawing.Point(0, 0);
+            this.TracebackFilter.Name = "TracebackFilter";
+            this.TracebackFilter.Size = new System.Drawing.Size(611, 30);
+            this.TracebackFilter.TabIndex = 0;
+            this.TracebackFilter.FilterChanging += new HeapProfiler.FilterChangingEventHandler(this.TracebackFilter_FilterChanging);
+            this.TracebackFilter.FilterChanged += new System.EventHandler(this.TracebackFilter_FilterChanged);
+            // 
+            // DeltaHistogram
+            // 
+            this.DeltaHistogram.BackColor = System.Drawing.SystemColors.Window;
+            this.DeltaHistogram.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.DeltaHistogram.Font = new System.Drawing.Font("Consolas", 11.25F);
+            this.DeltaHistogram.ForeColor = System.Drawing.SystemColors.WindowText;
+            this.DeltaHistogram.Location = new System.Drawing.Point(0, 0);
+            this.DeltaHistogram.Margin = new System.Windows.Forms.Padding(5);
+            this.DeltaHistogram.Name = "DeltaHistogram";
+            this.DeltaHistogram.Size = new System.Drawing.Size(611, 373);
+            this.DeltaHistogram.TabIndex = 4;
+            this.DeltaHistogram.Visible = false;
+            // 
+            // DeltaList
+            // 
+            this.DeltaList.BackColor = System.Drawing.SystemColors.Window;
+            this.DeltaList.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.DeltaList.Font = new System.Drawing.Font("Consolas", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.DeltaList.ForeColor = System.Drawing.SystemColors.WindowText;
+            this.DeltaList.Location = new System.Drawing.Point(0, 0);
+            this.DeltaList.Margin = new System.Windows.Forms.Padding(5);
+            this.DeltaList.Name = "DeltaList";
+            this.DeltaList.Size = new System.Drawing.Size(611, 373);
+            this.DeltaList.TabIndex = 3;
+            // 
             // DiffViewer
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
@@ -334,11 +314,9 @@
             ((System.ComponentModel.ISupportInitialize)(this.MainSplit)).EndInit();
             this.MainSplit.ResumeLayout(false);
             this.ViewSplit.Panel1.ResumeLayout(false);
-            this.ViewSplit.Panel1.PerformLayout();
             this.ViewSplit.Panel2.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.ViewSplit)).EndInit();
             this.ViewSplit.ResumeLayout(false);
-            ((System.ComponentModel.ISupportInitialize)(this.FindIcon)).EndInit();
             this.MainMenu.ResumeLayout(false);
             this.MainMenu.PerformLayout();
             this.StatusBar.ResumeLayout(false);
@@ -368,9 +346,8 @@
         private System.Windows.Forms.ToolStripStatusLabel AllocationTotals;
         private ModuleSelector ModuleList;
         private System.Windows.Forms.SplitContainer ViewSplit;
-        private System.Windows.Forms.PictureBox FindIcon;
-        private System.Windows.Forms.TextBox TracebackFilter;
         private DeltaHistogram DeltaHistogram;
         private DeltaList DeltaList;
+        private FilterControl TracebackFilter;
     }
 }

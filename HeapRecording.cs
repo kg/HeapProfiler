@@ -862,6 +862,11 @@ namespace HeapProfiler {
                     frameSymbols = fSymbols.Result.ToDictionary(
                         (kvp) => kvp.Key, (kvp) => kvp.Value
                     );
+
+                    foreach (var kvp in frameSymbols) {
+                        if (kvp.Value.Function != null)
+                            functionNames.Add(kvp.Value.Function);
+                    }
                 }
 
                 foreach (var kvp in fTracebacks.Result) {
@@ -877,6 +882,11 @@ namespace HeapProfiler {
                             tracebackFrames.Array[i + o] = new TracebackFrame(rawFrame);
                         else
                             tracebackFrames.Array[i + o] = symbol;
+
+                        if (symbol.Function != null)
+                            tracebackFunctions.Add(symbol.Function);
+                        if (symbol.Module != null)
+                            tracebackModules.Add(symbol.Module);
                     }
 
                     var tracebackInfo = new TracebackInfo {

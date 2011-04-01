@@ -72,8 +72,6 @@ namespace HeapProfiler {
                 Timeline.Visible = false;
                 MainSplit.Height += Timeline.Bottom - MainSplit.Bottom;
             }
-
-            ViewSplit_SizeChanged(ViewSplit, EventArgs.Empty);
         }
 
         public DiffViewer (TaskScheduler scheduler)
@@ -125,8 +123,7 @@ namespace HeapProfiler {
             FunctionNames = diff.FunctionNames;
             Deltas = diff.Deltas;
 
-            TracebackFilter.AutoCompleteCustomSource.Clear();
-            TracebackFilter.AutoCompleteCustomSource.AddRange(FunctionNames.ToArray());
+            TracebackFilter.AutoCompleteItems = FunctionNames;
 
             Text = "Diff Viewer - " + filename;
             Filename = filename;
@@ -262,24 +259,19 @@ namespace HeapProfiler {
             Close();
         }
 
-        private void TracebackFilter_TextChanged (object sender, EventArgs e) {
-            string newFilter = null;
-            if (FunctionNames.Contains(TracebackFilter.Text))
-                newFilter = TracebackFilter.Text;
+        private void TracebackFilter_FilterChanging (object sender, FilterChangingEventArgs e) {
+            if (e.Filter.Trim().Length == 0)
+                return;
 
-            var newColor =
-                (TracebackFilter.Text.Length > 0) ?
-                    ((newFilter == null) ?
-                        Color.LightPink : Color.LightGoldenrodYellow)
-                    : SystemColors.Window;
+            if (FunctionNames.Contains(e.Filter))
+                e.SetValid(true);
+            else
+                e.SetValid(false);
+        }
 
-            if (newColor != TracebackFilter.BackColor)
-                TracebackFilter.BackColor = newColor;
-
-            if (newFilter != FunctionFilter) {
-                DeltaHistogram.FunctionFilter = DeltaList.FunctionFilter = FunctionFilter = newFilter;
-                RefreshDeltas();
-            }
+        private void TracebackFilter_FilterChanged (object sender, EventArgs e) {
+            DeltaHistogram.FunctionFilter = DeltaList.FunctionFilter = FunctionFilter = TracebackFilter.Filter;
+            RefreshDeltas();
         }
 
         private void ViewListMenu_Click (object sender, EventArgs e) {
@@ -311,10 +303,6 @@ namespace HeapProfiler {
 
         private void ModuleList_FilterChanged (object sender, EventArgs e) {
             RefreshDeltas();
-        }
-
-        private void ViewSplit_SizeChanged (object sender, EventArgs e) {
-            TracebackFilter.Width = ViewSplit.Panel1.ClientSize.Width - FindIcon.Width;
         }
     }
 }

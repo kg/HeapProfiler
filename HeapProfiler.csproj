@@ -55,6 +55,12 @@
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="DatabaseFile.cs" />
+    <Compile Include="FilterControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="FilterControl.Designer.cs">
+      <DependentUpon>FilterControl.cs</DependentUpon>
+    </Compile>
     <Compile Include="HeapDiff.cs" />
     <Compile Include="HeapLayoutView.cs">
       <SubType>UserControl</SubType>
@@ -116,6 +122,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="DiffViewer.resx">
       <DependentUpon>DiffViewer.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="FilterControl.resx">
+      <DependentUpon>FilterControl.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="HeapViewer.resx">
       <DependentUpon>HeapViewer.cs</DependentUpon>
