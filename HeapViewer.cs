@@ -51,7 +51,8 @@ namespace HeapProfiler {
                 FormatFlags = StringFormatFlags.NoWrap | StringFormatFlags.FitBlackBox
             };
 
-
+            Timeline.ItemValueGetter = MainWindow.GetBytesTotal;
+            Timeline.ItemValueFormatter = MainWindow.FormatSizeBytes;
 
             Instance = instance;
             if (Instance != null) {
@@ -86,7 +87,7 @@ namespace HeapProfiler {
             Dispose();
 
             Snapshot.Info.ReleaseStrongReference();
-            Timeline.Items = new HeapSnapshotInfo[0];
+            Timeline.Items = new List<HeapSnapshotInfo>();
             LayoutView.Snapshot = Snapshot = null;
         }
 
@@ -111,13 +112,13 @@ namespace HeapProfiler {
         }
 
         private void Timeline_RangeChanged (object sender, EventArgs e) {
-            var info = Timeline.Begin;
+            var info = Instance.Snapshots[Timeline.Selection.First];
             UseWaitCursor = true;
             Start(SetCurrentSnapshot(info));
         }
 
         public void SetSnapshot (int index) {
-            Timeline.Indices = Pair.New(index, index);
+            Timeline.Selection = Pair.New(index, index);
         }
     }
 }

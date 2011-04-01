@@ -363,6 +363,11 @@ namespace HeapProfiler {
         }
 
         public void OpenRecording (string filename) {
+            if (!DatabaseFile.CheckTokenFileVersion(filename)) {
+                MessageBox.Show(this, "The recording you have selected was produced by a different version of Heap Profiler and cannot be opened.", "Error");
+                return;
+            }
+
             Instance = HeapRecording.FromRecording(
                 Scheduler, Activities, filename
             );
@@ -419,63 +424,63 @@ namespace HeapProfiler {
                 (SnapshotTimeline.Selection.First == SnapshotTimeline.Selection.Second);
         }
 
-        protected long GetPagedMemory (HeapSnapshotInfo item) {
+        public static long GetPagedMemory (HeapSnapshotInfo item) {
             return item.Memory.Paged;
         }
 
-        protected long GetVirtualMemory (HeapSnapshotInfo item) {
+        public static long GetVirtualMemory (HeapSnapshotInfo item) {
             return item.Memory.Virtual;
         }
 
-        protected long GetWorkingSet (HeapSnapshotInfo item) {
+        public static long GetWorkingSet (HeapSnapshotInfo item) {
             return item.Memory.WorkingSet;
         }
 
-        protected long GetLargestFreeHeapBlock (HeapSnapshotInfo item) {
+        public static long GetLargestFreeHeapBlock (HeapSnapshotInfo item) {
             return item.LargestFreeHeapBlock;
         }
 
-        protected long GetAverageFreeHeapBlockSize (HeapSnapshotInfo item) {
+        public static long GetAverageFreeHeapBlockSize (HeapSnapshotInfo item) {
             return item.AverageFreeBlockSize;
         }
 
-        protected long GetLargestOccupiedHeapBlock (HeapSnapshotInfo item) {
+        public static long GetLargestOccupiedHeapBlock (HeapSnapshotInfo item) {
             return item.LargestOccupiedHeapBlock;
         }
 
-        protected long GetAverageOccupiedHeapBlockSize (HeapSnapshotInfo item) {
+        public static long GetAverageOccupiedHeapBlockSize (HeapSnapshotInfo item) {
             return item.AverageOccupiedBlockSize;
         }
 
-        protected long GetHeapFragmentation (HeapSnapshotInfo item) {
+        public static long GetHeapFragmentation (HeapSnapshotInfo item) {
             return (long)(item.HeapFragmentation * 10000);
         }
 
-        protected long GetAllocationCount (HeapSnapshotInfo item) {
+        public static long GetAllocationCount (HeapSnapshotInfo item) {
             return (long)(item.AllocationCount);
         }
 
-        protected long GetBytesAllocated (HeapSnapshotInfo item) {
+        public static long GetBytesAllocated (HeapSnapshotInfo item) {
             return (long)(item.BytesAllocated);
         }
 
-        protected long GetBytesOverhead (HeapSnapshotInfo item) {
+        public static long GetBytesOverhead (HeapSnapshotInfo item) {
             return (long)(item.BytesOverhead);
         }
 
-        protected long GetBytesTotal (HeapSnapshotInfo item) {
+        public static long GetBytesTotal (HeapSnapshotInfo item) {
             return (long)(item.BytesTotal);
         }
 
-        protected string FormatSizeBytes (long bytes) {
+        public static string FormatSizeBytes (long bytes) {
             return FileSize.Format(bytes);
         }
 
-        protected string FormatPercentage (long percentage) {
+        public static string FormatPercentage (long percentage) {
             return String.Format("{0}%", (percentage / 100.0f));
         }
 
-        protected string FormatCount (long count) {
+        public static string FormatCount (long count) {
             if (count < 1000)
                 return count.ToString();
             else if (count < 1000000)

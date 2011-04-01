@@ -62,6 +62,9 @@ namespace HeapProfiler {
                 FormatFlags = StringFormatFlags.NoWrap | StringFormatFlags.FitBlackBox
             };
 
+            Timeline.ItemValueGetter = MainWindow.GetBytesTotal;
+            Timeline.ItemValueFormatter = MainWindow.FormatSizeBytes;
+
             Instance = instance;
             if (Instance != null) {
                 Timeline.Items = Instance.Snapshots;
@@ -96,7 +99,7 @@ namespace HeapProfiler {
             var s1 = Instance.Snapshots[range.First];
             var s2 = Instance.Snapshots[range.Second];
 
-            Timeline.Indices = range;
+            Timeline.Selection = range;
 
             var f = Start(Instance.DiffSnapshots(s1, s2));
             using (f)
@@ -290,7 +293,7 @@ namespace HeapProfiler {
         }
 
         private void Timeline_RangeChanged (object sender, EventArgs e) {
-            var pair = Timeline.Indices;
+            var pair = Timeline.Selection;
 
             if (pair.CompareTo(PendingLoadPair) != 0) {
                 if (PendingLoad != null) {

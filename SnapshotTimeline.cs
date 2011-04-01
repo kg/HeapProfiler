@@ -30,6 +30,8 @@ namespace HeapProfiler {
         protected ScrollBar ScrollBar = null;
         protected ToolTip ToolTip;
 
+        protected bool _AllowMultiselect = true, _RequireMultiselect = false;
+        protected bool _Scrollable = true;
         protected Func<TItem, long> _ItemValueGetter;
         protected Func<long, string> _ItemValueFormatter;
         protected int _ZoomRatio = 100;
@@ -126,9 +128,9 @@ namespace HeapProfiler {
         }
 
         protected override void OnPaint (PaintEventArgs e) {
-            int height = ClientSize.Height - ScrollBar.Height;
+            int height = ClientSize.Height;
 
-            int pixelsPerMinute = PixelsPerMinute * ZoomRatio / 100;
+            int pixelsPerMinute = (PixelsPerMinute * (_Scrollable ? ZoomRatio : 100)) / 100;
             long maxValue = MaximumThreshold;
             long minTicks = 0, maxTicks = 0;
             int contentWidth;
@@ -139,31 +141,62 @@ namespace HeapProfiler {
                 maxValue = Math.Max(MaximumThreshold, (from s in Items select _ItemValueGetter(s)).Max());
                 minTicks = (from s in Items select s.Timestamp.Ticks).Min();
                 maxTicks = (from s in Items select s.Timestamp.Ticks).Max();
+
+                bool rescaled = false;
+
+            rescale:
                 _ContentWidth = contentWidth = (int)(
-                    (maxTicks - minTicks) 
+                    (maxTicks - minTicks)
                     * pixelsPerMinute / minuteInTicks
                 ) + MarginWidth;
+
+                if (!_Scrollable && !rescaled) {
+                    _ZoomRatio = (int)Math.Floor(ClientSize.Width / (double)(contentWidth + 1) * 100.0);
+                    pixelsPerMinute = (PixelsPerMinute * _ZoomRatio) / 100;
+                    rescaled = true;
+
+                    goto rescale;
+                }
             } else {
                 _ContentWidth = contentWidth = MarginWidth;
             }
 
-            if (_ScrollOffset > contentWidth - ClientSize.Width)
-                _ScrollOffset = contentWidth - ClientSize.Width;
-            if (_ScrollOffset < 0)
+            if (_Scrollable) {
+                height -= ScrollBar.Height;
+
+                if (_ScrollOffset > contentWidth - ClientSize.Width)
+                    _ScrollOffset = contentWidth - ClientSize.Width;
+                if (_ScrollOffset < 0)
+                    _ScrollOffset = 0;
+
+                int scrollMax = contentWidth - ClientSize.Width + ScrollBar.LargeChange - 1;
+                bool enabled = (scrollMax > 0);
+                if (scrollMax < 0)
+                    scrollMax = 0;
+
+                // WinForms' scrollbar control is terrible
+                if (ScrollBar.Maximum != scrollMax)
+                    ScrollBar.Maximum = scrollMax;
+                if (ScrollBar.Value != _ScrollOffset)
+                    ScrollBar.Value = _ScrollOffset;
+                if (ScrollBar.Enabled != enabled)
+                    ScrollBar.Enabled = enabled;
+                if (!ScrollBar.Visible)
+                    ScrollBar.Visible = true;
+                if (!ZoomInButton.Visible)
+                    ZoomInButton.Visible = true;
+                if (!ZoomOutButton.Visible)
+                    ZoomOutButton.Visible = true;
+            } else {
+                if (ScrollBar.Visible)
+                    ScrollBar.Visible = false;
+                if (ZoomInButton.Visible)
+                    ZoomInButton.Visible = false;
+                if (ZoomOutButton.Visible)
+                    ZoomOutButton.Visible = false;
+
                 _ScrollOffset = 0;
-
-            int scrollMax = contentWidth - ClientSize.Width + ScrollBar.LargeChange - 1;
-            bool enabled = (scrollMax > 0);
-            if (scrollMax < 0)
-                scrollMax = 0;
-
-            // WinForms' scrollbar control is terrible
-            if (ScrollBar.Maximum != scrollMax)
-                ScrollBar.Maximum = scrollMax;
-            if (ScrollBar.Value != _ScrollOffset)
-                ScrollBar.Value = _ScrollOffset;
-            if (ScrollBar.Enabled != enabled)
-                ScrollBar.Enabled = enabled;
+            }
 
             using (var outlinePen = new Pen(Color.Black))
             using (var gridPen = new Pen(Color.FromArgb(96, 0, 0, 0)))
@@ -357,7 +390,8 @@ namespace HeapProfiler {
             var index1 = IndexFromPoint(_MouseDownLocation.Value, -1);
             var index2 = IndexFromPoint(mouseLocation, 1);
 
-            if (Math.Abs(mouseLocation.X - _MouseDownLocation.Value.X) >= MinSelectionDistance) {
+            if (_AllowMultiselect && 
+                (Math.Abs(mouseLocation.X - _MouseDownLocation.Value.X) >= MinSelectionDistance)) {
                 var newSelection = Pair.New(
                     Math.Min(index1, index2),
                     Math.Max(index1, index2)
@@ -602,6 +636,19 @@ namespace HeapProfiler {
                 if ((value.Second < 0) || (value.Second >= Items.Count))
                     value.Second = -1;
 
+                if (!_AllowMultiselect) {
+                    if (_Selection.Second != _Selection.First)
+                        throw new InvalidOperationException("AllowMultiselect is false");
+                }
+
+                if (_RequireMultiselect && (value.First == value.Second)) {
+                    if (value.First < (Items.Count - 1)) {
+                        value.Second = value.First + 1;
+                    } else {
+                        value.First = value.Second - 1;
+                    }
+                }
+
                 if (_Selection.CompareTo(value) != 0) {
                     _Selection = value;
 
@@ -609,6 +656,44 @@ namespace HeapProfiler {
                     if (SelectionChanged != null)
                         SelectionChanged(this, EventArgs.Empty);
                 }
+            }
+        }
+
+        public bool Scrollable {
+            get {
+                return _Scrollable;
+            }
+            set {
+                if (value != _Scrollable) {
+                    _Scrollable = value;
+                    Invalidate();
+                }
+            }
+        }
+
+        public bool AllowMultiselect {
+            get {
+                return _AllowMultiselect;
+            }
+            set {
+                _AllowMultiselect = value;
+                
+                if (value == false && (_Selection.First != _Selection.Second)) {
+                    _Selection = Pair.New(_Selection.First, _Selection.First);
+
+                    Invalidate();
+                    if (SelectionChanged != null)
+                        SelectionChanged(this, EventArgs.Empty);
+                }
+            }
+        }
+
+        public bool RequireMultiselect {
+            get {
+                return _RequireMultiselect;
+            }
+            set {
+                _RequireMultiselect = value;
             }
         }
 

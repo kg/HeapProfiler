@@ -11,6 +11,8 @@ using Squared.Util.Bind;
 
 namespace HeapProfiler {
     public class DatabaseFile : IDisposable {
+        public const int FileVersion = 1;
+
         public readonly TaskScheduler Scheduler;
 
         public FolderStreamSource Storage;
@@ -142,9 +144,17 @@ namespace HeapProfiler {
             output = new HashSet<UInt32>(addresses);
         }
 
+        public static bool CheckTokenFileVersion (string filename) {
+            int version;
+            if (!int.TryParse(File.ReadAllText(filename), out version) || version != FileVersion)
+                return false;
+
+            return true;
+        }
+
         protected void MakeTokenFile (string filename) {
             _TokenFilePath = Path.Combine(filename, Path.GetFileNameWithoutExtension(filename) + ".heaprecording");
-            File.WriteAllText(_TokenFilePath, "");
+            File.WriteAllText(_TokenFilePath, FileVersion.ToString());
         }
 
         protected IEnumerator<object> CreateTangles () {

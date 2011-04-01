@@ -110,9 +110,6 @@
     <Compile Include="SymbolSettingsDialog.Designer.cs">
       <DependentUpon>SymbolSettingsDialog.cs</DependentUpon>
     </Compile>
-    <Compile Include="TimelineRangeSelector.cs">
-      <SubType>UserControl</SubType>
-    </Compile>
     <Compile Include="Util.cs" />
     <EmbeddedResource Include="DeltaTooltip.resx">
       <DependentUpon>DeltaTooltip.cs</DependentUpon>
