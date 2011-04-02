@@ -37,6 +37,7 @@
             this.ExecutablePath = new System.Windows.Forms.TextBox();
             this.LaunchProcess = new System.Windows.Forms.Button();
             this.GroupSnapshots = new System.Windows.Forms.GroupBox();
+            this.HeapFilter = new HeapProfiler.FilterControl();
             this.ViewSelection = new System.Windows.Forms.Button();
             this.AutoCapture = new System.Windows.Forms.CheckBox();
             this.DiffSelection = new System.Windows.Forms.Button();
@@ -72,7 +73,6 @@
             this.ViewBytesAllocatedPlusOverheadMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.ViewAllocationCountMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.Activities = new HeapProfiler.ActivityIndicator();
-            this.HeapFilter = new HeapProfiler.FilterControl();
             this.GroupExecutable.SuspendLayout();
             this.GroupSnapshots.SuspendLayout();
             this.MainMenu.SuspendLayout();
@@ -233,6 +233,17 @@
             this.GroupSnapshots.TabStop = false;
             this.GroupSnapshots.Text = "Snapshots";
             // 
+            // HeapFilter
+            // 
+            this.HeapFilter.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)
+                        | System.Windows.Forms.AnchorStyles.Right)));
+            this.HeapFilter.Location = new System.Drawing.Point(5, 288);
+            this.HeapFilter.Name = "HeapFilter";
+            this.HeapFilter.Size = new System.Drawing.Size(541, 29);
+            this.HeapFilter.TabIndex = 8;
+            this.HeapFilter.FilterChanging += new HeapProfiler.FilterChangingEventHandler(this.HeapFilter_FilterChanging);
+            this.HeapFilter.FilterChanged += new System.EventHandler(this.HeapFilter_FilterChanged);
+            // 
             // ViewSelection
             // 
             this.ViewSelection.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
@@ -251,7 +262,7 @@
             this.AutoCapture.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.AutoCapture.Appearance = System.Windows.Forms.Appearance.Button;
             this.AutoCapture.Location = new System.Drawing.Point(553, 52);
-            this.AutoCapture.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
+            this.AutoCapture.Margin = new System.Windows.Forms.Padding(4);
             this.AutoCapture.Name = "AutoCapture";
             this.AutoCapture.Size = new System.Drawing.Size(133, 27);
             this.AutoCapture.TabIndex = 4;
@@ -542,20 +553,11 @@
             this.Activities.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)
                         | System.Windows.Forms.AnchorStyles.Right)));
             this.Activities.Location = new System.Drawing.Point(11, 511);
-            this.Activities.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
+            this.Activities.Margin = new System.Windows.Forms.Padding(4);
             this.Activities.Name = "Activities";
             this.Activities.Size = new System.Drawing.Size(692, 12);
             this.Activities.TabIndex = 3;
             this.Activities.PreferredSizeChanged += new System.EventHandler(this.Activities_PreferredSizeChanged);
-            // 
-            // HeapFilter
-            // 
-            this.HeapFilter.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)
-                        | System.Windows.Forms.AnchorStyles.Right)));
-            this.HeapFilter.Location = new System.Drawing.Point(5, 288);
-            this.HeapFilter.Name = "HeapFilter";
-            this.HeapFilter.Size = new System.Drawing.Size(541, 29);
-            this.HeapFilter.TabIndex = 8;
             // 
             // MainWindow
             // 

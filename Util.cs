@@ -823,4 +823,42 @@ namespace HeapProfiler {
             }
         }
     }
+
+    public static class SequenceUtils {
+        public static void Zip<T, U> (IEnumerable<T> left, IEnumerable<U> right, Action<T, U> action) {
+            using (var eLeft = left.GetEnumerator())
+            using (var eRight = right.GetEnumerator()) {
+                while (eLeft.MoveNext() && eRight.MoveNext())
+                    action(eLeft.Current, eRight.Current);
+            }
+        }
+
+        public static int? GetCountFast<T> (IEnumerable<T> items) {
+            T[] array = items as T[];
+            ICollection<T> collection = items as ICollection<T>;
+
+            if (array != null)
+                return array.Length;
+            else if (collection != null)
+                return collection.Count;
+            else
+                return null;
+        }
+
+        public static Dictionary<TKey, TValue> ToDictionary<TKey, TValue> (IEnumerable<TKey> keys, IEnumerable<TValue> values) {
+            var count = Math.Min(
+                GetCountFast(keys).GetValueOrDefault(256),
+                GetCountFast(values).GetValueOrDefault(256)
+            );
+            var result = new Dictionary<TKey, TValue>(count);
+
+            using (var eKeys = keys.GetEnumerator())
+            using (var eValues = values.GetEnumerator()) {
+                while (eKeys.MoveNext() && eValues.MoveNext())
+                    result.Add(eKeys.Current, eValues.Current);
+            }
+
+            return result;
+        }
+    }
 }

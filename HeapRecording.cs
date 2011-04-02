@@ -118,17 +118,23 @@ namespace HeapProfiler {
         protected HeapRecording (
             TaskScheduler scheduler,
             ActivityIndicator activities,
-            string recordingFilename
+            string filename
         ) {
             Scheduler = scheduler;
             Activities = activities;
 
-            Futures.Add(Scheduler.Start(
-                LoadRecordingMainTask(recordingFilename), 
+            DiffCache.ItemEvicted += DiffCache_ItemEvicted;
+
+            if (filename.EndsWith(".heaprecording") || File.Exists(filename))
+                filename = Path.GetDirectoryName(filename);
+
+            if (!Directory.Exists(filename))
+                throw new Exception(String.Format("Recording not found: {0}", filename));
+
+            _Database = new DatabaseFile(Scheduler, filename); Futures.Add(Scheduler.Start(
+                LoadRecordingMainTask(filename), 
                 TaskExecutionPolicy.RunAsBackgroundTask
             ));
-
-            DiffCache.ItemEvicted += DiffCache_ItemEvicted;
         }
 
         public IEnumerator<object> SaveAs (string filename) {
@@ -496,18 +502,6 @@ namespace HeapProfiler {
         }
 
         protected IEnumerator<object> LoadRecordingMainTask (string filename) {
-            if (filename.EndsWith(".heaprecording") || File.Exists(filename))
-                filename = Path.GetDirectoryName(filename);
-
-            if (!Directory.Exists(filename)) {
-                MessageBox.Show(String.Format("Recording not found: {0}", filename), "Error");
-                yield break;
-            }
-
-            yield return Future.RunInThread(() =>
-                new DatabaseFile(Scheduler, filename)
-            ).Bind(() => _Database);
-
             StartHelperTasks();
 
             using (Activities.AddItem("Loading snapshot info")) {
@@ -578,51 +572,57 @@ namespace HeapProfiler {
             var fModules = Database.SnapshotModules.Get(info.Index);
             var fHeaps = Database.SnapshotHeaps.Get(info.Index);
 
-            using (Activities.AddItem("Loading modules")) {
-                yield return fModules;
+            yield return fModules;
 
-                var fModuleInfos = Database.Modules.Select(
-                    from moduleName in fModules.Result select moduleName
-                );
-                yield return fModuleInfos;
+            var fModuleInfos = Database.Modules.Select(
+                from moduleName in fModules.Result select moduleName
+            );
+            yield return fModuleInfos;
 
-                foreach (var kvp in fModuleInfos.Result)
-                    result.Modules.Add(kvp.Value);
-            }
+            foreach (var module in fModuleInfos.Result)
+                result.Modules.Add(module);
 
-            using (Activities.AddItem("Loading heaps")) {
-                yield return fHeaps;
+            yield return fHeaps;
 
-                var fAllocations = Database.HeapAllocations.Select(
-                    from heap in fHeaps.Result select heap.HeapID
-                );
-                yield return fAllocations;
+            var heapIDs = from heap in fHeaps.Result select heap.HeapID;
+            var fAllocations = Database.HeapAllocations.Select(heapIDs);
+            yield return fAllocations;
 
-                var allocations = fAllocations.Result.ToDictionary(
-                    (kvp) => kvp.Key, (kvp) => kvp.Value
-                );
+            var allocations = SequenceUtils.ToDictionary(heapIDs, fAllocations.Result);
 
-                foreach (var heapInfo in fHeaps.Result) {
-                    var theHeap = new HeapSnapshot.Heap(heapInfo);
+            var tracebackIDs = new HashSet<UInt32>();
 
-                    var allocationIds = allocations[heapInfo.HeapID];
-                    theHeap.Allocations.Capacity = allocationIds.Count;
+            foreach (var heapInfo in fHeaps.Result) {
+                var theHeap = new HeapSnapshot.Heap(heapInfo);
 
-                    var fRanges = Database.Allocations.Select(allocationIds);
-                    yield return fRanges;
+                var allocationIds = allocations[heapInfo.HeapID];
+                theHeap.Allocations.Capacity = allocationIds.Length;
 
-                    foreach (var kvp in fRanges.Result) {
+                var fRanges = Database.Allocations.Select(allocationIds);
+                yield return fRanges;
+
+                SequenceUtils.Zip(
+                    allocationIds, fRanges.Result, (id, ranges) => {
                         HeapSnapshot.AllocationRanges.Range range;
 
-                        if (kvp.Value.Get(info.Index, out range))
+                        if (ranges.Get(info.Index, out range)) {
                             theHeap.Allocations.Add(new HeapSnapshot.Allocation(
-                                kvp.Key, range.Size, range.Overhead, range.TracebackID
+                                id, range.Size, range.Overhead, range.TracebackID
                             ));
-                    }
 
-                    result.Heaps.Add(theHeap);
-                }
+                            tracebackIDs.Add(range.TracebackID);
+                        }
+                    }
+                );
+
+                result.Heaps.Add(theHeap);
             }
+
+            var fTracebacks = Database.Tracebacks.Select(tracebackIDs);
+            yield return fTracebacks;
+
+            foreach (var traceback in fTracebacks.Result)
+                result.Tracebacks.Add(traceback);
 
             yield return Result.New(result);
         }
@@ -788,8 +788,8 @@ namespace HeapProfiler {
                 using (fAllocations)
                     yield return fAllocations;
 
-                foreach (var kvp in fAllocations.Result)
-                    allocationIds.UnionWith(kvp.Value);
+                foreach (var ids in fAllocations.Result)
+                    allocationIds.UnionWith(ids);
             }
 
             {
@@ -799,9 +799,9 @@ namespace HeapProfiler {
                 using (fAllocationRanges)
                     yield return fAllocationRanges;
 
-                foreach (var kvp in fAllocationRanges.Result) {
-                    var ranges = kvp.Value.Ranges.Array;
-                    for (int i = 0, c = kvp.Value.Ranges.Count, o = kvp.Value.Ranges.Offset; i < c; i++) {
+                foreach (var item in fAllocationRanges.Result) {
+                    var ranges = item.Ranges.Array;
+                    for (int i = 0, c = item.Ranges.Count, o = item.Ranges.Offset; i < c; i++) {
                         var range = ranges[i + o];
 
                         if ((range.First <= first.Index) &&
@@ -851,17 +851,15 @@ namespace HeapProfiler {
                 {
                     var rawFrames = new HashSet<UInt32>();
 
-                    foreach (var kvp in fTracebacks.Result)
-                        foreach (var rawFrame in kvp.Value)
+                    foreach (var traceback in fTracebacks.Result)
+                        foreach (var rawFrame in traceback)
                             rawFrames.Add(rawFrame);
 
                     var fSymbols = Database.SymbolCache.Select(rawFrames);
                     using (fSymbols)
                         yield return fSymbols;
 
-                    frameSymbols = fSymbols.Result.ToDictionary(
-                        (kvp) => kvp.Key, (kvp) => kvp.Value
-                    );
+                    frameSymbols = SequenceUtils.ToDictionary(rawFrames, fSymbols.Result);
 
                     foreach (var kvp in frameSymbols) {
                         if (kvp.Value.Function != null)
@@ -869,13 +867,13 @@ namespace HeapProfiler {
                     }
                 }
 
-                foreach (var kvp in fTracebacks.Result) {
+                foreach (var traceback in fTracebacks.Result) {
                     var tracebackFunctions = new NameTable(StringComparer.Ordinal);
                     var tracebackModules = new NameTable(StringComparer.Ordinal);
-                    var tracebackFrames = ImmutableArrayPool<TracebackFrame>.Allocate(kvp.Value.Frames.Count);
+                    var tracebackFrames = ImmutableArrayPool<TracebackFrame>.Allocate(traceback.Frames.Count);
 
                     for (int i = 0, o = tracebackFrames.Offset, c = tracebackFrames.Count; i < c; i++) {
-                        var rawFrame = kvp.Value.Frames.Array[kvp.Value.Frames.Offset + i];
+                        var rawFrame = traceback.Frames.Array[traceback.Frames.Offset + i];
                         var symbol = frameSymbols[rawFrame];
 
                         if ((symbol.Offset == 0) && (!symbol.Offset2.HasValue))
@@ -893,10 +891,10 @@ namespace HeapProfiler {
                         Frames = tracebackFrames,
                         Functions = tracebackFunctions,
                         Modules = tracebackModules,
-                        TraceId = kvp.Key
+                        TraceId = traceback.ID
                     };
 
-                    tracebacks[kvp.Key] = tracebackInfo;
+                    tracebacks[traceback.ID] = tracebackInfo;
                 }
 
                 foreach (var delta in deltas)

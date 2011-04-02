@@ -21,10 +21,12 @@ namespace HeapProfiler {
         public Tangle<HeapSnapshot.Module> Modules;
         public Tangle<HeapSnapshot.Traceback> Tracebacks;
         public Tangle<HeapSnapshot.AllocationRanges> Allocations;
-        public Tangle<HashSet<UInt32>> HeapAllocations;
+        public Tangle<UInt32[]> HeapAllocations;
         public Tangle<TracebackFrame> SymbolCache;
         public Tangle<string[]> SnapshotModules;
         public Tangle<HeapSnapshot.HeapInfo[]> SnapshotHeaps;
+
+        public Index<string, TracebackFrame> SymbolsByFunction;
 
         private readonly Dictionary<string, Delegate> Deserializers = new Dictionary<string, Delegate>();
         private readonly Dictionary<string, Delegate> Serializers = new Dictionary<string, Delegate>();
@@ -52,8 +54,8 @@ namespace HeapProfiler {
             Serializers["SnapshotModules"] = (Serializer<string[]>)SerializeModuleList;
             Deserializers["SnapshotHeaps"] = (Deserializer<HeapSnapshot.HeapInfo[]>)DeserializeHeapList;
             Serializers["SnapshotHeaps"] = (Serializer<HeapSnapshot.HeapInfo[]>)SerializeHeapList;
-            Deserializers["HeapAllocations"] = (Deserializer<HashSet<UInt32>>)DeserializeAddresses;
-            Serializers["HeapAllocations"] = (Serializer<HashSet<UInt32>>)SerializeAddresses;
+            Deserializers["HeapAllocations"] = (Deserializer<UInt32[]>)DeserializeAddresses;
+            Serializers["HeapAllocations"] = (Serializer<UInt32[]>)SerializeAddresses;
         }
 
         public DatabaseFile (TaskScheduler scheduler, string filename)
@@ -116,22 +118,18 @@ namespace HeapProfiler {
             }
         }
 
-        static unsafe void SerializeAddresses (ref SerializationContext context, ref HashSet<UInt32> input) {
+        static unsafe void SerializeAddresses (ref SerializationContext context, ref UInt32[] input) {
             var stream = context.Stream;
-            var buffer = new byte[4];
+            var buffer = new byte[input.Length * 4];
 
-            fixed (byte * pBuffer = buffer) {
-                *(int *)pBuffer = input.Count;
-                stream.Write(buffer, 0, 4);
-
-                foreach (var address in input) {
-                    *(UInt32 *)pBuffer = address;
-                    stream.Write(buffer, 0, 4);
-                }
-            }
+            fixed (byte * pBuffer = buffer)
+            fixed (UInt32 * pInput = input)
+                Native.memmove(pBuffer, (byte *)pInput, new UIntPtr((uint)buffer.Length));
+                
+            stream.Write(buffer, 0, buffer.Length);
         }
 
-        static unsafe void DeserializeAddresses (ref DeserializationContext context, out HashSet<UInt32> output) {
+        static unsafe void DeserializeAddresses (ref DeserializationContext context, out UInt32[] output) {
             var stream = context.Stream;
 
             var pointer = context.Source;
@@ -141,7 +139,7 @@ namespace HeapProfiler {
             fixed (UInt32 * pAddresses = addresses)
                 Native.memmove((byte *)pAddresses, context.Source + 4, new UIntPtr((uint)count * 4));
 
-            output = new HashSet<UInt32>(addresses);
+            output = addresses;
         }
 
         public static bool CheckTokenFileVersion (string filename) {
@@ -177,7 +175,7 @@ namespace HeapProfiler {
             yield return SymbolCache.CreateIndex(
                 "ByFunction", 
                 IndexSymbolByFunction
-            );
+            ).Bind(() => SymbolsByFunction);
 
             /*
             yield return Tracebacks.CreateIndex(
@@ -194,10 +192,7 @@ namespace HeapProfiler {
         }
 
         protected static string IndexSymbolByFunction (ref TracebackFrame frame) {
-            var fn = (frame.Function ?? "").ToLower();
-            if (fn.Length > 64)
-                fn = fn.Substring(0, 64);
-
+            var fn = (frame.Function ?? "???");
             return fn;
         }
 

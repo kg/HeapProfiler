@@ -56,6 +56,18 @@ namespace HeapProfiler {
 
         private void FilterText_TextChanged (object sender, EventArgs e) {
             if (FilterText.Text != _Filter) {
+                if (FilterText.Text.Trim().Length == 0) {
+                    if (SystemColors.Window != FilterText.BackColor)
+                        FilterText.BackColor = SystemColors.Window;
+
+                    _Filter = null;
+
+                    if (FilterChanged != null)
+                        FilterChanged(this, EventArgs.Empty);
+
+                    return;
+                }
+
                 var ea = new FilterChangingEventArgs(FilterText.Text);
 
                 if (FilterChanging != null)

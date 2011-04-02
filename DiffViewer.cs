@@ -62,7 +62,7 @@ namespace HeapProfiler {
                 FormatFlags = StringFormatFlags.NoWrap | StringFormatFlags.FitBlackBox
             };
 
-            Timeline.ItemValueGetter = MainWindow.GetBytesTotal;
+            Timeline.ItemValueGetter = GetBytesTotal;
             Timeline.ItemValueFormatter = MainWindow.FormatSizeBytes;
 
             Instance = instance;
@@ -76,6 +76,10 @@ namespace HeapProfiler {
 
         public DiffViewer (TaskScheduler scheduler)
             : this(scheduler, null) {
+        }
+
+        public long GetBytesTotal (HeapSnapshotInfo item) {
+            return (long)(item.BytesTotal);
         }
 
         protected void SetBusy (bool busy) {

@@ -159,7 +159,21 @@ namespace HeapProfiler {
         }
     }
 
-    public class HeapSnapshotInfo {
+    public class FilteredHeapSnapshotInfo {
+        public readonly long BytesAllocated, BytesOverhead, BytesTotal;
+        public readonly int AllocationCount;
+
+        public FilteredHeapSnapshotInfo (
+            long bytesAllocated, long bytesOverhead, long bytesTotal, int allocationCount
+        ) {
+            BytesAllocated = bytesAllocated;
+            BytesOverhead = bytesOverhead;
+            BytesTotal = bytesTotal;
+            AllocationCount = allocationCount;
+        }
+    }
+
+    public class HeapSnapshotInfo : FilteredHeapSnapshotInfo {
         public readonly int Index;
         public readonly DateTime Timestamp;
         public readonly string Filename;
@@ -168,13 +182,19 @@ namespace HeapProfiler {
         public readonly float HeapFragmentation;
         public readonly long LargestFreeHeapBlock, LargestOccupiedHeapBlock;
         public readonly long AverageFreeBlockSize, AverageOccupiedBlockSize;
-        public readonly long BytesAllocated, BytesOverhead, BytesTotal;
-        public readonly int AllocationCount;
 
         private HeapSnapshot _StrongRef;
         private WeakReference _WeakRef;
 
-        public HeapSnapshotInfo (int index, DateTime timestamp, string filename, MemoryStatistics memory, HeapSnapshot snapshot) {
+        public HeapSnapshotInfo (
+            int index, DateTime timestamp, string filename, 
+            MemoryStatistics memory, HeapSnapshot snapshot
+        ) : base (
+            (from heap in snapshot.Heaps select (from alloc in heap.Allocations select (long)alloc.Size).Sum()).Sum(),
+            (from heap in snapshot.Heaps select (from alloc in heap.Allocations select (long)alloc.Overhead).Sum()).Sum(),
+            (from heap in snapshot.Heaps select (from alloc in heap.Allocations select (long)(alloc.Size + alloc.Overhead)).Sum()).Sum(),
+            (from heap in snapshot.Heaps select heap.Allocations.Count).Sum()
+        ) {
             Index = index;
             Timestamp = timestamp;
             Filename = filename;
@@ -186,10 +206,6 @@ namespace HeapProfiler {
             LargestOccupiedHeapBlock = (from heap in snapshot.Heaps select heap.Info.LargestOccupiedSpan).Max();
             AverageFreeBlockSize = (long)(from heap in snapshot.Heaps select (heap.Info.EstimatedFree) / Math.Max(heap.Info.EmptySpans, 1)).Average();
             AverageOccupiedBlockSize = (long)(from heap in snapshot.Heaps select (heap.Info.TotalOverhead + heap.Info.TotalRequested) / Math.Max(heap.Info.OccupiedSpans, 1)).Average();
-            AllocationCount = (from heap in snapshot.Heaps select heap.Allocations.Count).Sum();
-            BytesAllocated = (from heap in snapshot.Heaps select (from alloc in heap.Allocations select (long)alloc.Size).Sum()).Sum();
-            BytesOverhead = (from heap in snapshot.Heaps select (from alloc in heap.Allocations select (long)alloc.Overhead).Sum()).Sum();
-            BytesTotal = (from heap in snapshot.Heaps select (from alloc in heap.Allocations select (long)(alloc.Size + alloc.Overhead)).Sum()).Sum();
         }
 
         protected HeapSnapshotInfo (
@@ -198,6 +214,8 @@ namespace HeapProfiler {
             long averageFreeBlockSize, long averageOccupiedBlockSize, 
             long bytesAllocated, long bytesOverhead, long bytesTotal,
             int allocationCount
+        ) : base (
+            bytesAllocated, bytesOverhead, bytesTotal, allocationCount
         ) {
             Index = index;
             Timestamp = timestamp;
@@ -209,10 +227,6 @@ namespace HeapProfiler {
             LargestOccupiedHeapBlock = largestOccupiedHeapBlock;
             AverageFreeBlockSize = averageFreeBlockSize;
             AverageOccupiedBlockSize = averageOccupiedBlockSize;
-            BytesAllocated = bytesAllocated;
-            BytesOverhead = bytesOverhead;
-            BytesTotal = bytesTotal;
-            AllocationCount = allocationCount;
 
             _StrongRef = null;
             _WeakRef = null;
@@ -932,7 +946,7 @@ namespace HeapProfiler {
                 if (fAddressSet.Failed)
                     addressSet = new HashSet<UInt32>();
                 else
-                    addressSet = fAddressSet.Result;
+                    addressSet = new HashSet<UInt32>(fAddressSet.Result);
 
                 var batch = db.Allocations.CreateBatch(heap.Allocations.Count);
 
@@ -948,7 +962,7 @@ namespace HeapProfiler {
 
                 yield return batch.Execute();
 
-                yield return db.HeapAllocations.Set(heap.ID, addressSet);
+                yield return db.HeapAllocations.Set(heap.ID, addressSet.ToArray());
             }
 
             yield return db.SnapshotHeaps.Set(Index, (from heap in Heaps select heap.Info).ToArray());

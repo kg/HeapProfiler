@@ -35,6 +35,11 @@ namespace HeapProfiler {
 
         public HeapRecording Instance = null;
 
+        protected HashSet<string> KnownFunctionNames = new HashSet<string>();
+        protected string CurrentFilter = null, PendingFilter = null;
+        protected Dictionary<HeapSnapshotInfo, FilteredHeapSnapshotInfo> CurrentFilterData = null;
+        protected IFuture PendingFilterFuture = null;
+
         protected IFuture AutoCaptureFuture = null;
         protected bool WasMinimized = false;
 
@@ -106,9 +111,21 @@ namespace HeapProfiler {
             ExecutablePath.Text = files[0];
         }
 
-        private void LaunchProcess_Click (object sender, EventArgs e) {
+        private void DisposeInstance () {
             if (Instance != null)
                 Instance.Dispose();
+
+            if (PendingFilterFuture != null)
+                PendingFilterFuture.Dispose();
+
+            PendingFilter = CurrentFilter = null;
+            CurrentFilterData = null;
+
+            HeapFilter.Filter = null;
+        }
+
+        private void LaunchProcess_Click (object sender, EventArgs e) {
+            DisposeInstance();
 
             LaunchProcess.Enabled = false;
 
@@ -368,6 +385,8 @@ namespace HeapProfiler {
                 return;
             }
 
+            DisposeInstance();
+
             Instance = HeapRecording.FromRecording(
                 Scheduler, Activities, filename
             );
@@ -376,9 +395,15 @@ namespace HeapProfiler {
 
             RefreshStatus();
             RefreshSnapshots();
+
+            Scheduler.Start(
+                RefreshFunctionNames(Instance), TaskExecutionPolicy.RunAsBackgroundTask
+            );
         }
 
         public void OpenSnapshots (IEnumerable<string> filenames) {
+            DisposeInstance();
+
             Instance = HeapRecording.FromSnapshots(
                 Scheduler, Activities, filenames.OrderBy((f) => f)
             );
@@ -456,20 +481,44 @@ namespace HeapProfiler {
             return (long)(item.HeapFragmentation * 10000);
         }
 
-        public static long GetAllocationCount (HeapSnapshotInfo item) {
-            return (long)(item.AllocationCount);
+        public long GetAllocationCount (HeapSnapshotInfo item) {
+            FilteredHeapSnapshotInfo info = item;
+
+            if (CurrentFilterData != null)
+                if (!CurrentFilterData.TryGetValue(item, out info))
+                    info = item;
+
+            return (long)(info.AllocationCount);
         }
 
-        public static long GetBytesAllocated (HeapSnapshotInfo item) {
-            return (long)(item.BytesAllocated);
+        public long GetBytesAllocated (HeapSnapshotInfo item) {
+            FilteredHeapSnapshotInfo info = item;
+
+            if (CurrentFilterData != null)
+                if (!CurrentFilterData.TryGetValue(item, out info))
+                    info = item;
+
+            return (long)(info.BytesAllocated);
         }
 
-        public static long GetBytesOverhead (HeapSnapshotInfo item) {
-            return (long)(item.BytesOverhead);
+        public long GetBytesOverhead (HeapSnapshotInfo item) {
+            FilteredHeapSnapshotInfo info = item;
+
+            if (CurrentFilterData != null)
+                if (!CurrentFilterData.TryGetValue(item, out info))
+                    info = item;
+
+            return (long)(info.BytesOverhead);
         }
 
-        public static long GetBytesTotal (HeapSnapshotInfo item) {
-            return (long)(item.BytesTotal);
+        public long GetBytesTotal (HeapSnapshotInfo item) {
+            FilteredHeapSnapshotInfo info = item;
+
+            if (CurrentFilterData != null)
+                if (!CurrentFilterData.TryGetValue(item, out info))
+                    info = item;
+
+            return (long)(info.BytesTotal);
         }
 
         public static string FormatSizeBytes (long bytes) {
@@ -692,6 +741,115 @@ namespace HeapProfiler {
         private void MainWindow_DragOver (object sender, DragEventArgs e) {
             if (e.Data.GetDataPresent(DataFormats.FileDrop))
                 e.Effect = DragDropEffects.Copy;
+        }
+
+        protected IEnumerator<object> RefreshFunctionNames (HeapRecording instance) {
+            var sleep = new Sleep(0.05);
+            // This sucks :(
+            while (instance.Database.SymbolsByFunction == null)
+                yield return sleep;
+
+            var result = new HashSet<string>();
+
+            var keys = instance.Database.SymbolsByFunction.GetAllKeys();
+            using (keys)
+                yield return keys;
+
+            foreach (var key in keys.Result) {
+                var text = key.Value as string;
+
+                if (text != null)
+                    result.Add(text);
+            }
+
+            KnownFunctionNames = result;
+            HeapFilter.AutoCompleteItems = result;
+        }
+
+        protected IEnumerator<object> FilterHeapData (HeapRecording instance, string filter) {
+            var result = new Dictionary<HeapSnapshotInfo, FilteredHeapSnapshotInfo>();
+
+            using (var activity = Activities.AddItem("Filtering heap")) {
+                var fFrameIDs = instance.Database.SymbolsByFunction.Find(filter);
+                using (fFrameIDs)
+                    yield return fFrameIDs;
+
+                var frameIDs = new HashSet<UInt32>(
+                    from key in fFrameIDs.Result select BitConverter.ToUInt32(key.Data.Array, key.Data.Offset)
+                );
+
+                for (int i = 0, c = instance.Snapshots.Count; i < c; i++) {
+                    activity.Maximum = c;
+                    activity.Progress = i;
+
+                    var info = instance.Snapshots[i];
+
+                    var fSnapshot = instance.GetSnapshot(info);
+                    using (fSnapshot)
+                        yield return fSnapshot;
+
+                    var snapshot = fSnapshot.Result;
+                    Func<HeapSnapshot.Traceback, bool> tracebackMatches = (traceback) => {
+                        var _f = traceback.Frames.Array;
+                        for (int _i = 0, _c = traceback.Frames.Count, _o = traceback.Frames.Offset; _i < _c; _i++) {
+                            if (frameIDs.Contains(_f[_i + _o]))
+                                return true;
+                        }
+
+                        return false;
+                    };
+
+                    var matchingTracebacks = new HashSet<UInt32>(
+                        from traceback in snapshot.Tracebacks.AsParallel() where tracebackMatches(traceback) select traceback.ID
+                    );
+
+                    var fInfo = Future.RunInThread(() => new FilteredHeapSnapshotInfo(
+                        (from heap in snapshot.Heaps.AsParallel() select (from alloc in heap.Allocations.AsParallel() where matchingTracebacks.Contains(alloc.TracebackID) select (long)alloc.Size).Sum()).Sum(),
+                        (from heap in snapshot.Heaps.AsParallel() select (from alloc in heap.Allocations.AsParallel() where matchingTracebacks.Contains(alloc.TracebackID) select (long)alloc.Overhead).Sum()).Sum(),
+                        (from heap in snapshot.Heaps.AsParallel() select (from alloc in heap.Allocations.AsParallel() where matchingTracebacks.Contains(alloc.TracebackID) select (long)(alloc.Size + alloc.Overhead)).Sum()).Sum(),
+                        (from heap in snapshot.Heaps.AsParallel() select (from alloc in heap.Allocations.AsParallel() where matchingTracebacks.Contains(alloc.TracebackID) select alloc).Count()).Sum()
+                    ));
+
+                    yield return fInfo;
+                    result[info] = fInfo.Result;
+
+                    info.ReleaseStrongReference();
+                }
+            }
+
+            CurrentFilterData = result;
+            CurrentFilter = filter;
+            PendingFilter = null;
+            PendingFilterFuture = null;
+
+            SnapshotTimeline.Invalidate();
+        }
+
+        private void HeapFilter_FilterChanging (object sender, FilterChangingEventArgs args) {
+            args.SetValid(KnownFunctionNames.Contains(args.Filter));
+        }
+
+        private void HeapFilter_FilterChanged (object sender, EventArgs e) {
+            if (HeapFilter.Filter != CurrentFilter) {
+                if (HeapFilter.Filter == PendingFilter)
+                    return;
+
+                if (PendingFilterFuture != null)
+                    PendingFilterFuture.Dispose();
+
+                PendingFilter = HeapFilter.Filter;
+                PendingFilterFuture = Scheduler.Start(
+                    FilterHeapData(Instance, HeapFilter.Filter), 
+                    TaskExecutionPolicy.RunAsBackgroundTask
+                );
+            } else {
+                PendingFilter = null;
+
+                if (PendingFilterFuture != null) {
+                    PendingFilterFuture.Dispose();
+                    PendingFilterFuture = null;
+                }
+            }
         }
     }
 }
