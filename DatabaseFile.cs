@@ -122,6 +122,9 @@ namespace HeapProfiler {
             var stream = context.Stream;
             var buffer = new byte[input.Length * 4];
 
+            var lengthBytes = ImmutableBufferPool.GetBytes(input.Length);
+            stream.Write(lengthBytes.Array, lengthBytes.Offset, lengthBytes.Count);
+
             fixed (byte * pBuffer = buffer)
             fixed (UInt32 * pInput = input)
                 Native.memmove(pBuffer, (byte *)pInput, new UIntPtr((uint)buffer.Length));
@@ -136,8 +139,11 @@ namespace HeapProfiler {
             var count = *(int *)pointer;
             var addresses = new UInt32[count];
 
+            if ((count * 4) + 4 > context.SourceLength)
+                throw new InvalidDataException();
+
             fixed (UInt32 * pAddresses = addresses)
-                Native.memmove((byte *)pAddresses, context.Source + 4, new UIntPtr((uint)count * 4));
+                Native.memmove((byte *)pAddresses, pointer + 4, new UIntPtr((uint)count * 4));
 
             output = addresses;
         }
