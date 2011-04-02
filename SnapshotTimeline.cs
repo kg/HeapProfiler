@@ -24,6 +24,7 @@ namespace HeapProfiler {
         public const int MinSelectionDistance = 5;
 
         public List<TItem> Items = new List<TItem>();
+        public readonly Dictionary<string, ICollection<long>> DataSeries = new Dictionary<string, ICollection<long>>();
 
         protected ScratchBuffer Scratch = new ScratchBuffer();
         protected Button ZoomInButton = null, ZoomOutButton = null;
@@ -127,6 +128,34 @@ namespace HeapProfiler {
         protected override void OnPaintBackground (PaintEventArgs e) {            
         }
 
+        protected void DrawValueSeries (
+            Graphics g, 
+            IEnumerable<int> xCoords, IEnumerable<float> yCoords, 
+            int width, int height, Brush fillBrush, Pen outlinePen
+        ) {
+            var points = new List<PointF>();
+
+            using (var xEnum = xCoords.GetEnumerator())
+            using (var yEnum = yCoords.GetEnumerator())
+            while (xEnum.MoveNext() && yEnum.MoveNext()) {
+                var x = xEnum.Current;
+                points.Add(new PointF(x, yEnum.Current));
+                if (x > width)
+                    break;
+            }
+
+            for (int c = points.Count, i = c - 1; i >= 0; i--)
+                points.Add(new PointF(points[i].X, height));
+
+            if (points.Count >= 2) {
+                var poly = points.ToArray();
+
+                g.FillPolygon(fillBrush, poly);
+
+                g.DrawPolygon(outlinePen, poly);
+            }
+        }
+
         protected override void OnPaint (PaintEventArgs e) {
             int height = ClientSize.Height;
 
@@ -227,64 +256,41 @@ namespace HeapProfiler {
                     }
                 }
 
-                int x = 0, lastX = 0;
-                float lastY = 0;
-                y = 0;
+                var itemXCoordinates = (from item in Items
+                                        select
+                                            (int)((item.Timestamp.Ticks - minTicks)
+                                            * pixelsPerMinute / minuteInTicks
+                                            ) - _ScrollOffset);
+                var itemYCoordinates = (from item in Items
+                                        select
+                                            (float)(height - VerticalMargin - (
+                                            (_ItemValueGetter(item) / (double)maxValue) *
+                                            (height - VerticalMargin * 2)
+                                            )));
 
-                List<PointF> points = new List<PointF>(), 
-                    mousePoints = new List<PointF>();
+                var firstIndex = Math.Max(0, IndexFromPoint(new Point(0, 0), -1));
 
-                for (
-                    int i = Math.Max(0, IndexFromPoint(new Point(0, 0), -1)); 
-                    (i < Items.Count) && (lastX <= ClientSize.Width); i++
-                ) {
-                    bool selected = HasSelection &&
-                        (i >= _Selection.First) &&
-                        (i <= _Selection.Second);
-                    var item = Items[i];
-                    var value = _ItemValueGetter(item);
+                using (var brush = new SolidBrush(Color.FromArgb(127, ForeColor)))
+                    DrawValueSeries(
+                        g, 
+                        itemXCoordinates.Skip(firstIndex),
+                        itemYCoordinates.Skip(firstIndex),
+                        ClientSize.Width, height, 
+                        brush, outlinePen
+                    );
 
-                    lastY = y;
-                    y = (float)(height - VerticalMargin - ((value / (double)maxValue) * (height - VerticalMargin * 2)));
-                    lastX = x;
-                    x = (int)((item.Timestamp.Ticks - minTicks)
-                        * pixelsPerMinute / minuteInTicks) - _ScrollOffset;
+                firstIndex = Selection.First;
+                var takeCount = Selection.Second - Selection.First + 1;
 
-                    using (var brush = new SolidBrush(selected ? SystemColors.HighlightText : ForeColor))
-                        g.FillEllipse(brush, x - 2.5f, y - 2.5f, 5f, 5f);
-
-                    points.Add(new PointF(x, y));
-
-                    if (selected)
-                        mousePoints.Add(new PointF(x, y));
-                }
-
-                for (int c = points.Count, i = c - 1; i >= 0; i--)
-                    points.Add(new PointF(points[i].X, height));
-
-                for (int c = mousePoints.Count, i = c - 1; i >= 0; i--)
-                    mousePoints.Add(new PointF(mousePoints[i].X, height));
-
-                if (points.Count >= 2) {
-                    var poly = points.ToArray();
-
-                    using (var brush = new SolidBrush(Color.FromArgb(127, ForeColor)))
-                        g.FillPolygon(brush, poly);
-
-                    g.DrawPolygon(outlinePen, poly);
-                }
-
-                if (mousePoints.Count >= 2) {
-                    var poly = mousePoints.ToArray();
-
-                    using (var brush = new SolidBrush(SystemColors.Highlight))
-                        g.FillPolygon(brush, poly);
-
-                    using (var pen = new Pen(SystemColors.HighlightText)) {
-                        pen.Width = 2.0f;
-                        g.DrawPolygon(pen, poly);
-                    }
-                }
+                using (var brush = new SolidBrush(SystemColors.Highlight))
+                using (var pen = new Pen(SystemColors.HighlightText) { Width = 2.0f })
+                    DrawValueSeries(
+                        g, 
+                        itemXCoordinates.Skip(firstIndex).Take(takeCount),
+                        itemYCoordinates.Skip(firstIndex).Take(takeCount),
+                        ClientSize.Width, height, 
+                        brush, pen
+                    );
 
                 var cursorPos = PointToClient(Cursor.Position);
 
@@ -300,7 +306,7 @@ namespace HeapProfiler {
                     using (var pen = new Pen(SystemColors.HighlightText)) {
                         pen.Width = 2.0f;
                         var item = Items[mouseIndex];
-                        x = (int)((item.Timestamp.Ticks - minTicks) * pixelsPerMinute / minuteInTicks) - _ScrollOffset;
+                        var x = (int)((item.Timestamp.Ticks - minTicks) * pixelsPerMinute / minuteInTicks) - _ScrollOffset;
                         g.DrawLine(
                             pen, 
                             x, 0, x, height

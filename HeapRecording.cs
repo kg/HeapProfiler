@@ -572,21 +572,25 @@ namespace HeapProfiler {
             var fModules = Database.SnapshotModules.Get(info.Index);
             var fHeaps = Database.SnapshotHeaps.Get(info.Index);
 
-            yield return fModules;
+            using (fModules)
+                yield return fModules;
 
             var fModuleInfos = Database.Modules.Select(
                 from moduleName in fModules.Result select moduleName
             );
-            yield return fModuleInfos;
+            using (fModuleInfos)
+                yield return fModuleInfos;
 
             foreach (var module in fModuleInfos.Result)
                 result.Modules.Add(module);
 
-            yield return fHeaps;
+            using (fHeaps)
+                yield return fHeaps;
 
             var heapIDs = from heap in fHeaps.Result select heap.HeapID;
             var fAllocations = Database.HeapAllocations.Select(heapIDs);
-            yield return fAllocations;
+            using (fAllocations)
+                yield return fAllocations;
 
             var allocations = SequenceUtils.ToDictionary(heapIDs, fAllocations.Result);
 
@@ -599,30 +603,36 @@ namespace HeapProfiler {
                 theHeap.Allocations.Capacity = allocationIds.Length;
 
                 var fRanges = Database.Allocations.Select(allocationIds);
-                yield return fRanges;
+                using (fRanges)
+                    yield return fRanges;
 
-                SequenceUtils.Zip(
-                    allocationIds, fRanges.Result, (id, ranges) => {
-                        HeapSnapshot.AllocationRanges.Range range;
+                yield return Future.RunInThread(() =>
+                    SequenceUtils.Zip(
+                        allocationIds, fRanges.Result, (id, ranges) => {
+                            HeapSnapshot.AllocationRanges.Range range;
 
-                        if (ranges.Get(info.Index, out range)) {
-                            theHeap.Allocations.Add(new HeapSnapshot.Allocation(
-                                id, range.Size, range.Overhead, range.TracebackID
-                            ));
+                            if (ranges.Get(info.Index, out range)) {
+                                theHeap.Allocations.Add(new HeapSnapshot.Allocation(
+                                    id, range.Size, range.Overhead, range.TracebackID
+                                ));
 
-                            tracebackIDs.Add(range.TracebackID);
+                                tracebackIDs.Add(range.TracebackID);
+                            }
                         }
-                    }
+                    )
                 );
 
                 result.Heaps.Add(theHeap);
             }
 
             var fTracebacks = Database.Tracebacks.Select(tracebackIDs);
-            yield return fTracebacks;
+            using (fTracebacks)
+                yield return fTracebacks;
 
-            foreach (var traceback in fTracebacks.Result)
-                result.Tracebacks.Add(traceback);
+            yield return Future.RunInThread(() => {
+                foreach (var traceback in fTracebacks.Result)
+                    result.Tracebacks.Add(traceback);
+            });
 
             yield return Result.New(result);
         }
@@ -788,8 +798,10 @@ namespace HeapProfiler {
                 using (fAllocations)
                     yield return fAllocations;
 
-                foreach (var ids in fAllocations.Result)
-                    allocationIds.UnionWith(ids);
+                yield return Future.RunInThread(() => {
+                    foreach (var ids in fAllocations.Result)
+                        allocationIds.UnionWith(ids);
+                });
             }
 
             {
@@ -801,91 +813,93 @@ namespace HeapProfiler {
                 using (fAllocationRanges)
                     yield return fAllocationRanges;
 
-                DeltaInfo delta;
-                foreach (var item in fAllocationRanges.Result) {
+                yield return Future.RunInThread(() => {
+                    DeltaInfo delta;
+                    foreach (var item in fAllocationRanges.Result) {
 
-                    var ranges = item.Ranges.Array;
-                    for (int i = 0, c = item.Ranges.Count, o = item.Ranges.Offset; i < c; i++) {
-                        var range = ranges[i + o];
+                        var ranges = item.Ranges.Array;
+                        for (int i = 0, c = item.Ranges.Count, o = item.Ranges.Offset; i < c; i++) {
+                            var range = ranges[i + o];
 
-                        if ((range.First <= first.Index) &&
-                            (range.Last >= first.Index) &&
-                            (range.Last < last.Index)
-                        ) {
-                            // deallocation
+                            if ((range.First <= first.Index) &&
+                                (range.Last >= first.Index) &&
+                                (range.Last < last.Index)
+                            ) {
+                                // deallocation
 
-                            if (deallocs.TryGetValue(range.TracebackID, out delta)) {
-                                delta.CountDelta += 1;
-                                delta.BytesDelta += (int)(range.Size + range.Overhead);
-                                delta.OldCount += 1;
-                                delta.OldBytes += (int)(range.Size + range.Overhead);
-                            } else {
-                                deallocs.Add(range.TracebackID, new DeltaInfo {
-                                    Added = false,
-                                    BytesDelta = (int)(range.Size + range.Overhead),
-                                    CountDelta = 1,
-                                    NewBytes = 0,
-                                    NewCount = 0,
-                                    OldBytes = (int)(range.Size + range.Overhead),
-                                    OldCount = 1,
-                                    TracebackID = range.TracebackID,
-                                    Traceback = null
-                                });
+                                if (deallocs.TryGetValue(range.TracebackID, out delta)) {
+                                    delta.CountDelta += 1;
+                                    delta.BytesDelta += (int)(range.Size + range.Overhead);
+                                    delta.OldCount += 1;
+                                    delta.OldBytes += (int)(range.Size + range.Overhead);
+                                } else {
+                                    deallocs.Add(range.TracebackID, new DeltaInfo {
+                                        Added = false,
+                                        BytesDelta = (int)(range.Size + range.Overhead),
+                                        CountDelta = 1,
+                                        NewBytes = 0,
+                                        NewCount = 0,
+                                        OldBytes = (int)(range.Size + range.Overhead),
+                                        OldCount = 1,
+                                        TracebackID = range.TracebackID,
+                                        Traceback = null
+                                    });
+                                }
+
+                                tracebackIds.Add(range.TracebackID);
+                            } else if (
+                                (range.First <= last.Index) &&
+                                (range.First > first.Index) &&
+                                (range.Last >= last.Index)
+                            ) {
+                                // allocation
+
+                                if (allocs.TryGetValue(range.TracebackID, out delta)) {
+                                    delta.CountDelta += 1;
+                                    delta.BytesDelta += (int)(range.Size + range.Overhead);
+                                    delta.NewCount += 1;
+                                    delta.NewBytes += (int)(range.Size + range.Overhead);
+                                } else {
+                                    allocs.Add(range.TracebackID, new DeltaInfo {
+                                        Added = true,
+                                        BytesDelta = (int)(range.Size + range.Overhead),
+                                        CountDelta = 1,
+                                        NewBytes = (int)(range.Size + range.Overhead),
+                                        NewCount = 1,
+                                        OldBytes = 0,
+                                        OldCount = 0,
+                                        TracebackID = range.TracebackID,
+                                        Traceback = null
+                                    });
+                                }
+
+                                tracebackIds.Add(range.TracebackID);
                             }
-
-                            tracebackIds.Add(range.TracebackID);
-                        } else if (
-                            (range.First <= last.Index) &&
-                            (range.First > first.Index) &&
-                            (range.Last >= last.Index)
-                        ) {
-                            // allocation
-
-                            if (allocs.TryGetValue(range.TracebackID, out delta)) {
-                                delta.CountDelta += 1;
-                                delta.BytesDelta += (int)(range.Size + range.Overhead);
-                                delta.NewCount += 1;
-                                delta.NewBytes += (int)(range.Size + range.Overhead);
-                            } else {
-                                allocs.Add(range.TracebackID, new DeltaInfo {
-                                    Added = true,
-                                    BytesDelta = (int)(range.Size + range.Overhead),
-                                    CountDelta = 1,
-                                    NewBytes = (int)(range.Size + range.Overhead),
-                                    NewCount = 1,
-                                    OldBytes = 0,
-                                    OldCount = 0,
-                                    TracebackID = range.TracebackID,
-                                    Traceback = null
-                                });
-                            }
-
-                            tracebackIds.Add(range.TracebackID);
                         }
                     }
-                }
 
-                foreach (var tracebackId in tracebackIds) {
-                    if (allocs.TryGetValue(tracebackId, out delta)) {
-                        DeltaInfo dealloc;
+                    foreach (var tracebackId in tracebackIds) {
+                        if (allocs.TryGetValue(tracebackId, out delta)) {
+                            DeltaInfo dealloc;
 
-                        if (deallocs.TryGetValue(tracebackId, out dealloc)) {
-                            delta.OldBytes = dealloc.OldBytes;
-                            delta.OldCount = dealloc.OldCount;
+                            if (deallocs.TryGetValue(tracebackId, out dealloc)) {
+                                delta.OldBytes = dealloc.OldBytes;
+                                delta.OldCount = dealloc.OldCount;
 
-                            delta.BytesDelta = Math.Abs(delta.NewBytes - delta.OldBytes);
-                            delta.CountDelta = Math.Abs(delta.NewCount - delta.OldCount.Value);
-                            if (delta.NewBytes < delta.OldBytes)
-                                delta.Added = false;
+                                delta.BytesDelta = Math.Abs(delta.NewBytes - delta.OldBytes);
+                                delta.CountDelta = Math.Abs(delta.NewCount - delta.OldCount.Value);
+                                if (delta.NewBytes < delta.OldBytes)
+                                    delta.Added = false;
+                            }
+
+                            if (delta.BytesDelta != 0)
+                                deltas.Add(delta);
+                        } else if (deallocs.TryGetValue(tracebackId, out delta)) {
+                            if (delta.BytesDelta != 0)
+                                deltas.Add(delta);
                         }
-
-                        if (delta.BytesDelta != 0)
-                            deltas.Add(delta);
-                    } else if (deallocs.TryGetValue(tracebackId, out delta)) {
-                        if (delta.BytesDelta != 0)
-                            deltas.Add(delta);
                     }
-                }
+                });
 
                 var fTracebacks = Database.Tracebacks.Select(tracebackIds);
                 using (fTracebacks)
@@ -895,54 +909,63 @@ namespace HeapProfiler {
                 {
                     var rawFrames = new HashSet<UInt32>();
 
-                    foreach (var traceback in fTracebacks.Result)
-                        foreach (var rawFrame in traceback)
-                            rawFrames.Add(rawFrame);
+                    yield return Future.RunInThread(() => {
+                        foreach (var traceback in fTracebacks.Result)
+                            foreach (var rawFrame in traceback)
+                                rawFrames.Add(rawFrame);
+                    });
 
                     var fSymbols = Database.SymbolCache.Select(rawFrames);
                     using (fSymbols)
                         yield return fSymbols;
 
-                    frameSymbols = SequenceUtils.ToDictionary(rawFrames, fSymbols.Result);
+                    var fSymbolDict = Future.RunInThread(() => 
+                        SequenceUtils.ToDictionary(rawFrames, fSymbols.Result)
+                    );
+                    yield return fSymbolDict;
 
-                    foreach (var kvp in frameSymbols) {
-                        if (kvp.Value.Function != null)
-                            functionNames.Add(kvp.Value.Function);
-                    }
+                    frameSymbols = fSymbolDict.Result;
                 }
 
-                foreach (var traceback in fTracebacks.Result) {
-                    var tracebackFunctions = new NameTable(StringComparer.Ordinal);
-                    var tracebackModules = new NameTable(StringComparer.Ordinal);
-                    var tracebackFrames = ImmutableArrayPool<TracebackFrame>.Allocate(traceback.Frames.Count);
-
-                    for (int i = 0, o = tracebackFrames.Offset, c = tracebackFrames.Count; i < c; i++) {
-                        var rawFrame = traceback.Frames.Array[traceback.Frames.Offset + i];
-                        var symbol = frameSymbols[rawFrame];
-
-                        if ((symbol.Offset == 0) && (!symbol.Offset2.HasValue))
-                            tracebackFrames.Array[i + o] = new TracebackFrame(rawFrame);
-                        else
-                            tracebackFrames.Array[i + o] = symbol;
-
-                        if (symbol.Function != null)
-                            tracebackFunctions.Add(symbol.Function);
-                        if (symbol.Module != null)
-                            tracebackModules.Add(symbol.Module);
+                yield return Future.RunInThread(() => {
+                    foreach (var tf in frameSymbols.Values) {
+                        if (tf.Function != null)
+                            functionNames.Add(tf.Function);
                     }
 
-                    var tracebackInfo = new TracebackInfo {
-                        Frames = tracebackFrames,
-                        Functions = tracebackFunctions,
-                        Modules = tracebackModules,
-                        TraceId = traceback.ID
-                    };
+                    foreach (var traceback in fTracebacks.Result) {
+                        var tracebackFunctions = new NameTable(StringComparer.Ordinal);
+                        var tracebackModules = new NameTable(StringComparer.Ordinal);
+                        var tracebackFrames = ImmutableArrayPool<TracebackFrame>.Allocate(traceback.Frames.Count);
 
-                    tracebacks[traceback.ID] = tracebackInfo;
-                }
+                        for (int i = 0, o = tracebackFrames.Offset, c = tracebackFrames.Count; i < c; i++) {
+                            var rawFrame = traceback.Frames.Array[traceback.Frames.Offset + i];
+                            var symbol = frameSymbols[rawFrame];
 
-                foreach (var d in deltas)
-                    d.Traceback = tracebacks[d.TracebackID];
+                            if ((symbol.Offset == 0) && (!symbol.Offset2.HasValue))
+                                tracebackFrames.Array[i + o] = new TracebackFrame(rawFrame);
+                            else
+                                tracebackFrames.Array[i + o] = symbol;
+
+                            if (symbol.Function != null)
+                                tracebackFunctions.Add(symbol.Function);
+                            if (symbol.Module != null)
+                                tracebackModules.Add(symbol.Module);
+                        }
+
+                        var tracebackInfo = new TracebackInfo {
+                            Frames = tracebackFrames,
+                            Functions = tracebackFunctions,
+                            Modules = tracebackModules,
+                            TraceId = traceback.ID
+                        };
+
+                        tracebacks[traceback.ID] = tracebackInfo;
+                    }
+
+                    foreach (var d in deltas)
+                        d.Traceback = tracebacks[d.TracebackID];
+                });
             }
 
             yield return Future.RunInThread(() =>

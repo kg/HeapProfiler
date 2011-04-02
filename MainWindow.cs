@@ -799,9 +799,12 @@ namespace HeapProfiler {
                         return false;
                     };
 
-                    var matchingTracebacks = new HashSet<UInt32>(
+                    var fMatchingTracebacks = Future.RunInThread(() => new HashSet<UInt32>(
                         from traceback in snapshot.Tracebacks.AsParallel() where tracebackMatches(traceback) select traceback.ID
-                    );
+                    ));
+                    yield return fMatchingTracebacks;
+
+                    var matchingTracebacks = fMatchingTracebacks.Result;
 
                     var fInfo = Future.RunInThread(() => new FilteredHeapSnapshotInfo(
                         (from heap in snapshot.Heaps.AsParallel() select (from alloc in heap.Allocations.AsParallel() where matchingTracebacks.Contains(alloc.TracebackID) select (long)alloc.Size).Sum()).Sum(),
