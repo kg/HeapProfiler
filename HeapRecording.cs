@@ -794,12 +794,16 @@ namespace HeapProfiler {
 
             {
                 var tracebackIds = new HashSet<UInt32>();
+                var deallocs = new Dictionary<UInt32, DeltaInfo>();
+                var allocs = new Dictionary<UInt32, DeltaInfo>();
 
                 var fAllocationRanges = Database.Allocations.Select(allocationIds);
                 using (fAllocationRanges)
                     yield return fAllocationRanges;
 
+                DeltaInfo delta;
                 foreach (var item in fAllocationRanges.Result) {
+
                     var ranges = item.Ranges.Array;
                     for (int i = 0, c = item.Ranges.Count, o = item.Ranges.Offset; i < c; i++) {
                         var range = ranges[i + o];
@@ -809,17 +813,26 @@ namespace HeapProfiler {
                             (range.Last < last.Index)
                         ) {
                             // deallocation
-                            deltas.Add(new DeltaInfo {
-                                Added = false,
-                                BytesDelta = (int)(range.Size + range.Overhead),
-                                CountDelta = 1,
-                                NewBytes = 0,
-                                NewCount = 0,
-                                OldBytes = (int)(range.Size + range.Overhead),
-                                OldCount = 1,
-                                TracebackID = range.TracebackID,
-                                Traceback = null
-                            });
+
+                            if (deallocs.TryGetValue(range.TracebackID, out delta)) {
+                                delta.CountDelta += 1;
+                                delta.BytesDelta += (int)(range.Size + range.Overhead);
+                                delta.OldCount += 1;
+                                delta.OldBytes += (int)(range.Size + range.Overhead);
+                            } else {
+                                deallocs.Add(range.TracebackID, new DeltaInfo {
+                                    Added = false,
+                                    BytesDelta = (int)(range.Size + range.Overhead),
+                                    CountDelta = 1,
+                                    NewBytes = 0,
+                                    NewCount = 0,
+                                    OldBytes = (int)(range.Size + range.Overhead),
+                                    OldCount = 1,
+                                    TracebackID = range.TracebackID,
+                                    Traceback = null
+                                });
+                            }
+
                             tracebackIds.Add(range.TracebackID);
                         } else if (
                             (range.First <= last.Index) &&
@@ -827,19 +840,50 @@ namespace HeapProfiler {
                             (range.Last >= last.Index)
                         ) {
                             // allocation
-                            deltas.Add(new DeltaInfo {
-                                Added = true,
-                                BytesDelta = (int)(range.Size + range.Overhead),
-                                CountDelta = 1,
-                                NewBytes = (int)(range.Size + range.Overhead),
-                                NewCount = 1,
-                                OldBytes = 0,
-                                OldCount = 0,
-                                TracebackID = range.TracebackID,
-                                Traceback = null
-                            });
+
+                            if (allocs.TryGetValue(range.TracebackID, out delta)) {
+                                delta.CountDelta += 1;
+                                delta.BytesDelta += (int)(range.Size + range.Overhead);
+                                delta.NewCount += 1;
+                                delta.NewBytes += (int)(range.Size + range.Overhead);
+                            } else {
+                                allocs.Add(range.TracebackID, new DeltaInfo {
+                                    Added = true,
+                                    BytesDelta = (int)(range.Size + range.Overhead),
+                                    CountDelta = 1,
+                                    NewBytes = (int)(range.Size + range.Overhead),
+                                    NewCount = 1,
+                                    OldBytes = 0,
+                                    OldCount = 0,
+                                    TracebackID = range.TracebackID,
+                                    Traceback = null
+                                });
+                            }
+
                             tracebackIds.Add(range.TracebackID);
                         }
+                    }
+                }
+
+                foreach (var tracebackId in tracebackIds) {
+                    if (allocs.TryGetValue(tracebackId, out delta)) {
+                        DeltaInfo dealloc;
+
+                        if (deallocs.TryGetValue(tracebackId, out dealloc)) {
+                            delta.OldBytes = dealloc.OldBytes;
+                            delta.OldCount = dealloc.OldCount;
+
+                            delta.BytesDelta = Math.Abs(delta.NewBytes - delta.OldBytes);
+                            delta.CountDelta = Math.Abs(delta.NewCount - delta.OldCount.Value);
+                            if (delta.NewBytes < delta.OldBytes)
+                                delta.Added = false;
+                        }
+
+                        if (delta.BytesDelta != 0)
+                            deltas.Add(delta);
+                    } else if (deallocs.TryGetValue(tracebackId, out delta)) {
+                        if (delta.BytesDelta != 0)
+                            deltas.Add(delta);
                     }
                 }
 
@@ -897,8 +941,8 @@ namespace HeapProfiler {
                     tracebacks[traceback.ID] = tracebackInfo;
                 }
 
-                foreach (var delta in deltas)
-                    delta.Traceback = tracebacks[delta.TracebackID];
+                foreach (var d in deltas)
+                    d.Traceback = tracebacks[d.TracebackID];
             }
 
             yield return Future.RunInThread(() =>

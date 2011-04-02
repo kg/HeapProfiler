@@ -21,16 +21,8 @@ using System.Collections.Generic;
 using System.Text;
 using System.Drawing;
 using System.IO;
-using System.Linq;
-using System.Diagnostics;
-using Squared.Task.Data.Mapper;
-using System.Web.Script.Serialization;
-using Squared.Util.Bind;
-using Squared.Util.RegexExtensions;
 using System.Text.RegularExpressions;
-using System.Collections.ObjectModel;
 using System.Globalization;
-using Squared.Util;
 using Squared.Task;
 using Squared.Task.IO;
 using Squared.Data.Mangler;
@@ -74,9 +66,9 @@ namespace HeapProfiler {
         public string FormattedBytesDelta {
             get {
                 if (FormattedBytesCache == null)
-                    FormattedBytesCache = FileSize.Format(
-                        BytesDelta * (Added ? 1 : -1)
-                    );
+                    FormattedBytesCache = 
+                        ((Added) ? "+" : "-") +
+                        FileSize.Format(BytesDelta);
 
                 return FormattedBytesCache;
             }
@@ -168,8 +160,8 @@ namespace HeapProfiler {
 
         public string ToString (bool includeTraceback) {
             var result = String.Format(
-                "{0} ({1} - {2})",
-                FormattedBytesDelta, OldBytes, NewBytes
+                "{0} ({1} - {2}) (from {3} to {4} alloc(s))",
+                FormattedBytesDelta, OldBytes, NewBytes, OldCount, NewCount
             );
 
             if (includeTraceback)
