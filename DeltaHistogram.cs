@@ -31,7 +31,7 @@ using TItem = HeapProfiler.DeltaInfo;
 using System.Globalization;
 
 namespace HeapProfiler {
-    public class DeltaHistogram : UserControl {
+    public class DeltaHistogram : UserControl, ITooltipOwner {
         public struct ItemData {
         }
 
@@ -63,7 +63,7 @@ namespace HeapProfiler {
         protected readonly List<VisibleItem> VisibleItems = new List<VisibleItem>();
         protected bool ShouldAutoscroll = false;
 
-        protected DeltaTooltip Tooltip = null;
+        protected CustomTooltip Tooltip = null;
         protected ScratchBuffer Scratch = new ScratchBuffer();
         protected ScrollBar ScrollBar = null;
 
@@ -422,7 +422,7 @@ namespace HeapProfiler {
 
         protected void ShowTooltip (int itemIndex, Point location) {
             if (Tooltip == null)
-                Tooltip = new DeltaTooltip(this);
+                Tooltip = new CustomTooltip(this);
 
             var item = Items[itemIndex];
             var sf = GetStringFormat();
@@ -520,10 +520,19 @@ namespace HeapProfiler {
 
             int x = location.X + 4, y = location.Y + 24;
 
-            if ((x + rgn.Width) >= screen.WorkingArea.Right)
-                x = (screen.WorkingArea.Right - rgn.Width - 1);
-            if ((y + rgn.Height) >= screen.WorkingArea.Bottom)
-                y = (screen.WorkingArea.Bottom - rgn.Height - 1);
+            var screenBounds = screen.WorkingArea;
+            var maxWidth = (screenBounds.Width * MaxTooltipWidthPercent / 100);
+            var maxHeight = (screenBounds.Height * MaxTooltipHeightPercent / 100);
+
+            if (rgn.Width > maxWidth)
+                rgn.Width = maxWidth;
+            if (rgn.Height > maxHeight)
+                rgn.Height = maxHeight;
+
+            if ((x + rgn.Width) >= screenBounds.Right)
+                x = (screenBounds.Right - rgn.Width - 1);
+            if ((y + rgn.Height) >= screenBounds.Bottom)
+                y = (screenBounds.Bottom - rgn.Height - 1);
 
             if ((Tooltip.Left != x) || 
                 (Tooltip.Top != y) || 
@@ -668,15 +677,15 @@ namespace HeapProfiler {
             }
         }
 
-        internal void TooltipMouseDown (MouseEventArgs e) {
+        void ITooltipOwner.MouseDown (MouseEventArgs e) {
             OnMouseDown(e);
         }
 
-        internal void TooltipMouseMove (MouseEventArgs e) {
+        void ITooltipOwner.MouseMove (MouseEventArgs e) {
             OnMouseMove(e);
         }
 
-        internal void TooltipMouseUp (MouseEventArgs e) {
+        void ITooltipOwner.MouseUp (MouseEventArgs e) {
             OnMouseUp(e);
         }
     }

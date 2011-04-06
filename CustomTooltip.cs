@@ -17,25 +17,20 @@ Original Author: Kevin Gadd (kevin.gadd@gmail.com)
 */
 
 using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
 using System.Drawing;
-using System.Linq;
-using System.Text;
 using System.Windows.Forms;
 using System.Windows.Forms.VisualStyles;
 
 namespace HeapProfiler {
-    public partial class DeltaTooltip : Form {
-        public readonly DeltaHistogram Histogram;
+    public partial class CustomTooltip : Form {
+        public readonly ITooltipOwner Owner;
         public DeltaInfo Delta;
         public DeltaInfo.RenderParams RenderParams;
 
         protected VisualStyleRenderer BackgroundRenderer;
 
-        public DeltaTooltip (DeltaHistogram histogram) {
-            Histogram = histogram;
+        public CustomTooltip (ITooltipOwner owner) {
+            Owner = owner;
 
             SetStyle(
                 ControlStyles.Opaque | ControlStyles.AllPaintingInWmPaint | 
@@ -113,7 +108,7 @@ namespace HeapProfiler {
         }
 
         protected bool AdjustMouseEvent (ref MouseEventArgs e) {
-            var adjustedPos = Histogram.PointToClient(PointToScreen(e.Location));
+            var adjustedPos = Owner.PointToClient(PointToScreen(e.Location));
 
             e = new MouseEventArgs(
                 e.Button,
@@ -123,32 +118,44 @@ namespace HeapProfiler {
                 e.Delta
             );
 
-            return Histogram.ClientRectangle.Contains(adjustedPos);
+            return Owner.ClientRectangle.Contains(adjustedPos);
         }
 
         protected override void OnMouseDown (MouseEventArgs e) {
             if (AdjustMouseEvent(ref e))
-                Histogram.TooltipMouseDown(e);
+                Owner.MouseDown(e);
             else
                 Hide();
         }
 
         protected override void OnMouseMove (MouseEventArgs e) {
             if (AdjustMouseEvent(ref e))
-                Histogram.TooltipMouseMove(e);
+                Owner.MouseMove(e);
             else
                 Hide();
         }
 
         protected override void OnMouseUp (MouseEventArgs e) {
             if (AdjustMouseEvent(ref e))
-                Histogram.TooltipMouseUp(e);
+                Owner.MouseUp(e);
             else
                 Hide();
         }
 
         private void DeltaTooltip_FormClosed (object sender, FormClosedEventArgs e) {
             Dispose();
+        }
+    }
+
+    public interface ITooltipOwner {
+        void MouseDown (MouseEventArgs e);
+        void MouseMove (MouseEventArgs e);
+        void MouseUp (MouseEventArgs e);
+
+        Point PointToClient (Point screenPoint);
+
+        Rectangle ClientRectangle {
+            get;
         }
     }
 }

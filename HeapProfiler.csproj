@@ -74,11 +74,11 @@
     <Compile Include="DeltaHistogram.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="DeltaTooltip.cs">
+    <Compile Include="CustomTooltip.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="DeltaTooltip.Designer.cs">
-      <DependentUpon>DeltaTooltip.cs</DependentUpon>
+    <Compile Include="CustomTooltip.Designer.cs">
+      <DependentUpon>CustomTooltip.cs</DependentUpon>
     </Compile>
     <Compile Include="DiffViewer.cs">
       <SubType>Form</SubType>
@@ -117,8 +117,8 @@
       <DependentUpon>SymbolSettingsDialog.cs</DependentUpon>
     </Compile>
     <Compile Include="Util.cs" />
-    <EmbeddedResource Include="DeltaTooltip.resx">
-      <DependentUpon>DeltaTooltip.cs</DependentUpon>
+    <EmbeddedResource Include="CustomTooltip.resx">
+      <DependentUpon>CustomTooltip.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="DiffViewer.resx">
       <DependentUpon>DiffViewer.cs</DependentUpon>

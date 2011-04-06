@@ -483,6 +483,10 @@ namespace HeapProfiler {
                     return Info.EmptySpans / (float)Math.Max(1, Allocations.Count);
                 }
             }
+
+            public override string ToString () {
+                return String.Format("Heap {0:x8}", ID);
+            }
         }
 
         public class HeapCollection : KeyedCollection2<UInt32, Heap> {
@@ -665,6 +669,13 @@ namespace HeapProfiler {
                 get {
                     return Address + Size + Overhead;
                 }
+            }
+
+            public override string ToString () {
+                return String.Format(
+                    "Alloc from {0:x8}-{1:x8} by {2:x8}", 
+                    Address, NextOffset, TracebackID
+                    );
             }
         }
 

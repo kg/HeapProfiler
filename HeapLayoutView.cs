@@ -23,13 +23,14 @@ using System.Windows.Forms;
 using System.Drawing.Drawing2D;
 
 namespace HeapProfiler {
-    public class HeapLayoutView : UserControl {
+    public class HeapLayoutView : UserControl, ITooltipOwner {
         public HeapSnapshot Snapshot = null;
 
         protected const int BytesPerPixel = 16;
         protected const int RowHeight = 12;
         protected const int MarginWidth = 2;
 
+        protected CustomTooltip Tooltip = null;
         protected ScratchBuffer Scratch = new ScratchBuffer();
         protected ScrollBar ScrollBar = null;
         protected Button NextAllocationButton = null;
@@ -88,6 +89,7 @@ namespace HeapProfiler {
                 var rgn = new Rectangle(0, y, width, itemHeight);
                 var maxX = width - MarginWidth;
 
+                if (y + itemHeight >= target)
                 foreach (var allocation in heap.Allocations) {
                     int pos = (int)(allocation.Address - heap.Info.EstimatedStart);
                     int y1 = y + ((pos / BytesPerRow) * RowHeight),
@@ -105,6 +107,63 @@ namespace HeapProfiler {
 
                 y += itemHeight;
             }
+        }
+
+        protected bool AllocationFromPoint (Point pt, out HeapSnapshot.Heap heap, out int allocationIndex) {
+            var width = ClientSize.Width - ScrollBar.Width;
+            int y = -_ScrollOffset * RowHeight;
+
+            if (Snapshot == null) {
+                heap = null;
+                allocationIndex = -1;
+                return false;
+            }
+
+            foreach (var heapId in Snapshot.Heaps.Keys) {
+                heap = Snapshot.Heaps[heapId];
+                var itemHeight = (int)(Math.Ceiling(heap.Info.EstimatedSize / (float)BytesPerRow) + 1) * RowHeight;
+                var rgn = new Rectangle(0, y, width, itemHeight);
+                var maxX = width - MarginWidth;
+
+                if ((y + itemHeight >= pt.Y) && (y <= pt.Y))
+                for (int i = 0, c = heap.Allocations.Count; i < c; i++) {
+                    var allocation = heap.Allocations[i];
+                    int pos = (int)(allocation.Address - heap.Info.EstimatedStart);
+                    int y1 = y + ((pos / BytesPerRow) * RowHeight),
+                        y2 = y1 + RowHeight;
+                    float x1 = (pos % BytesPerRow) / (float)BytesPerPixel,
+                        x2 = x1 + ((allocation.Size + allocation.Overhead) / (float)BytesPerPixel);
+
+                    if ((y1 > pt.Y) || (y2 < pt.Y))
+                        continue;
+
+                    do {
+                        var allocRect = new RectangleF(
+                            x1 + MarginWidth, y1,
+                            Math.Min(x2, maxX) + MarginWidth - x1, y2 - y1
+                        );
+
+                        if (allocRect.Contains(pt.X, pt.Y)) {
+                            allocationIndex = i;
+                            return true;
+                        }
+
+                        var w = Math.Min(x2, maxX) - x1;
+
+                        y1 += RowHeight;
+                        y2 += RowHeight;
+
+                        x2 -= w;
+                        x1 = 0;
+                    } while (x2 > width);
+                }
+
+                y += itemHeight;
+            }
+
+            heap = null;
+            allocationIndex = -1;
+            return false;
         }
 
         protected override void OnResize (EventArgs e) {
@@ -194,6 +253,9 @@ namespace HeapProfiler {
 
                                 var w = Math.Min(x2, maxX) - x1;
 
+                                y1 += RowHeight;
+                                y2 += RowHeight;
+
                                 x2 -= w;
                                 x1 = 0;
                             } while (x2 > width);
@@ -231,7 +293,14 @@ namespace HeapProfiler {
         }
 
         protected override void OnMouseMove (MouseEventArgs e) {
-            base.OnMouseMove(e);
+            HeapSnapshot.Heap heap;
+            int allocationIndex;
+
+            if (AllocationFromPoint(e.Location, out heap, out allocationIndex)) {
+                Console.WriteLine("{0} {1}", heap, heap.Allocations[allocationIndex]);
+            } else {
+                base.OnMouseMove(e);
+            }
         }
 
         protected override void OnMouseWheel (MouseEventArgs e) {
@@ -348,6 +417,18 @@ namespace HeapProfiler {
 
                 return (int)((bytes / BytesPerRow) + Snapshot.Heaps.Count);
             }
+        }
+
+        void ITooltipOwner.MouseDown (MouseEventArgs e) {
+            OnMouseDown(e);
+        }
+
+        void ITooltipOwner.MouseMove (MouseEventArgs e) {
+            OnMouseMove(e);
+        }
+
+        void ITooltipOwner.MouseUp (MouseEventArgs e) {
+            OnMouseUp(e);
         }
     }
 }

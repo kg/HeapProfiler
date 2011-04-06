@@ -1,5 +1,5 @@
 ﻿namespace HeapProfiler {
-    partial class DeltaTooltip {
+    partial class CustomTooltip {
         /// <summary>
         /// Required designer variable.
         /// </summary>
@@ -35,7 +35,7 @@
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.None;
             this.MaximizeBox = false;
             this.MinimizeBox = false;
-            this.Name = "DeltaTooltip";
+            this.Name = "CustomTooltip";
             this.Opacity = 0.9D;
             this.ShowIcon = false;
             this.ShowInTaskbar = false;
