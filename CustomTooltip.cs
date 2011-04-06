@@ -24,8 +24,7 @@ using System.Windows.Forms.VisualStyles;
 namespace HeapProfiler {
     public partial class CustomTooltip : Form {
         public readonly ITooltipOwner Owner;
-        public DeltaInfo Delta;
-        public DeltaInfo.RenderParams RenderParams;
+        public ITooltipContent Content;
 
         protected VisualStyleRenderer BackgroundRenderer;
 
@@ -71,7 +70,7 @@ namespace HeapProfiler {
             try {
                 if (BackgroundRenderer.IsBackgroundPartiallyTransparent())
                     using (var g = this.CreateGraphics())
-                        this.Region = BackgroundRenderer.GetBackgroundRegion(g, RenderParams.Region);
+                        this.Region = BackgroundRenderer.GetBackgroundRegion(g, ClientRectangle);
             } catch {
             }
         }
@@ -92,16 +91,16 @@ namespace HeapProfiler {
             base.OnPaint(e);
 
             if (BackgroundRenderer == null) {
-                e.Graphics.Clear(RenderParams.BackgroundColor);
+                e.Graphics.Clear(SystemColors.Info);
             } else {
                 e.Graphics.Clear(SystemColors.Window);
                 try {
-                    BackgroundRenderer.DrawBackground(e.Graphics, RenderParams.Region);
+                    BackgroundRenderer.DrawBackground(e.Graphics, ClientRectangle);
                 } catch {
                 }
             }
 
-            Delta.Render(e.Graphics, ref RenderParams);
+            Content.Render(e.Graphics);
         }
 
         protected override void OnPaintBackground (PaintEventArgs e) {
@@ -157,5 +156,9 @@ namespace HeapProfiler {
         Rectangle ClientRectangle {
             get;
         }
+    }
+
+    public interface ITooltipContent {
+        void Render (Graphics g);
     }
 }

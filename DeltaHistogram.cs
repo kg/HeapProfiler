@@ -473,13 +473,12 @@ namespace HeapProfiler {
                     StringFormat = sf
                 };
 
-                Tooltip.Delta = item;
-                Tooltip.RenderParams = rp;
+                Tooltip.Content = new DeltaInfoTooltipContent(item, ref rp);
 
                 bool wasVisible = Tooltip.Visible;
                 Tooltip.Visible = false;
 
-                MoveTooltip(screen, this.PointToScreen(location));
+                MoveTooltip(screen, this.PointToScreen(location), rp.Region);
 
                 Tooltip.Refresh();
 
@@ -515,9 +514,7 @@ namespace HeapProfiler {
             ));
         }
 
-        protected void MoveTooltip (Screen screen, Point location) {
-            var rgn = Tooltip.RenderParams.Region;
-
+        protected void MoveTooltip (Screen screen, Point location, Rectangle rgn) {
             int x = location.X + 4, y = location.Y + 24;
 
             var screenBounds = screen.WorkingArea;

@@ -75,19 +75,59 @@ namespace HeapProfiler {
         }
 
         public float Render (Graphics g, ref RenderParams rp) {
+            return Traceback.Render(g, ref rp, ToString(false));
+        }
+
+        public string ToString (bool includeTraceback) {
+            var result = String.Format(
+                "{0} ({1} - {2}) (from {3} to {4} alloc(s))",
+                FormattedBytesDelta, OldBytes, NewBytes, OldCount, NewCount
+            );
+
+            if (includeTraceback)
+                result += Environment.NewLine + Traceback.ToString();
+
+            return result;
+        }
+
+        public override string ToString () {
+            return ToString(true);
+        }
+    }
+
+    public class DeltaInfoTooltipContent : ITooltipContent {
+        public readonly DeltaInfo Delta;
+        public DeltaInfo.RenderParams RenderParams;
+
+        public DeltaInfoTooltipContent (DeltaInfo delta, ref DeltaInfo.RenderParams renderParams) {
+            Delta = delta;
+            RenderParams = renderParams;
+        }
+
+        public void Render (Graphics g) {
+            Delta.Render(g, ref RenderParams);
+        }
+    }
+
+    public class TracebackInfo {
+        public UInt32 TraceId;
+        public ArraySegment<TracebackFrame> Frames;
+        public NameTable Functions;
+        public NameTable Modules;
+
+        public float Render (Graphics g, ref DeltaInfo.RenderParams rp, string headerText) {
             g.ResetClip();
             g.FillRectangle(rp.ShadeBrush, 0, rp.Region.Y, rp.Region.Width, rp.LineHeight - 1);
 
-            var text = ToString(false);
             var y = 0.0f;
 
-            g.DrawString(text, rp.Font, rp.TextBrush, 0.0f, rp.Region.Top + y, rp.StringFormat);
-            y += g.MeasureString(text, rp.Font, rp.Region.Width, rp.StringFormat).Height;
+            g.DrawString(headerText, rp.Font, rp.TextBrush, 0.0f, rp.Region.Top + y, rp.StringFormat);
+            y += g.MeasureString(headerText, rp.Font, rp.Region.Width, rp.StringFormat).Height;
 
             int f = 0;
-            for (int i = 0, c = Traceback.Frames.Count, o = Traceback.Frames.Offset; i < c; i++) {
-                var frame = Traceback.Frames.Array[i + o];
-                text = frame.ToString();
+            for (int i = 0, c = Frames.Count, o = Frames.Offset; i < c; i++) {
+                var frame = Frames.Array[i + o];
+                var text = frame.ToString();
 
                 var layoutRect = new RectangleF(
                     0.0f, rp.Region.Top + y, rp.Region.Width, rp.LineHeight
@@ -132,11 +172,11 @@ namespace HeapProfiler {
 
                 f += 1;
                 if ((f == 2) && !rp.IsExpanded) {
-                    if (Traceback.Frames.Count > 2) {
+                    if (Frames.Count > 2) {
                         rp.StringFormat.Alignment = StringAlignment.Far;
 
                         var elideString = String.Format(
-                            "(+{0} frame(s))", Traceback.Frames.Count - 2
+                            "(+{0} frame(s))", Frames.Count - 2
                         );
                         rp.StringFormat.SetMeasurableCharacterRanges(
                             new[] { new CharacterRange(0, elideString.Length) }
@@ -157,29 +197,6 @@ namespace HeapProfiler {
 
             return y;
         }
-
-        public string ToString (bool includeTraceback) {
-            var result = String.Format(
-                "{0} ({1} - {2}) (from {3} to {4} alloc(s))",
-                FormattedBytesDelta, OldBytes, NewBytes, OldCount, NewCount
-            );
-
-            if (includeTraceback)
-                result += Environment.NewLine + Traceback.ToString();
-
-            return result;
-        }
-
-        public override string ToString () {
-            return ToString(true);
-        }
-    }
-
-    public class TracebackInfo {
-        public UInt32 TraceId;
-        public ArraySegment<TracebackFrame> Frames;
-        public NameTable Functions;
-        public NameTable Modules;
 
         public override string ToString () {
             var sb = new StringBuilder();
