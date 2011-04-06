@@ -39,7 +39,6 @@ namespace HeapProfiler {
             public StringFormat StringFormat;
             public Font Font;
             public string FunctionFilter;
-            public float LineHeight;
 
             public void Dispose () {
                 BackgroundBrush.Dispose();
@@ -99,13 +98,24 @@ namespace HeapProfiler {
         public readonly DeltaInfo Delta;
         public DeltaInfo.RenderParams RenderParams;
 
-        public DeltaInfoTooltipContent (DeltaInfo delta, ref DeltaInfo.RenderParams renderParams) {
+        public DeltaInfoTooltipContent (DeltaInfo delta, DeltaInfo.RenderParams renderParams) {
             Delta = delta;
             RenderParams = renderParams;
         }
 
         public void Render (Graphics g) {
             Delta.Render(g, ref RenderParams);
+        }
+
+        public Size Measure (Graphics g) {
+            var font = RenderParams.Font;
+            var sf = RenderParams.StringFormat;
+
+            var width = (int)Math.Ceiling(g.MeasureString(Delta.ToString(true), font, 99999, sf).Width);
+            var lineHeight = g.MeasureString("AaBbYyZz", font, width, sf).Height;
+            return new Size(
+                width, (int)Math.Ceiling(lineHeight * (Delta.Traceback.Frames.Count + 1))
+            );
         }
     }
 
@@ -116,8 +126,12 @@ namespace HeapProfiler {
         public NameTable Modules;
 
         public float Render (Graphics g, ref DeltaInfo.RenderParams rp, string headerText) {
+            var lineHeight = g.MeasureString(
+                "AaBbYyZz", rp.Font, rp.Region.Width, rp.StringFormat
+            ).Height;
+
             g.ResetClip();
-            g.FillRectangle(rp.ShadeBrush, 0, rp.Region.Y, rp.Region.Width, rp.LineHeight - 1);
+            g.FillRectangle(rp.ShadeBrush, 0, rp.Region.Y, rp.Region.Width, lineHeight - 1);
 
             var y = 0.0f;
 
@@ -130,7 +144,7 @@ namespace HeapProfiler {
                 var text = frame.ToString();
 
                 var layoutRect = new RectangleF(
-                    0.0f, rp.Region.Top + y, rp.Region.Width, rp.LineHeight
+                    0.0f, rp.Region.Top + y, rp.Region.Width, lineHeight
                 );
                 Region[] fillRegions = null;
 

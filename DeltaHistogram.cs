@@ -183,7 +183,7 @@ namespace HeapProfiler {
 
             ItemData data;
 
-            using (var sf = GetStringFormat())
+            using (var sf = CustomTooltip.GetDefaultStringFormat())
             using (var gridLineFont = new Font(Font.FontFamily, Font.Size * 0.85f, Font.Style))
             using (var outlinePen = new Pen(Color.Black))
             using (var activeOutlinePen = new Pen(SystemColors.HighlightText))
@@ -409,76 +409,67 @@ namespace HeapProfiler {
                 HideTooltip();
         }
 
-        protected StringFormat GetStringFormat () {
-            return new StringFormat {
-                Alignment = StringAlignment.Near,
-                LineAlignment = StringAlignment.Near,
-                FormatFlags = StringFormatFlags.FitBlackBox | StringFormatFlags.NoWrap |
-                    StringFormatFlags.DisplayFormatControl | StringFormatFlags.MeasureTrailingSpaces,
-                HotkeyPrefix = System.Drawing.Text.HotkeyPrefix.None,
-                Trimming = StringTrimming.None
-            };
-        }
-
         protected void ShowTooltip (int itemIndex, Point location) {
             if (Tooltip == null)
                 Tooltip = new CustomTooltip(this);
 
             var item = Items[itemIndex];
-            var sf = GetStringFormat();
+            var sf = CustomTooltip.GetDefaultStringFormat();
 
-            Rectangle rgn = new Rectangle();
-            int width = 0;
             float lineHeight = 0;
-            var font = Font;
             var fontSize = Font.Size;
 
             using (var g = CreateGraphics()) {
                 var screen = Screen.FromPoint(Cursor.Position);
                 var screenBounds = screen.Bounds;
+
+                var content = new DeltaInfoTooltipContent(
+                    item, new DeltaInfo.RenderParams {
+                        BackgroundBrush = new SolidBrush(SystemColors.Info),
+                        BackgroundColor = SystemColors.Info,
+                        TextBrush = new SolidBrush(SystemColors.InfoText),
+                        IsExpanded = true,
+                        IsSelected = false,
+                        ElideBackgroundBrush = null,
+                        ElideTextBrush = null,
+                        FunctionHighlightBrush = new SolidBrush(SystemColors.Window),
+                        FunctionFilter = FunctionFilter,
+                        Font = Font,
+                        ShadeBrush = new SolidBrush(Color.FromArgb(31, 0, 0, 0)),
+                        StringFormat = sf
+                    }
+                );
                 
                 // Iterate a few times to shrink the tooltip's font size if it's too big
                 for (int i = 0; i < 10; i++) {
-                    width = (int)Math.Ceiling(g.MeasureString(item.ToString(true), font, 99999, sf).Width);
-                    lineHeight = g.MeasureString("AaBbYyZz", font, width, sf).Height;
-                    rgn = new Rectangle(
-                        0, 0, width,
-                        (int)Math.Ceiling(lineHeight * (item.Traceback.Frames.Count + 1))
+                    var size = content.Measure(g);
+
+                    fontSize *= 0.9f;
+                    if (fontSize < MinTooltipSizeEm)
+                        fontSize = MinTooltipSizeEm;
+
+                    content.RenderParams.Font = new Font(
+                        content.RenderParams.Font.FontFamily, 
+                        Math.Min(fontSize, MinTooltipSizeEm),
+                        content.RenderParams.Font.Style
+                    );
+                    content.RenderParams.Region = new Rectangle(
+                        0, 0, size.Width, size.Height
                     );
 
                     if (fontSize <= MinTooltipSizeEm)
                         break;
-                    if (rgn.Width < (screenBounds.Width * MaxTooltipWidthPercent / 100) &&
-                        rgn.Height < (screenBounds.Height * MaxTooltipHeightPercent / 100))
+                    if (size.Width < (screenBounds.Width * MaxTooltipWidthPercent / 100) &&
+                        size.Height < (screenBounds.Height * MaxTooltipHeightPercent / 100))
                         break;
-
-                    fontSize *= 0.9f;
-                    font = new Font(font.FontFamily, Math.Min(fontSize, MinTooltipSizeEm), font.Style);
                 }
-
-                var rp = new DeltaInfo.RenderParams {
-                    BackgroundBrush = new SolidBrush(SystemColors.Info),
-                    BackgroundColor = SystemColors.Info,
-                    TextBrush = new SolidBrush(SystemColors.InfoText),
-                    IsExpanded = true,
-                    IsSelected = false,
-                    ElideBackgroundBrush = null,
-                    ElideTextBrush = null,
-                    FunctionHighlightBrush = new SolidBrush(SystemColors.Window),
-                    FunctionFilter = FunctionFilter,
-                    Font = font,
-                    LineHeight = lineHeight,
-                    Region = rgn,
-                    ShadeBrush = new SolidBrush(Color.FromArgb(31, 0, 0, 0)),
-                    StringFormat = sf
-                };
-
-                Tooltip.Content = new DeltaInfoTooltipContent(item, ref rp);
 
                 bool wasVisible = Tooltip.Visible;
                 Tooltip.Visible = false;
 
-                MoveTooltip(screen, this.PointToScreen(location), rp.Region);
+                Tooltip.Content = content;
+
+                MoveTooltip(screen, this.PointToScreen(location), content.RenderParams.Region);
 
                 Tooltip.Refresh();
 

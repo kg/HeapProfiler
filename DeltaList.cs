@@ -144,7 +144,6 @@ namespace HeapProfiler {
                     FunctionHighlightBrush = functionHighlightBrush,
                     ElideBackgroundBrush = elideBackgroundBrush,
                     ElideTextBrush = elideTextBrush,
-                    LineHeight = lineHeight,
                     ShadeBrush = shadeBrush,
                     StringFormat = sf,
                 };

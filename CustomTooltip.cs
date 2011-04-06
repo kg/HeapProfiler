@@ -144,6 +144,17 @@ namespace HeapProfiler {
         private void DeltaTooltip_FormClosed (object sender, FormClosedEventArgs e) {
             Dispose();
         }
+
+        public static StringFormat GetDefaultStringFormat () {
+            return new StringFormat {
+                Alignment = StringAlignment.Near,
+                LineAlignment = StringAlignment.Near,
+                FormatFlags = StringFormatFlags.FitBlackBox | StringFormatFlags.NoWrap |
+                    StringFormatFlags.DisplayFormatControl | StringFormatFlags.MeasureTrailingSpaces,
+                HotkeyPrefix = System.Drawing.Text.HotkeyPrefix.None,
+                Trimming = StringTrimming.None
+            };
+        }
     }
 
     public interface ITooltipOwner {
@@ -160,5 +171,6 @@ namespace HeapProfiler {
 
     public interface ITooltipContent {
         void Render (Graphics g);
+        Size Measure (Graphics g);
     }
 }

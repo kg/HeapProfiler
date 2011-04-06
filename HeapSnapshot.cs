@@ -679,6 +679,27 @@ namespace HeapProfiler {
             }
         }
 
+        public class AllocationTooltipContent : ITooltipContent {
+            public readonly Allocation Allocation;
+            public readonly TracebackInfo Traceback;
+            public DeltaInfo.RenderParams RenderParams;
+
+            public AllocationTooltipContent (ref Allocation allocation, ref TracebackInfo traceback, ref DeltaInfo.RenderParams renderParams) {
+                Allocation = allocation;
+                Traceback = traceback;
+                RenderParams = renderParams;
+            }
+
+            public void Render (Graphics g) {
+                var headerText = Allocation.ToString();
+                Traceback.Render(g, ref RenderParams, headerText);
+            }
+
+            public Size Measure (Graphics g) {
+                return new Size(0, 0);
+            }
+        }
+
         public class Traceback : IEnumerable<UInt32> {
             public readonly UInt32 ID;
             public readonly ArraySegment<UInt32> Frames;
