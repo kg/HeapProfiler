@@ -46,10 +46,6 @@ namespace HeapProfiler {
             }
         }
 
-        public const int MaxTooltipWidthPercent = 50;
-        public const int MaxTooltipHeightPercent = 60;
-        public const float MinTooltipSizeEm = 7.5f;
-
         public const int ItemWidth = 32;
 
         public IList<TItem> Items = new List<TItem>();
@@ -439,30 +435,12 @@ namespace HeapProfiler {
                         StringFormat = sf
                     }
                 );
-                
-                // Iterate a few times to shrink the tooltip's font size if it's too big
-                for (int i = 0; i < 10; i++) {
-                    var size = content.Measure(g);
 
-                    fontSize *= 0.9f;
-                    if (fontSize < MinTooltipSizeEm)
-                        fontSize = MinTooltipSizeEm;
-
-                    content.RenderParams.Font = new Font(
-                        content.RenderParams.Font.FontFamily, 
-                        Math.Min(fontSize, MinTooltipSizeEm),
-                        content.RenderParams.Font.Style
-                    );
-                    content.RenderParams.Region = new Rectangle(
-                        0, 0, size.Width, size.Height
-                    );
-
-                    if (fontSize <= MinTooltipSizeEm)
-                        break;
-                    if (size.Width < (screenBounds.Width * MaxTooltipWidthPercent / 100) &&
-                        size.Height < (screenBounds.Height * MaxTooltipHeightPercent / 100))
-                        break;
-                }
+                CustomTooltip.FitContentOnScreen(
+                    g, content,
+                    ref content.RenderParams.Font,
+                    screenBounds
+                );
 
                 bool wasVisible = Tooltip.Visible;
                 Tooltip.Visible = false;
@@ -509,18 +487,6 @@ namespace HeapProfiler {
             int x = location.X + 4, y = location.Y + 24;
 
             var screenBounds = screen.WorkingArea;
-            var maxWidth = (screenBounds.Width * MaxTooltipWidthPercent / 100);
-            var maxHeight = (screenBounds.Height * MaxTooltipHeightPercent / 100);
-
-            if (rgn.Width > maxWidth)
-                rgn.Width = maxWidth;
-            if (rgn.Height > maxHeight)
-                rgn.Height = maxHeight;
-
-            if ((x + rgn.Width) >= screenBounds.Right)
-                x = (screenBounds.Right - rgn.Width - 1);
-            if ((y + rgn.Height) >= screenBounds.Bottom)
-                y = (screenBounds.Bottom - rgn.Height - 1);
 
             if ((Tooltip.Left != x) || 
                 (Tooltip.Top != y) || 

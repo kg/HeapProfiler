@@ -23,6 +23,10 @@ using System.Windows.Forms.VisualStyles;
 
 namespace HeapProfiler {
     public partial class CustomTooltip : Form {
+        public const int MaxTooltipWidthPercent = 50;
+        public const int MaxTooltipHeightPercent = 60;
+        public const float MinTooltipSizeEm = 7.5f;
+
         public readonly ITooltipOwner Owner;
         public ITooltipContent Content;
 
@@ -154,6 +158,48 @@ namespace HeapProfiler {
                 HotkeyPrefix = System.Drawing.Text.HotkeyPrefix.None,
                 Trimming = StringTrimming.None
             };
+
+        }
+
+        public static void FitContentOnScreen (Graphics g, ITooltipContent content, ref Font font, ref Rectangle contentRegion, Rectangle screenBounds) {
+            var fontSize = font.Size;
+
+            // Iterate a few times to shrink the tooltip's font size if it's too big
+            for (int i = 0; i < 10; i++) {
+                var size = content.Measure(g);
+
+                fontSize *= 0.9f;
+                if (fontSize < MinTooltipSizeEm)
+                    fontSize = MinTooltipSizeEm;
+
+                font = new Font(
+                    font.FontFamily,
+                    Math.Min(fontSize, MinTooltipSizeEm),
+                    font.Style
+                );
+                contentRegion = new Rectangle(
+                    0, 0, size.Width, size.Height
+                );
+
+                if (fontSize <= MinTooltipSizeEm)
+                    break;
+                if (size.Width < (screenBounds.Width * MaxTooltipWidthPercent / 100) &&
+                    size.Height < (screenBounds.Height * MaxTooltipHeightPercent / 100))
+                    break;
+            }
+
+            var maxWidth = (screenBounds.Width * MaxTooltipWidthPercent / 100);
+            var maxHeight = (screenBounds.Height * MaxTooltipHeightPercent / 100);
+
+            if (contentRegion.Width > maxWidth)
+                contentRegion.Width = maxWidth;
+            if (contentRegion.Height > maxHeight)
+                contentRegion.Height = maxHeight;
+
+            if ((x + contentRegion.Width) >= screenBounds.Right)
+                x = (screenBounds.Right - contentRegion.Width - 1);
+            if ((y + contentRegion.Height) >= screenBounds.Bottom)
+                y = (screenBounds.Bottom - contentRegion.Height - 1);
         }
     }
 
