@@ -17,15 +17,9 @@ Original Author: Kevin Gadd (kevin.gadd@gmail.com)
 */
 
 using System;
-using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
-using System.Data;
-using System.Linq;
-using System.Text;
 using System.Windows.Forms;
-using Squared.Task;
-using Squared.Util;
 using System.Drawing.Drawing2D;
 
 namespace HeapProfiler {
@@ -38,6 +32,7 @@ namespace HeapProfiler {
 
         protected ScratchBuffer Scratch = new ScratchBuffer();
         protected ScrollBar ScrollBar = null;
+        protected Button NextAllocationButton = null;
 
         protected int _ScrollOffset = 0;
 
@@ -58,10 +53,18 @@ namespace HeapProfiler {
                 TabStop = false
             };
 
+            NextAllocationButton = new Button {
+                Text = ">",
+                TabStop = false,
+                UseVisualStyleBackColor = true
+            };
+            NextAllocationButton.Click += NextAllocationButton_Click;
+
             ScrollBar.Scroll += ScrollBar_Scroll;
             OnResize(EventArgs.Empty);
 
             Controls.Add(ScrollBar);
+            Controls.Add(NextAllocationButton);
         }
 
         protected override void Dispose (bool disposing) {
@@ -74,9 +77,46 @@ namespace HeapProfiler {
             ScrollOffset = e.NewValue;
         }
 
+        void NextAllocationButton_Click (object sender, EventArgs e) {
+            var width = ClientSize.Width - ScrollBar.Width;
+            int y = 0;
+            var target = (_ScrollOffset * RowHeight) + (ClientSize.Height / 2);
+
+            foreach (var heapId in Snapshot.Heaps.Keys) {
+                var heap = Snapshot.Heaps[heapId];
+                var itemHeight = (int)(Math.Ceiling(heap.Info.EstimatedSize / (float)BytesPerRow) + 1) * RowHeight;
+                var rgn = new Rectangle(0, y, width, itemHeight);
+                var maxX = width - MarginWidth;
+
+                foreach (var allocation in heap.Allocations) {
+                    int pos = (int)(allocation.Address - heap.Info.EstimatedStart);
+                    int y1 = y + ((pos / BytesPerRow) * RowHeight),
+                        y2 = y1 + RowHeight;
+                    float x1 = (pos % BytesPerRow) / (float)BytesPerPixel,
+                        x2 = x1 + ((allocation.Size + allocation.Overhead) / (float)BytesPerPixel);
+
+                    if (y1 <= target)
+                        continue;
+
+                    _ScrollOffset = (y1 / RowHeight) - 1;
+                    Invalidate();
+                    return;
+                }
+
+                y += itemHeight;
+            }
+        }
+
         protected override void OnResize (EventArgs e) {
             var preferredSize = ScrollBar.GetPreferredSize(ClientSize);
-            ScrollBar.SetBounds(ClientSize.Width - preferredSize.Width, 0, preferredSize.Width, ClientSize.Height);
+            ScrollBar.SetBounds(
+                ClientSize.Width - preferredSize.Width, 0, 
+                preferredSize.Width, ClientSize.Height - preferredSize.Width
+            );
+
+            NextAllocationButton.SetBounds(
+                ScrollBar.Left, ScrollBar.Height, ScrollBar.Width, ScrollBar.Width
+            );
 
             base.OnResize(e);
         }
