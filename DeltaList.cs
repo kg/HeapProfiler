@@ -173,7 +173,7 @@ namespace HeapProfiler {
                         renderParams.BackgroundBrush = selected ? highlightBrush : backgroundBrush;
                         renderParams.TextBrush = selected ? highlightTextBrush : textBrush;
 
-                        renderParams.Region = rgn;
+                        renderParams.ContentRegion = rgn;
                         renderParams.IsExpanded = data.Expanded;
                         renderParams.IsSelected = selected;
 

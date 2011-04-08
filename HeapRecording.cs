@@ -934,33 +934,9 @@ namespace HeapProfiler {
                     }
 
                     foreach (var traceback in fTracebacks.Result) {
-                        var tracebackFunctions = new NameTable(StringComparer.Ordinal);
-                        var tracebackModules = new NameTable(StringComparer.Ordinal);
-                        var tracebackFrames = ImmutableArrayPool<TracebackFrame>.Allocate(traceback.Frames.Count);
-
-                        for (int i = 0, o = tracebackFrames.Offset, c = tracebackFrames.Count; i < c; i++) {
-                            var rawFrame = traceback.Frames.Array[traceback.Frames.Offset + i];
-                            var symbol = frameSymbols[rawFrame];
-
-                            if ((symbol.Offset == 0) && (!symbol.Offset2.HasValue))
-                                tracebackFrames.Array[i + o] = new TracebackFrame(rawFrame);
-                            else
-                                tracebackFrames.Array[i + o] = symbol;
-
-                            if (symbol.Function != null)
-                                tracebackFunctions.Add(symbol.Function);
-                            if (symbol.Module != null)
-                                tracebackModules.Add(symbol.Module);
-                        }
-
-                        var tracebackInfo = new TracebackInfo {
-                            Frames = tracebackFrames,
-                            Functions = tracebackFunctions,
-                            Modules = tracebackModules,
-                            TraceId = traceback.ID
-                        };
-
-                        tracebacks[traceback.ID] = tracebackInfo;
+                        tracebacks[traceback.ID] = ConstructTracebackInfo(
+                            traceback.ID, traceback.Frames, frameSymbols
+                        );
                     }
 
                     foreach (var d in deltas)
@@ -979,6 +955,34 @@ namespace HeapProfiler {
             yield return Result.New(new HeapDiff(
                 null, moduleNames, functionNames, deltas, tracebacks
             ));
+        }
+
+        public static TracebackInfo ConstructTracebackInfo (UInt32 tracebackID, ArraySegment<UInt32> rawFrames, IDictionary<UInt32, TracebackFrame> symbols) {
+            var tracebackFunctions = new NameTable(StringComparer.Ordinal);
+            var tracebackModules = new NameTable(StringComparer.Ordinal);
+            var tracebackFrames = ImmutableArrayPool<TracebackFrame>.Allocate(rawFrames.Count);
+
+            for (int i = 0, o = tracebackFrames.Offset, c = tracebackFrames.Count; i < c; i++) {
+                var rawFrame = rawFrames.Array[rawFrames.Offset + i];
+                var symbol = symbols[rawFrame];
+
+                if ((symbol.Offset == 0) && (!symbol.Offset2.HasValue))
+                    tracebackFrames.Array[i + o] = new TracebackFrame(rawFrame);
+                else
+                    tracebackFrames.Array[i + o] = symbol;
+
+                if (symbol.Function != null)
+                    tracebackFunctions.Add(symbol.Function);
+                if (symbol.Module != null)
+                    tracebackModules.Add(symbol.Module);
+            }
+
+            return new TracebackInfo {
+                Frames = tracebackFrames,
+                Functions = tracebackFunctions,
+                Modules = tracebackModules,
+                TraceId = tracebackID
+            };
         }
 
         public static HeapRecording FromSnapshots (TaskScheduler scheduler, ActivityIndicator activities, IEnumerable<string> snapshots) {

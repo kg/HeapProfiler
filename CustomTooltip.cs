@@ -68,6 +68,26 @@ namespace HeapProfiler {
             }
         }
 
+        public void SetContent (ITooltipContent content) {
+            bool wasVisible = Visible;
+            Visible = false;
+
+            Content = content;
+
+            var pos = content.Location;
+            var sz = content.Size;
+            SetBounds(pos.X, pos.Y, sz.Width, sz.Height);
+
+            UpdateRegion();
+
+            Refresh();
+
+            if (!wasVisible)
+                Show(Owner);
+            else
+                Visible = true;
+        }
+
         protected void UpdateRegion () {
             if (BackgroundRenderer == null)
                 return;
@@ -77,18 +97,6 @@ namespace HeapProfiler {
                         this.Region = BackgroundRenderer.GetBackgroundRegion(g, ClientRectangle);
             } catch {
             }
-        }
-
-        protected override void OnShown (EventArgs e) {
-            UpdateRegion();
-
-            base.OnShown(e);
-        }
-
-        protected override void OnSizeChanged (EventArgs e) {
-            UpdateRegion();
-
-            base.OnSizeChanged(e);
         }
 
         protected override void OnPaint (PaintEventArgs e) {
@@ -161,8 +169,15 @@ namespace HeapProfiler {
 
         }
 
-        public static void FitContentOnScreen (Graphics g, ITooltipContent content, ref Font font, ref Rectangle contentRegion, Rectangle screenBounds) {
+        public static void FitContentOnScreen (
+            Graphics g, ITooltipContent content, 
+            ref Font font, ref Point tooltipPosition,
+            ref Size tooltipSize
+        ) {
+            var screen = Screen.FromPoint(tooltipPosition);
+            var screenBounds = screen.WorkingArea;
             var fontSize = font.Size;
+            Font tempFont = null;
 
             // Iterate a few times to shrink the tooltip's font size if it's too big
             for (int i = 0; i < 10; i++) {
@@ -177,9 +192,14 @@ namespace HeapProfiler {
                     Math.Min(fontSize, MinTooltipSizeEm),
                     font.Style
                 );
-                contentRegion = new Rectangle(
-                    0, 0, size.Width, size.Height
-                );
+
+                if (tempFont != null)
+                    tempFont.Dispose();
+
+                tempFont = font;
+
+                tooltipSize.Width = size.Width;
+                tooltipSize.Height = size.Height;
 
                 if (fontSize <= MinTooltipSizeEm)
                     break;
@@ -191,19 +211,24 @@ namespace HeapProfiler {
             var maxWidth = (screenBounds.Width * MaxTooltipWidthPercent / 100);
             var maxHeight = (screenBounds.Height * MaxTooltipHeightPercent / 100);
 
-            if (contentRegion.Width > maxWidth)
-                contentRegion.Width = maxWidth;
-            if (contentRegion.Height > maxHeight)
-                contentRegion.Height = maxHeight;
+            if (tooltipSize.Width > maxWidth)
+                tooltipSize.Width = maxWidth;
+            if (tooltipSize.Height > maxHeight)
+                tooltipSize.Height = maxHeight;
 
-            if ((x + contentRegion.Width) >= screenBounds.Right)
-                x = (screenBounds.Right - contentRegion.Width - 1);
-            if ((y + contentRegion.Height) >= screenBounds.Bottom)
-                y = (screenBounds.Bottom - contentRegion.Height - 1);
+            if (tooltipPosition.X < screenBounds.Left)
+                tooltipPosition.X = screenBounds.Left;
+            if (tooltipPosition.Y < screenBounds.Top)
+                tooltipPosition.Y = screenBounds.Top;
+
+            if ((tooltipPosition.X + tooltipSize.Width) >= screenBounds.Right)
+                tooltipPosition.X = (screenBounds.Right - tooltipSize.Width - 1);
+            if ((tooltipPosition.Y + tooltipSize.Height) >= screenBounds.Bottom)
+                tooltipPosition.Y = (screenBounds.Bottom - tooltipSize.Height - 1);
         }
     }
 
-    public interface ITooltipOwner {
+    public interface ITooltipOwner : IWin32Window {
         void MouseDown (MouseEventArgs e);
         void MouseMove (MouseEventArgs e);
         void MouseUp (MouseEventArgs e);
@@ -218,5 +243,12 @@ namespace HeapProfiler {
     public interface ITooltipContent {
         void Render (Graphics g);
         Size Measure (Graphics g);
+
+        Point Location {
+            get;
+        }
+        Size Size {
+            get;
+        }
     }
 }

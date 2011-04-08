@@ -412,13 +412,7 @@ namespace HeapProfiler {
             var item = Items[itemIndex];
             var sf = CustomTooltip.GetDefaultStringFormat();
 
-            float lineHeight = 0;
-            var fontSize = Font.Size;
-
             using (var g = CreateGraphics()) {
-                var screen = Screen.FromPoint(Cursor.Position);
-                var screenBounds = screen.Bounds;
-
                 var content = new DeltaInfoTooltipContent(
                     item, new DeltaInfo.RenderParams {
                         BackgroundBrush = new SolidBrush(SystemColors.Info),
@@ -426,35 +420,23 @@ namespace HeapProfiler {
                         TextBrush = new SolidBrush(SystemColors.InfoText),
                         IsExpanded = true,
                         IsSelected = false,
-                        ElideBackgroundBrush = null,
-                        ElideTextBrush = null,
                         FunctionHighlightBrush = new SolidBrush(SystemColors.Window),
                         FunctionFilter = FunctionFilter,
                         Font = Font,
                         ShadeBrush = new SolidBrush(Color.FromArgb(31, 0, 0, 0)),
-                        StringFormat = sf
+                        StringFormat = sf,
                     }
-                );
+                ) {
+                    Location = this.PointToScreen(location)
+                };
 
                 CustomTooltip.FitContentOnScreen(
                     g, content,
                     ref content.RenderParams.Font,
-                    screenBounds
+                    ref content.Location, ref content.Size
                 );
 
-                bool wasVisible = Tooltip.Visible;
-                Tooltip.Visible = false;
-
-                Tooltip.Content = content;
-
-                MoveTooltip(screen, this.PointToScreen(location), content.RenderParams.Region);
-
-                Tooltip.Refresh();
-
-                if (!wasVisible)
-                    Tooltip.Show(this);
-                else
-                    Tooltip.Visible = true;
+                Tooltip.SetContent(content);
             }
 
             if (_HoverIndex != itemIndex) {
@@ -481,18 +463,6 @@ namespace HeapProfiler {
                 (int)Math.Ceiling(rectF.Width) + 8,
                 (int)Math.Ceiling(rectF.Height) + 8
             ));
-        }
-
-        protected void MoveTooltip (Screen screen, Point location, Rectangle rgn) {
-            int x = location.X + 4, y = location.Y + 24;
-
-            var screenBounds = screen.WorkingArea;
-
-            if ((Tooltip.Left != x) || 
-                (Tooltip.Top != y) || 
-                (Tooltip.Width != rgn.Width) || 
-                (Tooltip.Height != rgn.Height))
-                Tooltip.SetBounds(x, y, rgn.Width, rgn.Height);
         }
 
         protected void HideTooltip () {

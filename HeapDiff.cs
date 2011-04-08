@@ -31,7 +31,7 @@ namespace HeapProfiler {
     public class DeltaInfo {
         public struct RenderParams : IDisposable {
             public bool IsSelected, IsExpanded;
-            public Rectangle Region;
+            public Rectangle ContentRegion;
             public Color BackgroundColor;
             public Brush BackgroundBrush, TextBrush;
             public Brush ShadeBrush, FunctionHighlightBrush;
@@ -97,6 +97,8 @@ namespace HeapProfiler {
     public class DeltaInfoTooltipContent : ITooltipContent {
         public readonly DeltaInfo Delta;
         public DeltaInfo.RenderParams RenderParams;
+        public Point Location;
+        public Size Size;
 
         public DeltaInfoTooltipContent (DeltaInfo delta, DeltaInfo.RenderParams renderParams) {
             Delta = delta;
@@ -104,6 +106,9 @@ namespace HeapProfiler {
         }
 
         public void Render (Graphics g) {
+            RenderParams.ContentRegion = new Rectangle(
+                0, 0, Size.Width, Size.Height
+            );
             Delta.Render(g, ref RenderParams);
         }
 
@@ -117,6 +122,18 @@ namespace HeapProfiler {
                 width, (int)Math.Ceiling(lineHeight * (Delta.Traceback.Frames.Count + 1))
             );
         }
+
+        Point ITooltipContent.Location {
+            get {
+                return Location;
+            }
+        }
+
+        Size ITooltipContent.Size {
+            get {
+                return Size;
+            }
+        }
     }
 
     public class TracebackInfo {
@@ -127,16 +144,16 @@ namespace HeapProfiler {
 
         public float Render (Graphics g, ref DeltaInfo.RenderParams rp, string headerText) {
             var lineHeight = g.MeasureString(
-                "AaBbYyZz", rp.Font, rp.Region.Width, rp.StringFormat
+                "AaBbYyZz", rp.Font, rp.ContentRegion.Width, rp.StringFormat
             ).Height;
 
             g.ResetClip();
-            g.FillRectangle(rp.ShadeBrush, 0, rp.Region.Y, rp.Region.Width, lineHeight - 1);
+            g.FillRectangle(rp.ShadeBrush, 0, rp.ContentRegion.Y, rp.ContentRegion.Width, lineHeight - 1);
 
             var y = 0.0f;
 
-            g.DrawString(headerText, rp.Font, rp.TextBrush, 0.0f, rp.Region.Top + y, rp.StringFormat);
-            y += g.MeasureString(headerText, rp.Font, rp.Region.Width, rp.StringFormat).Height;
+            g.DrawString(headerText, rp.Font, rp.TextBrush, 0.0f, rp.ContentRegion.Top + y, rp.StringFormat);
+            y += g.MeasureString(headerText, rp.Font, rp.ContentRegion.Width, rp.StringFormat).Height;
 
             int f = 0;
             for (int i = 0, c = Frames.Count, o = Frames.Offset; i < c; i++) {
@@ -144,7 +161,7 @@ namespace HeapProfiler {
                 var text = frame.ToString();
 
                 var layoutRect = new RectangleF(
-                    0.0f, rp.Region.Top + y, rp.Region.Width, lineHeight
+                    0.0f, rp.ContentRegion.Top + y, rp.ContentRegion.Width, lineHeight
                 );
                 Region[] fillRegions = null;
 
@@ -182,7 +199,7 @@ namespace HeapProfiler {
                     g.ResetClip();
                 }
 
-                y += g.MeasureString(text, rp.Font, rp.Region.Width, rp.StringFormat).Height;
+                y += g.MeasureString(text, rp.Font, rp.ContentRegion.Width, rp.StringFormat).Height;
 
                 f += 1;
                 if ((f == 2) && !rp.IsExpanded) {

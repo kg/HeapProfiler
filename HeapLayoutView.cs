@@ -17,18 +17,26 @@ Original Author: Kevin Gadd (kevin.gadd@gmail.com)
 */
 
 using System;
+using System.Linq;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
 using System.Windows.Forms;
 using System.Drawing.Drawing2D;
+using Squared.Data.Mangler.Internal;
+using Squared.Task;
 
 namespace HeapProfiler {
     public class HeapLayoutView : UserControl, ITooltipOwner {
+        public HeapRecording Instance = null;
         public HeapSnapshot Snapshot = null;
 
         protected const int BytesPerPixel = 16;
         protected const int RowHeight = 12;
         protected const int MarginWidth = 2;
+
+        protected HeapSnapshot.Heap TooltipHeap;
+        protected int TooltipAllocationIndex;
 
         protected CustomTooltip Tooltip = null;
         protected ScratchBuffer Scratch = new ScratchBuffer();
@@ -230,7 +238,10 @@ namespace HeapProfiler {
 
                         g.ResetClip();
                         g.Clear(shadeBrush.Color);
-                        foreach (var allocation in heap.Allocations) {
+                        for (int i = 0, c = heap.Allocations.Count; i < c; i++) {
+                            var allocation = heap.Allocations[i];
+                            bool isSelected = (heap == TooltipHeap) && (i == TooltipAllocationIndex);
+
                             var color = SelectItemColor(allocation);
 
                             int pos = (int)(allocation.Address - heap.Info.EstimatedStart);
@@ -244,12 +255,22 @@ namespace HeapProfiler {
                             if (y1 > rgn.Bottom)
                                 break;
 
-                            using (var itemBrush = new SolidBrush(color))
+                            GraphicsPath selectionOutline = null;
+                            if (isSelected)
+                                selectionOutline = new GraphicsPath();
+
+                            using (var itemBrush = new SolidBrush(
+                                isSelected ? SystemColors.Highlight : color
+                            ))
                             do {
-                                g.FillRectangle(itemBrush, new RectangleF(
+                                var rect = new RectangleF(
                                     x1 + MarginWidth, y1,
                                     Math.Min(x2, maxX) + MarginWidth - x1, y2 - y1
-                                ));
+                                );
+                                g.FillRectangle(itemBrush, rect);
+
+                                if (isSelected)
+                                    selectionOutline.AddRectangle(rect);
 
                                 var w = Math.Min(x2, maxX) - x1;
 
@@ -259,6 +280,11 @@ namespace HeapProfiler {
                                 x2 -= w;
                                 x1 = 0;
                             } while (x2 > width);
+
+                            if (isSelected)
+                                using (selectionOutline)
+                                using (var pen = new Pen(SystemColors.HighlightText, 2.0f))
+                                    g.DrawPath(pen, selectionOutline);
                         }
                     }
 
@@ -292,15 +318,100 @@ namespace HeapProfiler {
             base.OnMouseDown(e);
         }
 
+        protected override void OnMouseLeave (EventArgs e) {
+            base.OnMouseLeave(e);
+
+            if (Tooltip == null)
+                return;
+
+            if (!Tooltip.ClientRectangle.Contains(Tooltip.PointToClient(Cursor.Position)))
+                HideTooltip();
+        }
+
         protected override void OnMouseMove (MouseEventArgs e) {
             HeapSnapshot.Heap heap;
             int allocationIndex;
 
             if (AllocationFromPoint(e.Location, out heap, out allocationIndex)) {
-                Console.WriteLine("{0} {1}", heap, heap.Allocations[allocationIndex]);
+                if ((heap != TooltipHeap) || (allocationIndex != TooltipAllocationIndex)) {
+                    TooltipAllocationIndex = allocationIndex;
+                    TooltipHeap = heap;
+
+                    if (Tooltip == null)
+                        Tooltip = new CustomTooltip(this);
+
+                    Instance.Scheduler.Start(
+                        FinishShowingTooltip(
+                            PointToScreen(e.Location),
+                            heap, heap.Allocations[allocationIndex],
+                            Snapshot.Tracebacks[heap.Allocations[allocationIndex].TracebackID]
+                        ),
+                        TaskExecutionPolicy.RunAsBackgroundTask
+                    );
+
+                    Invalidate();
+                }
             } else {
+                HideTooltip();
+
                 base.OnMouseMove(e);
             }
+        }
+
+        protected void HideTooltip () {
+            if (TooltipHeap != null) {
+                TooltipHeap = null;
+                TooltipAllocationIndex = -1;
+                Tooltip.Hide();
+                Invalidate();
+            }
+        }
+
+        protected IEnumerator<object> FinishShowingTooltip (
+            Point mouseLocation,
+            HeapSnapshot.Heap heap, 
+            HeapSnapshot.Allocation allocation, 
+            HeapSnapshot.Traceback rawTraceback
+        ) {
+            var uniqueRawFrames = rawTraceback.Frames.AsEnumerable().Distinct();
+
+            var fSymbols = Instance.Database.SymbolCache.Select(uniqueRawFrames);
+            using (fSymbols)
+                yield return fSymbols;
+
+            var symbolDict = SequenceUtils.ToDictionary(
+                uniqueRawFrames, fSymbols.Result
+            );
+
+            var tracebackInfo = HeapRecording.ConstructTracebackInfo(
+                rawTraceback.ID, rawTraceback.Frames, symbolDict
+            );
+
+            var renderParams = new DeltaInfo.RenderParams {
+                BackgroundBrush = new SolidBrush(SystemColors.Info),
+                BackgroundColor = SystemColors.Info,
+                TextBrush = new SolidBrush(SystemColors.InfoText),
+                IsExpanded = true,
+                IsSelected = false,
+                Font = Font,
+                ShadeBrush = new SolidBrush(Color.FromArgb(31, 0, 0, 0)),
+                StringFormat = CustomTooltip.GetDefaultStringFormat()
+            };
+
+            var content = new HeapSnapshot.AllocationTooltipContent(
+                ref allocation, ref tracebackInfo, ref renderParams
+            ) {
+                Location = mouseLocation
+            };
+
+            using (var g = CreateGraphics())
+                CustomTooltip.FitContentOnScreen(
+                    g, content, 
+                    ref content.RenderParams.Font,
+                    ref content.Location, ref content.Size
+                );
+
+            Tooltip.SetContent(content);
         }
 
         protected override void OnMouseWheel (MouseEventArgs e) {

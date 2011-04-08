@@ -51,6 +51,8 @@ namespace HeapProfiler {
                 FormatFlags = StringFormatFlags.NoWrap | StringFormatFlags.FitBlackBox
             };
 
+            LayoutView.Instance = instance;
+
             Timeline.ItemValueGetter = GetBytesTotal;
             Timeline.ItemValueFormatter = MainWindow.FormatSizeBytes;
 

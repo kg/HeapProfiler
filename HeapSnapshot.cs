@@ -682,6 +682,8 @@ namespace HeapProfiler {
         public class AllocationTooltipContent : ITooltipContent {
             public readonly Allocation Allocation;
             public readonly TracebackInfo Traceback;
+            public Point Location;
+            public Size Size;
             public DeltaInfo.RenderParams RenderParams;
 
             public AllocationTooltipContent (ref Allocation allocation, ref TracebackInfo traceback, ref DeltaInfo.RenderParams renderParams) {
@@ -691,12 +693,37 @@ namespace HeapProfiler {
             }
 
             public void Render (Graphics g) {
+                RenderParams.ContentRegion = new Rectangle(
+                    0, 0, Size.Width, Size.Height
+                );
                 var headerText = Allocation.ToString();
                 Traceback.Render(g, ref RenderParams, headerText);
             }
 
             public Size Measure (Graphics g) {
-                return new Size(0, 0);
+                var font = RenderParams.Font;
+                var sf = RenderParams.StringFormat;
+                var headerText = Allocation.ToString();
+
+                var width = (int)Math.Ceiling(g.MeasureString(
+                    headerText + Traceback.ToString(), font, 99999, sf
+                ).Width);
+                var lineHeight = g.MeasureString("AaBbYyZz", font, width, sf).Height;
+                return new Size(
+                    width, (int)Math.Ceiling(lineHeight * (Traceback.Frames.Count + 1))
+                );                
+            }
+
+            Point ITooltipContent.Location {
+                get {
+                    return Location;
+                }
+            }
+
+            Size ITooltipContent.Size {
+                get {
+                    return Size;
+                }
             }
         }
 
