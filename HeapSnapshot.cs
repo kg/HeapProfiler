@@ -673,8 +673,9 @@ namespace HeapProfiler {
 
             public override string ToString () {
                 return String.Format(
-                    "Alloc from {0:x8}-{1:x8} by {2:x8}", 
-                    Address, NextOffset, TracebackID
+                    "{0} ({1:x8}-{2:x8}) by {3:x8}", 
+                        FileSize.Format(Size), 
+                        Address, NextOffset, TracebackID
                     );
             }
         }
@@ -706,7 +707,8 @@ namespace HeapProfiler {
                 var headerText = Allocation.ToString();
 
                 var width = (int)Math.Ceiling(g.MeasureString(
-                    headerText + Traceback.ToString(), font, 99999, sf
+                    headerText + Environment.NewLine + Traceback.ToString(), 
+                    font, 99999, sf
                 ).Width);
                 var lineHeight = g.MeasureString("AaBbYyZz", font, width, sf).Height;
                 return new Size(

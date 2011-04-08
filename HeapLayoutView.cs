@@ -17,6 +17,7 @@ Original Author: Kevin Gadd (kevin.gadd@gmail.com)
 */
 
 using System;
+using System.Diagnostics;
 using System.Linq;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -31,9 +32,8 @@ namespace HeapProfiler {
         public HeapRecording Instance = null;
         public HeapSnapshot Snapshot = null;
 
-        protected const int BytesPerPixel = 16;
+        protected const int BytesPerPixel = 1;
         protected const int RowHeight = 12;
-        protected const int MarginWidth = 2;
 
         protected HeapSnapshot.Heap TooltipHeap;
         protected int TooltipAllocationIndex;
@@ -87,86 +87,56 @@ namespace HeapProfiler {
         }
 
         void NextAllocationButton_Click (object sender, EventArgs e) {
+            var current = (_ScrollOffset * RowHeight);
+            var targetRow = _ScrollOffset + (ClientSize.Height / RowHeight);
+            var target = (_ScrollOffset * RowHeight) + ClientSize.Height;
+
             var width = ClientSize.Width - ScrollBar.Width;
-            int y = 0;
-            var target = (_ScrollOffset * RowHeight) + (ClientSize.Height / 2);
+            var bytesPerRow = BytesPerRow;
 
-            foreach (var heapId in Snapshot.Heaps.Keys) {
-                var heap = Snapshot.Heaps[heapId];
-                var itemHeight = (int)(Math.Ceiling(heap.Info.EstimatedSize / (float)BytesPerRow) + 1) * RowHeight;
-                var rgn = new Rectangle(0, y, width, itemHeight);
-                var maxX = width - MarginWidth;
+            foreach (var vh in WalkHeaps(Snapshot, 0, bytesPerRow, width)) {
+                if (((vh.FirstRow + vh.HeightInRows) * RowHeight) < target)
+                    continue;
 
-                if (y + itemHeight >= target)
-                foreach (var allocation in heap.Allocations) {
-                    int pos = (int)(allocation.Address - heap.Info.EstimatedStart);
-                    int y1 = y + ((pos / BytesPerRow) * RowHeight),
-                        y2 = y1 + RowHeight;
-                    float x1 = (pos % BytesPerRow) / (float)BytesPerPixel,
-                        x2 = x1 + ((allocation.Size + allocation.Overhead) / (float)BytesPerPixel);
-
-                    if (y1 <= target)
+                foreach (var vha in WalkHeapAllocations(vh.Heap, bytesPerRow, vh.FirstRow, width)) {
+                    if (vha.FirstRowIndex < targetRow)
+                        continue;
+                    if (vha.Rectangle.Bottom <= target)
                         continue;
 
-                    _ScrollOffset = (y1 / RowHeight) - 1;
+                    _ScrollOffset = vha.FirstRowIndex;
                     Invalidate();
                     return;
                 }
-
-                y += itemHeight;
             }
         }
 
         protected bool AllocationFromPoint (Point pt, out HeapSnapshot.Heap heap, out int allocationIndex) {
-            var width = ClientSize.Width - ScrollBar.Width;
-            int y = -_ScrollOffset * RowHeight;
-
             if (Snapshot == null) {
                 heap = null;
                 allocationIndex = -1;
                 return false;
             }
 
-            foreach (var heapId in Snapshot.Heaps.Keys) {
-                heap = Snapshot.Heaps[heapId];
-                var itemHeight = (int)(Math.Ceiling(heap.Info.EstimatedSize / (float)BytesPerRow) + 1) * RowHeight;
-                var rgn = new Rectangle(0, y, width, itemHeight);
-                var maxX = width - MarginWidth;
+            var width = ClientSize.Width - ScrollBar.Width;
+            var bytesPerRow = BytesPerRow;
 
-                if ((y + itemHeight >= pt.Y) && (y <= pt.Y))
-                for (int i = 0, c = heap.Allocations.Count; i < c; i++) {
-                    var allocation = heap.Allocations[i];
-                    int pos = (int)(allocation.Address - heap.Info.EstimatedStart);
-                    int y1 = y + ((pos / BytesPerRow) * RowHeight),
-                        y2 = y1 + RowHeight;
-                    float x1 = (pos % BytesPerRow) / (float)BytesPerPixel,
-                        x2 = x1 + ((allocation.Size + allocation.Overhead) / (float)BytesPerPixel);
+            foreach (var vh in WalkHeaps(Snapshot, _ScrollOffset, bytesPerRow, width)) {
+                if (((vh.FirstRow + vh.HeightInRows) * RowHeight) < pt.Y)
+                    continue;
 
-                    if ((y1 > pt.Y) || (y2 < pt.Y))
+                foreach (var vha in WalkHeapAllocations(vh.Heap, bytesPerRow, vh.FirstRow, width)) {
+                    if (vha.Rectangle.Bottom < pt.Y)
                         continue;
+                    if (vha.Rectangle.Y > pt.Y)
+                        break;
 
-                    do {
-                        var allocRect = new RectangleF(
-                            x1 + MarginWidth, y1,
-                            Math.Min(x2, maxX) + MarginWidth - x1, y2 - y1
-                        );
-
-                        if (allocRect.Contains(pt.X, pt.Y)) {
-                            allocationIndex = i;
-                            return true;
-                        }
-
-                        var w = Math.Min(x2, maxX) - x1;
-
-                        y1 += RowHeight;
-                        y2 += RowHeight;
-
-                        x2 -= w;
-                        x1 = 0;
-                    } while (x2 > width);
+                    if (vha.Rectangle.Contains(pt)) {
+                        heap = vha.Heap;
+                        allocationIndex = vha.Index;
+                        return true;
+                    }
                 }
-
-                y += itemHeight;
             }
 
             heap = null;
@@ -202,6 +172,91 @@ namespace HeapProfiler {
             );
         }
 
+        protected static int ComputeHeapHeightInRows (HeapSnapshot.Heap heap, float bytesPerRow) {
+            return (int)(Math.Ceiling(
+                heap.Info.EstimatedSize / bytesPerRow
+            ) + 1);
+        }
+
+        protected struct VisibleHeap {
+            public readonly HeapSnapshot.Heap Heap;
+            public readonly int FirstRow, HeightInRows;
+
+            public VisibleHeap (HeapSnapshot.Heap heap, int firstRow, int heightInRows) {
+                Heap = heap;
+                FirstRow = firstRow;
+                HeightInRows = heightInRows;
+            }
+        }
+
+        protected static IEnumerable<VisibleHeap> WalkHeaps (
+            HeapSnapshot snapshot, int scrollOffsetInRows, 
+            int bytesPerRow, int contentWidth
+        ) {
+            int rowY = -scrollOffsetInRows;
+
+            foreach (var heapId in snapshot.Heaps.Keys) {
+                var heap = snapshot.Heaps[heapId];
+                var itemHeight = ComputeHeapHeightInRows(heap, bytesPerRow);
+
+                yield return new VisibleHeap(
+                    heap, rowY, itemHeight
+                );
+
+                rowY += itemHeight;
+            }
+        }
+
+        protected struct VisibleHeapAllocation {
+            public readonly HeapSnapshot.Heap Heap;
+            public readonly HeapSnapshot.Allocation Allocation;
+            public readonly int Index, RowIndex, FirstRowIndex;
+            public readonly RectangleF Rectangle;
+
+            public VisibleHeapAllocation (
+                HeapSnapshot.Heap heap, int index, int rowIndex, int firstRowIndex,
+                ref HeapSnapshot.Allocation allocation, RectangleF rectangle
+            ) {
+                Heap = heap;
+                Index = index;
+                RowIndex = rowIndex;
+                FirstRowIndex = firstRowIndex;
+                Allocation = allocation;
+                Rectangle = rectangle;
+            }
+        }
+
+        protected static IEnumerable<VisibleHeapAllocation> WalkHeapAllocations (
+            HeapSnapshot.Heap heap, int bytesPerRow, 
+            int rowY, int contentWidth
+        ) {
+            for (int i = 0, c = heap.Allocations.Count; i < c; i++) {
+                var allocation = heap.Allocations[i];
+
+                var pos = (int)(allocation.Address - heap.Info.EstimatedStart);
+                var nextPos = (int)(allocation.NextOffset - heap.Info.EstimatedStart);
+
+                int y1 = (rowY + (pos / bytesPerRow)),
+                    y2 = (rowY + (nextPos / bytesPerRow));
+                float x1 = (pos % bytesPerRow) / (float)BytesPerPixel,
+                    x2 = (nextPos % bytesPerRow) / (float)BytesPerPixel;
+
+                for (var barY = y1; barY <= y2; barY += 1) {
+                    var barX = (barY == y1) ? x1 : 0;
+
+                    yield return new VisibleHeapAllocation(
+                        heap, i, barY, y1,
+                        ref allocation, 
+                        new RectangleF(
+                            barX, barY * RowHeight,
+                            (barY == y2) ? x2 - barX : contentWidth - barX,
+                            RowHeight
+                        )
+                    );
+                }
+            }
+        }
+
         protected override void OnPaint (PaintEventArgs e) {
             if (Snapshot == null) {
                 e.Graphics.Clear(BackColor);
@@ -209,6 +264,7 @@ namespace HeapProfiler {
             }
 
             var width = ClientSize.Width - ScrollBar.Width;
+            var bytesPerRow = BytesPerRow;
 
             var contentHeight = ContentHeight;
 
@@ -219,13 +275,12 @@ namespace HeapProfiler {
 
             using (var shadeBrush = new SolidBrush(SystemColors.ControlLight))
             using (var backgroundBrush = new SolidBrush(BackColor)) {
-                int y = -_ScrollOffset * RowHeight;
-
-                foreach (var heapId in Snapshot.Heaps.Keys) {
-                    var heap = Snapshot.Heaps[heapId];
-                    var itemHeight = (int)(Math.Ceiling(heap.Info.EstimatedSize / (float)BytesPerRow) + 1) * RowHeight;
-                    var rgn = new Rectangle(0, y, width, itemHeight);
-                    var maxX = width - MarginWidth;
+                foreach (var vh in WalkHeaps(Snapshot, _ScrollOffset, bytesPerRow, width)) {
+                    var rgn = new Rectangle(0, vh.FirstRow * RowHeight, width, vh.HeightInRows * RowHeight);
+                    if (rgn.Y > ClientSize.Height)
+                        break;
+                    if (rgn.Bottom < 0)
+                        continue;
 
                     var clippedRgn = rgn;
                     clippedRgn.Intersect(e.ClipRectangle);
@@ -238,63 +293,35 @@ namespace HeapProfiler {
 
                         g.ResetClip();
                         g.Clear(shadeBrush.Color);
-                        for (int i = 0, c = heap.Allocations.Count; i < c; i++) {
-                            var allocation = heap.Allocations[i];
-                            bool isSelected = (heap == TooltipHeap) && (i == TooltipAllocationIndex);
 
-                            var color = SelectItemColor(allocation);
-
-                            int pos = (int)(allocation.Address - heap.Info.EstimatedStart);
-                            int y1 = y + ((pos / BytesPerRow) * RowHeight),
-                                y2 = y1 + RowHeight;
-                            float x1 = (pos % BytesPerRow) / (float)BytesPerPixel,
-                                x2 = x1 + ((allocation.Size + allocation.Overhead) / (float)BytesPerPixel);
-
-                            if (y2 < rgn.Top)
+                        foreach (var vha in WalkHeapAllocations(vh.Heap, bytesPerRow, vh.FirstRow, width)) {
+                            if (vha.Rectangle.Y < 0)
                                 continue;
-                            if (y1 > rgn.Bottom)
+                            if (vha.Rectangle.Bottom > ClientSize.Height)
                                 break;
 
-                            GraphicsPath selectionOutline = null;
-                            if (isSelected)
-                                selectionOutline = new GraphicsPath();
-
-                            using (var itemBrush = new SolidBrush(
-                                isSelected ? SystemColors.Highlight : color
-                            ))
-                            do {
-                                var rect = new RectangleF(
-                                    x1 + MarginWidth, y1,
-                                    Math.Min(x2, maxX) + MarginWidth - x1, y2 - y1
-                                );
-                                g.FillRectangle(itemBrush, rect);
-
-                                if (isSelected)
-                                    selectionOutline.AddRectangle(rect);
-
-                                var w = Math.Min(x2, maxX) - x1;
-
-                                y1 += RowHeight;
-                                y2 += RowHeight;
-
-                                x2 -= w;
-                                x1 = 0;
-                            } while (x2 > width);
+                            bool isSelected = (vha.Index == TooltipAllocationIndex) && (vha.Heap == TooltipHeap);
+                            Color itemColor;
 
                             if (isSelected)
-                                using (selectionOutline)
-                                using (var pen = new Pen(SystemColors.HighlightText, 2.0f))
-                                    g.DrawPath(pen, selectionOutline);
+                                itemColor = SystemColors.Highlight;
+                            else
+                                itemColor = SelectItemColor(vha.Allocation);
+
+                            using (var brush = new SolidBrush(itemColor))
+                                g.FillRectangle(brush, vha.Rectangle);
                         }
                     }
-
-                    y += itemHeight;
-                    if (y >= ClientSize.Height)
-                        break;
                 }
 
-                if (y < ClientSize.Height)
-                    e.Graphics.FillRectangle(backgroundBrush, new Rectangle(0, y, ClientSize.Width, ClientSize.Height - y));
+                var lastContentY = (contentHeight - _ScrollOffset) * RowHeight;
+                if (lastContentY < ClientSize.Height)
+                    e.Graphics.FillRectangle(
+                        backgroundBrush, new Rectangle(
+                            0, lastContentY, 
+                            ClientSize.Width, ClientSize.Height - lastContentY
+                        )
+                    );
             }
 
             var largeChange = ClientSize.Height / RowHeight;
@@ -308,14 +335,6 @@ namespace HeapProfiler {
                 ScrollBar.Value = ScrollOffset;
 
             base.OnPaint(e);
-        }
-
-        protected int? IndexFromPoint (Point pt) {
-            return null;
-        }
-
-        protected override void OnMouseDown (MouseEventArgs e) {
-            base.OnMouseDown(e);
         }
 
         protected override void OnMouseLeave (EventArgs e) {
@@ -512,7 +531,7 @@ namespace HeapProfiler {
         [Browsable(false)]
         public int BytesPerRow {
             get {
-                return (ClientSize.Width - ScrollBar.Width - (MarginWidth * 2)) * BytesPerPixel;
+                return (ClientSize.Width - ScrollBar.Width) * BytesPerPixel;
             }
         }
 

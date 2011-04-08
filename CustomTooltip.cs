@@ -25,6 +25,7 @@ namespace HeapProfiler {
     public partial class CustomTooltip : Form {
         public const int MaxTooltipWidthPercent = 50;
         public const int MaxTooltipHeightPercent = 60;
+        public const float FontSizeShrinkMultiplier = 0.95f;
         public const float MinTooltipSizeEm = 7.5f;
 
         public readonly ITooltipOwner Owner;
@@ -183,7 +184,16 @@ namespace HeapProfiler {
             for (int i = 0; i < 10; i++) {
                 var size = content.Measure(g);
 
-                fontSize *= 0.9f;
+                tooltipSize.Width = size.Width;
+                tooltipSize.Height = size.Height;
+
+                if (fontSize <= MinTooltipSizeEm)
+                    break;
+                if (size.Width < (screenBounds.Width * MaxTooltipWidthPercent / 100) &&
+                    size.Height < (screenBounds.Height * MaxTooltipHeightPercent / 100))
+                    break;
+
+                fontSize *= FontSizeShrinkMultiplier;
                 if (fontSize < MinTooltipSizeEm)
                     fontSize = MinTooltipSizeEm;
 
@@ -197,15 +207,6 @@ namespace HeapProfiler {
                     tempFont.Dispose();
 
                 tempFont = font;
-
-                tooltipSize.Width = size.Width;
-                tooltipSize.Height = size.Height;
-
-                if (fontSize <= MinTooltipSizeEm)
-                    break;
-                if (size.Width < (screenBounds.Width * MaxTooltipWidthPercent / 100) &&
-                    size.Height < (screenBounds.Height * MaxTooltipHeightPercent / 100))
-                    break;
             }
 
             var maxWidth = (screenBounds.Width * MaxTooltipWidthPercent / 100);
