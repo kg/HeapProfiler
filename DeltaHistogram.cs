@@ -23,6 +23,7 @@ using System.Drawing;
 using System.Data;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Windows.Forms;
 using Squared.Task;
 using Squared.Util;
@@ -52,7 +53,7 @@ namespace HeapProfiler {
         public int? TotalDelta = null;
         public int Maximum = 1024;
 
-        public string FunctionFilter = null;
+        public Regex FunctionFilter = null;
 
         protected readonly LRUCache<long, string> FormattedSizeCache = new LRUCache<long, string>(128);
         protected readonly LRUCache<TItem, ItemData> Data = new LRUCache<TItem, ItemData>(256, new ReferenceComparer<TItem>());
@@ -420,11 +421,12 @@ namespace HeapProfiler {
                         TextBrush = new SolidBrush(SystemColors.InfoText),
                         IsExpanded = true,
                         IsSelected = false,
-                        FunctionHighlightBrush = new SolidBrush(SystemColors.Window),
+                        FunctionHighlightBrush = new SolidBrush(SystemColors.Highlight),
+                        FunctionHighlightTextBrush = new SolidBrush(SystemColors.HighlightText),
                         FunctionFilter = FunctionFilter,
                         Font = Font,
                         ShadeBrush = new SolidBrush(Color.FromArgb(31, 0, 0, 0)),
-                        StringFormat = sf,
+                        StringFormat = sf
                     }
                 ) {
                     Location = this.PointToScreen(location)

@@ -20,6 +20,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Windows.Forms;
 using System.IO;
 using Squared.Task;
@@ -769,8 +770,14 @@ namespace HeapProfiler {
         protected IEnumerator<object> FilterHeapData (HeapRecording instance, string filter) {
             var result = new Dictionary<HeapSnapshotInfo, FilteredHeapSnapshotInfo>();
 
+            filter = EscapeFilter(filter);
+            var regex = new Regex(filter);
+            var functionNames = (from functionName in KnownFunctionNames
+                                 where regex.IsMatch(functionName)
+                                 select functionName).Distinct();
+
             using (var activity = Activities.AddItem("Filtering heap")) {
-                var fFrameIDs = instance.Database.SymbolsByFunction.Find(filter);
+                var fFrameIDs = instance.Database.SymbolsByFunction.Find(functionNames);
                 using (fFrameIDs)
                     yield return fFrameIDs;
 
@@ -828,8 +835,48 @@ namespace HeapProfiler {
             SnapshotTimeline.Invalidate();
         }
 
+        public static string EscapeFilter (string filter) {
+            filter = filter
+                .Replace("*", "\x0")
+                .Replace("?", "\x1");
+
+            return String.Format(
+                "^{0}$", 
+                Regex.Escape(filter)
+                    .Replace("\x0", "(.*)")
+                    .Replace("\x1", "(.?)")
+            );
+        }
+
+        public static Regex FilterToRegex (string rawFilter) {
+            if (rawFilter == null)
+                return null;
+
+            var escaped = EscapeFilter(rawFilter);
+            return new Regex(escaped);
+        }
+
         private void HeapFilter_FilterChanging (object sender, FilterChangingEventArgs args) {
-            args.SetValid(KnownFunctionNames.Contains(args.Filter));
+            if (args.Filter.Trim().Length == 0)
+                return;
+
+            var filter = EscapeFilter(args.Filter);
+            Regex regex;
+            try {
+                regex = new Regex(filter);
+            } catch {
+                args.SetValid(false);
+                return;
+            }
+
+            foreach (var name in KnownFunctionNames) {
+                if (regex.IsMatch(name)) {
+                    args.SetValid(true);
+                    return;
+                }
+            }
+
+            args.SetValid(false);
         }
 
         private void HeapFilter_FilterChanged (object sender, EventArgs e) {

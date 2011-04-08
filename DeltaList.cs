@@ -23,6 +23,7 @@ using System.Drawing;
 using System.Data;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Windows.Forms;
 using Squared.Task;
 using Squared.Util;
@@ -42,7 +43,7 @@ namespace HeapProfiler {
 
         public IList<TItem> Items = new List<TItem>();
 
-        public string FunctionFilter = null;
+        public Regex FunctionFilter = null;
 
         protected readonly LRUCache<TItem, ItemData> Data = new LRUCache<TItem, ItemData>(256, new ReferenceComparer<TItem>());
         protected readonly List<VisibleItem> VisibleItems = new List<VisibleItem>();
@@ -127,7 +128,6 @@ namespace HeapProfiler {
                 HotkeyPrefix = System.Drawing.Text.HotkeyPrefix.None,
                 Trimming = StringTrimming.None
             })
-            using (var functionHighlightBrush = new SolidBrush(Color.PaleGoldenrod))
             using (var shadeBrush = new SolidBrush(Color.FromArgb(31, 0, 0, 0)))
             using (var elideBackgroundBrush = new SolidBrush(Color.FromArgb(192, SystemColors.Window)))
             using (var elideTextBrush = new SolidBrush(Color.FromArgb(220, SystemColors.WindowText)))
@@ -141,7 +141,8 @@ namespace HeapProfiler {
                 var renderParams = new DeltaInfo.RenderParams {
                     Font = Font,
                     FunctionFilter = FunctionFilter, 
-                    FunctionHighlightBrush = functionHighlightBrush,
+                    FunctionHighlightBrush = highlightBrush,
+                    FunctionHighlightTextBrush = highlightTextBrush,
                     ElideBackgroundBrush = elideBackgroundBrush,
                     ElideTextBrush = elideTextBrush,
                     ShadeBrush = shadeBrush,

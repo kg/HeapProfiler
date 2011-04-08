@@ -26,6 +26,7 @@ using System.Globalization;
 using Squared.Task;
 using Squared.Task.IO;
 using Squared.Data.Mangler;
+using Squared.Util.RegexExtensions;
 
 namespace HeapProfiler {
     public class DeltaInfo {
@@ -34,11 +35,11 @@ namespace HeapProfiler {
             public Rectangle ContentRegion;
             public Color BackgroundColor;
             public Brush BackgroundBrush, TextBrush;
-            public Brush ShadeBrush, FunctionHighlightBrush;
+            public Brush ShadeBrush, FunctionHighlightBrush, FunctionHighlightTextBrush;
             public Brush ElideBackgroundBrush, ElideTextBrush;
             public StringFormat StringFormat;
             public Font Font;
-            public string FunctionFilter;
+            public Regex FunctionFilter;
 
             public void Dispose () {
                 BackgroundBrush.Dispose();
@@ -165,9 +166,12 @@ namespace HeapProfiler {
                 );
                 Region[] fillRegions = null;
 
-                if ((rp.FunctionFilter != null) && (rp.FunctionFilter == frame.Function)) {
-                    var startIndex = text.IndexOf(rp.FunctionFilter);
-                    var endIndex = startIndex + rp.FunctionFilter.Length;
+                g.ResetClip();
+
+                Match m;
+                if ((rp.FunctionFilter != null) && (frame.Function != null) && rp.FunctionFilter.TryMatch(frame.Function, out m)) {
+                    var startIndex = m.Index + text.IndexOf(frame.Function);
+                    var endIndex = startIndex + m.Length;
 
                     if ((endIndex > startIndex) && (startIndex >= 0)) {
                         rp.StringFormat.SetMeasurableCharacterRanges(new[] { 
@@ -179,25 +183,19 @@ namespace HeapProfiler {
                         );
 
                         foreach (var fillRegion in fillRegions) {
+                            g.SetClip(fillRegion, System.Drawing.Drawing2D.CombineMode.Replace);
                             g.FillRegion(rp.FunctionHighlightBrush, fillRegion);
+                            g.DrawString(text, rp.Font, rp.FunctionHighlightTextBrush, layoutRect, rp.StringFormat);
+                        }
+
+                        g.ResetClip();
+                        foreach (var fillRegion in fillRegions) {
                             g.ExcludeClip(fillRegion);
                         }
                     }
                 }
 
                 g.DrawString(text, rp.Font, rp.TextBrush, layoutRect, rp.StringFormat);
-                if (fillRegions != null) {
-                    bool first = true;
-                    foreach (var fillRegion in fillRegions) {
-                        g.SetClip(fillRegion, first ?
-                            System.Drawing.Drawing2D.CombineMode.Replace :
-                            System.Drawing.Drawing2D.CombineMode.Union
-                        );
-                        first = false;
-                    }
-                    g.DrawString(text, rp.Font, rp.TextBrush, layoutRect, rp.StringFormat);
-                    g.ResetClip();
-                }
 
                 y += g.MeasureString(text, rp.Font, rp.ContentRegion.Width, rp.StringFormat).Height;
 
