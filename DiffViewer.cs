@@ -227,8 +227,8 @@ namespace HeapProfiler {
 
                     if (!filteredOut) {
                         newListItems.Add(delta);
-                        totalBytes += delta.BytesDelta * (delta.Added ? 1 : -1);
-                        totalAllocs += delta.CountDelta.GetValueOrDefault(0) * (delta.Added ? 1 : -1);
+                        totalBytes += delta.BytesDelta;
+                        totalAllocs += delta.CountDelta.GetValueOrDefault(0);
                         max = Math.Max(max, delta.BytesDelta);
                     }
                 }

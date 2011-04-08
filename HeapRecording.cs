@@ -828,15 +828,14 @@ namespace HeapProfiler {
                                 // deallocation
 
                                 if (deallocs.TryGetValue(range.TracebackID, out delta)) {
-                                    delta.CountDelta += 1;
-                                    delta.BytesDelta += (int)(range.Size + range.Overhead);
+                                    delta.CountDelta -= 1;
+                                    delta.BytesDelta -= (int)(range.Size + range.Overhead);
                                     delta.OldCount += 1;
                                     delta.OldBytes += (int)(range.Size + range.Overhead);
                                 } else {
                                     deallocs.Add(range.TracebackID, new DeltaInfo {
-                                        Added = false,
-                                        BytesDelta = (int)(range.Size + range.Overhead),
-                                        CountDelta = 1,
+                                        BytesDelta = -(int)(range.Size + range.Overhead),
+                                        CountDelta = -1,
                                         NewBytes = 0,
                                         NewCount = 0,
                                         OldBytes = (int)(range.Size + range.Overhead),
@@ -861,7 +860,6 @@ namespace HeapProfiler {
                                     delta.NewBytes += (int)(range.Size + range.Overhead);
                                 } else {
                                     allocs.Add(range.TracebackID, new DeltaInfo {
-                                        Added = true,
                                         BytesDelta = (int)(range.Size + range.Overhead),
                                         CountDelta = 1,
                                         NewBytes = (int)(range.Size + range.Overhead),
@@ -886,10 +884,8 @@ namespace HeapProfiler {
                                 delta.OldBytes = dealloc.OldBytes;
                                 delta.OldCount = dealloc.OldCount;
 
-                                delta.BytesDelta = Math.Abs(delta.NewBytes - delta.OldBytes);
-                                delta.CountDelta = Math.Abs(delta.NewCount - delta.OldCount.Value);
-                                if (delta.NewBytes < delta.OldBytes)
-                                    delta.Added = false;
+                                delta.BytesDelta = delta.NewBytes - delta.OldBytes;
+                                delta.CountDelta = delta.NewCount - delta.OldCount.Value;
                             }
 
                             if (delta.BytesDelta != 0)
@@ -946,8 +942,8 @@ namespace HeapProfiler {
 
             yield return Future.RunInThread(() =>
                 deltas.Sort((lhs, rhs) => {
-                    var lhsBytes = (lhs.Added ? 1 : -1) * lhs.BytesDelta;
-                    var rhsBytes = (rhs.Added ? 1 : -1) * rhs.BytesDelta;
+                    var lhsBytes = lhs.BytesDelta;
+                    var rhsBytes = rhs.BytesDelta;
                     return rhsBytes.CompareTo(lhsBytes);
                 })
             );

@@ -55,7 +55,6 @@ namespace HeapProfiler {
             }
         }
 
-        public bool Added;
         public int BytesDelta, OldBytes, NewBytes, NewCount;
         public int? CountDelta, OldCount;
         public UInt32 TracebackID;
@@ -67,8 +66,8 @@ namespace HeapProfiler {
             get {
                 if (FormattedBytesCache == null)
                     FormattedBytesCache = 
-                        ((Added) ? "+" : "-") +
-                        FileSize.Format(BytesDelta);
+                        (BytesDelta >= 0 ? "+" : "-") +
+                        FileSize.Format(Math.Abs(BytesDelta));
 
                 return FormattedBytesCache;
             }
@@ -410,10 +409,11 @@ namespace HeapProfiler {
                 if (regexes.DiffModule.TryMatch(ref line, out m)) {
                     moduleNames.Add(m.Groups[groupModule].Value);
                 } else if (regexes.BytesDelta.TryMatch(ref line, out m)) {
+                    var added = (m.Groups[groupType].Value == "+");
                     var traceId = UInt32.Parse(m.Groups[groupTraceId].Value, NumberStyles.HexNumber);
                     var info = new DeltaInfo {
-                        Added = (m.Groups[groupType].Value == "+"),
-                        BytesDelta = int.Parse(m.Groups[groupDeltaBytes].Value, NumberStyles.HexNumber),
+                        BytesDelta = int.Parse(m.Groups[groupDeltaBytes].Value, NumberStyles.HexNumber) *
+                            (added ? 1 : -1),
                         NewBytes = int.Parse(m.Groups[groupNewBytes].Value, NumberStyles.HexNumber),
                         OldBytes = int.Parse(m.Groups[groupOldBytes].Value, NumberStyles.HexNumber),
                         NewCount = int.Parse(m.Groups[groupNewCount].Value, NumberStyles.HexNumber),
@@ -422,7 +422,8 @@ namespace HeapProfiler {
                     if (lr.ReadLine(out line)) {
                         if (regexes.CountDelta.TryMatch(ref line, out m)) {
                             info.OldCount = int.Parse(m.Groups[groupOldCount].Value, NumberStyles.HexNumber);
-                            info.CountDelta = int.Parse(m.Groups[groupCountDelta].Value, NumberStyles.HexNumber);
+                            info.CountDelta = int.Parse(m.Groups[groupCountDelta].Value, NumberStyles.HexNumber) *
+                                (added ? 1 : -1);
                         }
                     }
 
