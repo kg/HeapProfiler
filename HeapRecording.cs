@@ -806,6 +806,8 @@ namespace HeapProfiler {
 
             {
                 var tracebackIds = new HashSet<UInt32>();
+                var oldCounts = new Dictionary<UInt32, int>();
+                var oldBytes = new Dictionary<UInt32, int>();
                 var deallocs = new Dictionary<UInt32, DeltaInfo>();
                 var allocs = new Dictionary<UInt32, DeltaInfo>();
 
@@ -821,6 +823,18 @@ namespace HeapProfiler {
                         for (int i = 0, c = item.Ranges.Count, o = item.Ranges.Offset; i < c; i++) {
                             var range = ranges[i + o];
 
+                            if ((range.First <= first.Index) && (range.Last >= first.Index)) {
+                                int value;
+
+                                if (!oldCounts.TryGetValue(range.TracebackID, out value))
+                                    value = 0;
+                                oldCounts[range.TracebackID] = value + 1;
+
+                                if (!oldBytes.TryGetValue(range.TracebackID, out value))
+                                    value = 0;
+                                oldBytes[range.TracebackID] = (int)(value + range.Size);
+                            }
+
                             if ((range.First <= first.Index) &&
                                 (range.Last >= first.Index) &&
                                 (range.Last < last.Index)
@@ -829,17 +843,11 @@ namespace HeapProfiler {
 
                                 if (deallocs.TryGetValue(range.TracebackID, out delta)) {
                                     delta.CountDelta -= 1;
-                                    delta.BytesDelta -= (int)(range.Size + range.Overhead);
-                                    delta.OldCount += 1;
-                                    delta.OldBytes += (int)(range.Size + range.Overhead);
+                                    delta.BytesDelta -= (int)(range.Size);
                                 } else {
                                     deallocs.Add(range.TracebackID, new DeltaInfo {
-                                        BytesDelta = -(int)(range.Size + range.Overhead),
+                                        BytesDelta = -(int)(range.Size),
                                         CountDelta = -1,
-                                        NewBytes = 0,
-                                        NewCount = 0,
-                                        OldBytes = (int)(range.Size + range.Overhead),
-                                        OldCount = 1,
                                         TracebackID = range.TracebackID,
                                         Traceback = null
                                     });
@@ -855,17 +863,11 @@ namespace HeapProfiler {
 
                                 if (allocs.TryGetValue(range.TracebackID, out delta)) {
                                     delta.CountDelta += 1;
-                                    delta.BytesDelta += (int)(range.Size + range.Overhead);
-                                    delta.NewCount += 1;
-                                    delta.NewBytes += (int)(range.Size + range.Overhead);
+                                    delta.BytesDelta += (int)(range.Size);
                                 } else {
                                     allocs.Add(range.TracebackID, new DeltaInfo {
-                                        BytesDelta = (int)(range.Size + range.Overhead),
+                                        BytesDelta = (int)(range.Size),
                                         CountDelta = 1,
-                                        NewBytes = (int)(range.Size + range.Overhead),
-                                        NewCount = 1,
-                                        OldBytes = 0,
-                                        OldCount = 0,
                                         TracebackID = range.TracebackID,
                                         Traceback = null
                                     });
@@ -881,19 +883,26 @@ namespace HeapProfiler {
                             DeltaInfo dealloc;
 
                             if (deallocs.TryGetValue(tracebackId, out dealloc)) {
-                                delta.OldBytes = dealloc.OldBytes;
-                                delta.OldCount = dealloc.OldCount;
-
-                                delta.BytesDelta = delta.NewBytes - delta.OldBytes;
-                                delta.CountDelta = delta.NewCount - delta.OldCount.Value;
+                                delta.BytesDelta += dealloc.BytesDelta;
+                                delta.CountDelta += dealloc.CountDelta;
                             }
-
-                            if (delta.BytesDelta != 0)
-                                deltas.Add(delta);
                         } else if (deallocs.TryGetValue(tracebackId, out delta)) {
-                            if (delta.BytesDelta != 0)
-                                deltas.Add(delta);
+                        } else {
+                            continue;
                         }
+
+                        int value;
+                        if (oldBytes.TryGetValue(delta.TracebackID, out value))
+                            delta.OldBytes = value;
+                        if (oldCounts.TryGetValue(delta.TracebackID, out value))
+                            delta.OldCount = value;
+
+                        delta.NewBytes = delta.OldBytes + delta.BytesDelta;
+                        delta.NewCount = delta.OldCount.GetValueOrDefault(0) +
+                            delta.CountDelta.GetValueOrDefault(0);
+
+                        if (delta.BytesDelta != 0)
+                            deltas.Add(delta);
                     }
                 });
 

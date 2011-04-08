@@ -153,10 +153,11 @@ namespace HeapProfiler {
                 },
                 OnSetProgress = (value) => {
                     if (value.HasValue) {
+                        var v = value.Value;
                         if (LoadingProgress.Style != ProgressBarStyle.Continuous)
                             LoadingProgress.Style = ProgressBarStyle.Continuous;
-                        LoadingProgress.Value = Math.Min(value.Value + 1, LoadingProgress.Maximum);
-                        LoadingProgress.Value = value.Value;
+                        LoadingProgress.Value = Math.Min(v + 1, LoadingProgress.Maximum);
+                        LoadingProgress.Value = v;
                     } else {
                         if (LoadingProgress.Style != ProgressBarStyle.Marquee)
                             LoadingProgress.Style = ProgressBarStyle.Marquee;

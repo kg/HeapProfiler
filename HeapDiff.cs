@@ -393,17 +393,19 @@ namespace HeapProfiler {
             int groupTracebackPath = regexes.TracebackFrame.GroupNumberFromName("path");
             int groupTracebackLine = regexes.TracebackFrame.GroupNumberFromName("line");
 
+            var delay = new Sleep(0.01);
             int i = 0;
+
             while (lr.ReadLine(out line)) {
+            retryFromHere:
+                i += 1;
                 if (i % ProgressInterval == 0) {
                     progress.Maximum = lr.Length;
                     progress.Progress = lr.Position;
 
-                    // Suspend processing until any messages in the windows message queue have been processed
-                    yield return new Yield();
+                    // Suspend processing for a bit
+                    yield return delay;
                 }
-
-            retryFromHere:
 
                 Match m;
                 if (regexes.DiffModule.TryMatch(ref line, out m)) {
