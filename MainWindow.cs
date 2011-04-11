@@ -901,5 +901,10 @@ namespace HeapProfiler {
                 }
             }
         }
+
+        private void StackFiltersMenu_Click (object sender, EventArgs e) {
+            using (var dialog = new StackFiltersDialog())
+                dialog.ShowDialog(this);
+        }
     }
 }

@@ -20,6 +20,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows.Forms;
+using Squared.Data.Mangler;
 using Squared.Task;
 using System.Diagnostics;
 using System.IO;
@@ -29,6 +30,7 @@ using System.Text;
 namespace HeapProfiler {
     static class Program {
         public static TaskScheduler Scheduler;
+        public static Tangle<object> Preferences;
 
         /// <summary>
         /// The main entry point for the application.
@@ -41,6 +43,10 @@ namespace HeapProfiler {
             using (Scheduler = new TaskScheduler(JobQueue.WindowsMessageBased)) {
                 Scheduler.ErrorHandler = OnTaskError;
 
+                Preferences = new Tangle<object>(
+                    Scheduler, CreatePreferencesStorage()
+                );
+
                 using (var f = Scheduler.Start(MainTask(), TaskExecutionPolicy.RunAsBackgroundTask)) {
                     f.RegisterOnComplete((_) => {
                         if (_.Failed)
@@ -50,6 +56,16 @@ namespace HeapProfiler {
                     Application.Run();
                 }
             }
+        }
+
+        static StreamSource CreatePreferencesStorage () {
+            var path = Path.Combine(Environment.GetFolderPath(
+                Environment.SpecialFolder.ApplicationData, Environment.SpecialFolderOption.Create
+            ), @"HeapProfiler");
+            if (!Directory.Exists(path))
+                Directory.CreateDirectory(path);
+
+            return new SubStreamSource(new FolderStreamSource(path), "Preferences_", true);
         }
 
         static bool OnTaskError (Exception error) {

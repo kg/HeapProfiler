@@ -18,60 +18,41 @@ Original Author: Kevin Gadd (kevin.gadd@gmail.com)
 
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Drawing;
-using System.Linq;
-using System.Text;
 using System.Windows.Forms;
+using Squared.Data.Mangler;
 using Squared.Util.Bind;
 using Microsoft.Win32;
 
 namespace HeapProfiler {
     public partial class SymbolSettingsDialog : Form {
-        IBoundMember[] PersistedControls;
+        TanglePropertySerializer PreferenceSerializer;
+        Dictionary<IBoundMember, object> Defaults = new Dictionary<IBoundMember, object>();
 
         public SymbolSettingsDialog () {
             InitializeComponent();
 
-            PersistedControls = new[] {
-                BoundMember.New(() => SymbolServers.Text),
-                BoundMember.New(() => SymbolPath.Text),
-            };
+            PreferenceSerializer = new TanglePropertySerializer(Program.Preferences);
 
-            LoadPersistedValues();
+            PreferenceSerializer.Bind(() => SymbolServers.Text);
+            PreferenceSerializer.Bind(() => SymbolPath.Text);
+
+            foreach (var binding in PreferenceSerializer.Bindings)
+                Defaults[binding] = binding.Value;
+
+            Program.Scheduler.WaitFor(PreferenceSerializer.Load());
         }
 
         protected string ChooseName (IBoundMember bm) {
             return String.Format("{0}_{1}", (bm.Target as Control).Name, bm.Name);
         }
 
-        protected void LoadPersistedValues () {
-            if (!Registry.CurrentUser.SubKeyExists("Software\\HeapProfiler\\Symbols"))
-                return;
-
-            using (var key = Registry.CurrentUser.OpenSubKey("Software\\HeapProfiler\\Symbols"))
-            foreach (var pc in PersistedControls)
-                pc.Value = key.GetValue(ChooseName(pc), pc.Value);
-        }
-
-        protected void SavePersistedValues () {
-            using (var key = Registry.CurrentUser.OpenOrCreateSubKey("Software\\HeapProfiler\\Symbols"))
-            foreach (var pc in PersistedControls)
-                key.SetValue(ChooseName(pc), pc.Value);
-        }
-
         private void OK_Click (object sender, EventArgs e) {
-            SavePersistedValues();
+            Program.Scheduler.WaitFor(PreferenceSerializer.Save());
         }
 
         private void ResetToDefault_Click (object sender, EventArgs e) {
-            if (!Registry.CurrentUser.SubKeyExists("Software\\HeapProfiler\\Symbols"))
-                return;
-
-            Registry.CurrentUser.DeleteSubKey("Software\\HeapProfiler\\Symbols", false);
-            DialogResult = System.Windows.Forms.DialogResult.OK;
-            Close();
+            foreach (var preference in PreferenceSerializer.Bindings)
+                preference.Value = Defaults[preference];
         }
     }
 }

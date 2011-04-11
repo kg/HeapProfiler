@@ -54,6 +54,12 @@
     <Compile Include="ActivityIndicator.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="StackFiltersDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="StackFiltersDialog.Designer.cs">
+      <DependentUpon>StackFiltersDialog.cs</DependentUpon>
+    </Compile>
     <Compile Include="DatabaseFile.cs" />
     <Compile Include="FilterControl.cs">
       <SubType>UserControl</SubType>
@@ -145,9 +151,6 @@
       <DependentUpon>Resources.resx</DependentUpon>
       <DesignTime>True</DesignTime>
     </Compile>
-    <EmbeddedResource Include="SymbolSettingsDialog.resx">
-      <DependentUpon>SymbolSettingsDialog.cs</DependentUpon>
-    </EmbeddedResource>
     <None Include="app.config" />
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>
