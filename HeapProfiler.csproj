@@ -116,6 +116,7 @@
     <Compile Include="SnapshotTimeline.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="StackGraph.cs" />
     <Compile Include="SymbolSettingsDialog.cs">
       <SubType>Form</SubType>
     </Compile>

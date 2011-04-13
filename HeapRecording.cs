@@ -1062,6 +1062,10 @@ namespace HeapProfiler {
                     foreach (var d in deltas)
                         d.Traceback = tracebacks[d.TracebackID];
                 });
+
+                var stackGraph = new StackGraph();
+
+                yield return stackGraph.Build(this, deltas);
             }
 
             yield return Future.RunInThread(() =>

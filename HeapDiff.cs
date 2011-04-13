@@ -136,11 +136,33 @@ namespace HeapProfiler {
         }
     }
 
-    public class TracebackInfo {
+    public class TracebackInfo : IEnumerable<TracebackFrame> {
         public UInt32 TraceId;
         public ArraySegment<TracebackFrame> Frames;
         public NameTable Functions;
         public NameTable Modules;
+
+        public IEnumerator<TracebackFrame> GetEnumerator () {
+            for (int i = 0; i < Frames.Count; i++)
+                yield return Frames.Array[i + Frames.Offset];
+        }
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator () {
+            return this.GetEnumerator();
+        }
+
+        public bool Equals (TracebackInfo rhs) {
+            if (Frames.Count != rhs.Frames.Count)
+                return false;
+
+            int oLeft = Frames.Offset, oRight = rhs.Frames.Offset;
+            for (int i = 0, c = Frames.Count; i < c; i++) {
+                if (!Frames.Array[i + oLeft].Equals(rhs.Frames.Array[i + oRight]))
+                    return false;
+            }
+
+            return true;
+        }
 
         public float Render (Graphics g, ref DeltaInfo.RenderParams rp, string headerText) {
             var lineHeight = g.MeasureString(
@@ -256,6 +278,12 @@ namespace HeapProfiler {
             Offset2 = rawOffset;
         }
 
+        public UInt32 RawOffset {
+            get {
+                return Offset2.Value;
+            }
+        }
+
         static string ReadString (BinaryReader br) {
             if (br.ReadBoolean())
                 return br.ReadString();
@@ -270,14 +298,33 @@ namespace HeapProfiler {
                 bw.Write(str);
         }
 
+        public bool Equals (TracebackFrame rhs) {
+            if (Module != rhs.Module)
+                return false;
+            if (Function != rhs.Function)
+                return false;
+            if (Offset != rhs.Offset)
+                return false;
+            if (Offset2 != rhs.Offset2)
+                return false;
+
+            return true;
+        }
+
         [TangleSerializer]
         static void Serialize (ref SerializationContext context, ref TracebackFrame input) {
             var bw = new BinaryWriter(context.Stream, Encoding.UTF8);
 
             bw.Write(input.Offset);
+
+            bw.Write(false);
+            if (input.Offset2.HasValue && (input.Offset2 != (UInt32)context.Key.Value))
+                throw new InvalidDataException();
+            /*
             bw.Write(input.Offset2.HasValue);
             if (input.Offset2.HasValue)
                 bw.Write(input.Offset2.Value);
+             */
 
             WriteString(bw, input.Module);
             WriteString(bw, input.Function);
@@ -299,6 +346,8 @@ namespace HeapProfiler {
             output.Offset = br.ReadUInt32();
             if (br.ReadBoolean())
                 output.Offset2 = br.ReadUInt32();
+            else
+                output.Offset2 = (UInt32)context.Key.Value;
 
             output.Module = ReadString(br);
             output.Function = ReadString(br);
