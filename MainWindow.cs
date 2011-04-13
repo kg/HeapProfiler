@@ -785,6 +785,8 @@ namespace HeapProfiler {
                     from key in fFrameIDs.Result select BitConverter.ToUInt32(key.Data.Array, key.Data.Offset)
                 );
 
+                var matchingTracebacks = new HashSet<UInt32>();
+
                 for (int i = 0, c = instance.Snapshots.Count; i < c; i++) {
                     activity.Maximum = c;
                     activity.Progress = i;
@@ -797,6 +799,9 @@ namespace HeapProfiler {
 
                     var snapshot = fSnapshot.Result;
                     Func<HeapSnapshot.Traceback, bool> tracebackMatches = (traceback) => {
+                        if (matchingTracebacks.Contains(traceback.ID))
+                            return false;
+
                         var _f = traceback.Frames.Array;
                         for (int _i = 0, _c = traceback.Frames.Count, _o = traceback.Frames.Offset; _i < _c; _i++) {
                             if (frameIDs.Contains(_f[_i + _o]))
@@ -806,12 +811,12 @@ namespace HeapProfiler {
                         return false;
                     };
 
-                    var fMatchingTracebacks = Future.RunInThread(() => new HashSet<UInt32>(
+                    var fNewMatchingTracebacks = Future.RunInThread(() => new HashSet<UInt32>(
                         from traceback in snapshot.Tracebacks.AsParallel() where tracebackMatches(traceback) select traceback.ID
                     ));
-                    yield return fMatchingTracebacks;
+                    yield return fNewMatchingTracebacks;
 
-                    var matchingTracebacks = fMatchingTracebacks.Result;
+                    matchingTracebacks.UnionWith(fNewMatchingTracebacks.Result);
 
                     var fInfo = Future.RunInThread(() => new FilteredHeapSnapshotInfo(
                         (from heap in snapshot.Heaps.AsParallel() select (from alloc in heap.Allocations.AsParallel() where matchingTracebacks.Contains(alloc.TracebackID) select (long)alloc.Size).Sum()).Sum(),

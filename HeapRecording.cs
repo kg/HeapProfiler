@@ -575,9 +575,7 @@ namespace HeapProfiler {
             using (fModules)
                 yield return fModules;
 
-            var fModuleInfos = Database.Modules.Select(
-                from moduleName in fModules.Result select moduleName
-            );
+            var fModuleInfos = Database.Modules.Select(fModules.Result);
             using (fModuleInfos)
                 yield return fModuleInfos;
 

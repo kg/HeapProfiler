@@ -536,7 +536,7 @@ namespace HeapProfiler {
 
         public struct AllocationRanges {
             [StructLayout(LayoutKind.Sequential, Pack = 1)]
-            public struct Range {
+            public struct Range : IComparable<Range> {
                 public readonly UInt16 First, Last;
                 public readonly UInt32 TracebackID, Size, Overhead;
 
@@ -550,6 +550,15 @@ namespace HeapProfiler {
                     TracebackID = tracebackId;
                     Size = size;
                     Overhead = overhead;
+                }
+
+                public int CompareTo (Range rhs) {
+                    int result = First.CompareTo(rhs.First);
+                    if (result == 0)
+                        result = Last.CompareTo(rhs.Last);
+                    if (result == 0)
+                        result = TracebackID.CompareTo(rhs.TracebackID);
+                    return result;
                 }
             }
 
@@ -612,6 +621,7 @@ namespace HeapProfiler {
             }
 
             public AllocationRanges Update (UInt16 snapshotId, UInt32 tracebackId, UInt32 size, UInt32 overhead) {
+                var newRange = new Range(snapshotId, tracebackId, size, overhead);
                 ArraySegment<Range> result;
 
                 var a = Ranges.Array;
@@ -627,14 +637,14 @@ namespace HeapProfiler {
                     if (range.Last == snapshotId - 1) {
                         result = ImmutableArrayPool<Range>.Allocate(Ranges.Count);
                         Array.Copy(Ranges.Array, Ranges.Offset, result.Array, result.Offset, Ranges.Count);
-                        result.Array[result.Offset + i] = new Range(range.First, snapshotId, tracebackId, size, overhead);
+                        result.Array[result.Offset + i] = newRange;
                         return new AllocationRanges(result);
                     }
                 }
 
                 result = ImmutableArrayPool<Range>.Allocate(Ranges.Count + 1);
                 Array.Copy(Ranges.Array, Ranges.Offset, result.Array, result.Offset, Ranges.Count);
-                result.Array[result.Offset + result.Count - 1] = new Range(snapshotId, tracebackId, size, overhead);
+                result.Array[result.Offset + result.Count - 1] = newRange;
                 return new AllocationRanges(result);
             }
 
@@ -642,9 +652,11 @@ namespace HeapProfiler {
                 var a = Ranges.Array;
 
                 for (int i = 0, c = Ranges.Count, o = Ranges.Offset; i < c; i++) {
-                    range = a[i + o];
-                    if ((snapshotId >= range.First) && (snapshotId <= range.Last))
+                    var r = a[i + o];
+                    if ((snapshotId >= r.First) && (snapshotId <= r.Last)) {
+                        range = r;
                         return true;
+                    }
                 }
 
                 range = default(Range);
