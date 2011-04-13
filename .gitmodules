@@ -1,0 +1,3 @@
+[submodule "ext/DataMangler"]
+	path = ext/DataMangler
+	url = git@github.com:kevingadd/DataMangler.git

@@ -167,7 +167,7 @@
     </Compile>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\DataMangler\DataMangler.csproj">
+    <ProjectReference Include="ext\DataMangler\DataMangler.csproj">
       <Project>{DC905B32-07FA-4161-9627-C8AF6E6241EE}</Project>
       <Name>DataMangler</Name>
     </ProjectReference>
