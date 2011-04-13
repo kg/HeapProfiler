@@ -54,6 +54,8 @@
             this.ExportSnapshotsMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.OptionsMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.SymbolPathMenu = new System.Windows.Forms.ToolStripMenuItem();
+            this.StackFiltersMenu = new System.Windows.Forms.ToolStripMenuItem();
+            this.toolStripMenuItem4 = new System.Windows.Forms.ToolStripSeparator();
             this.AssociateRecordingsMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.AssociateSnapshotsMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.AssociateDiffsMenu = new System.Windows.Forms.ToolStripMenuItem();
@@ -395,6 +397,8 @@
             // 
             this.OptionsMenu.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.SymbolPathMenu,
+            this.StackFiltersMenu,
+            this.toolStripMenuItem4,
             this.AssociateRecordingsMenu,
             this.AssociateSnapshotsMenu,
             this.AssociateDiffsMenu});
@@ -409,6 +413,18 @@
             this.SymbolPathMenu.Size = new System.Drawing.Size(339, 24);
             this.SymbolPathMenu.Text = "Sy&mbols...";
             this.SymbolPathMenu.Click += new System.EventHandler(this.SymbolPathMenu_Click);
+            // 
+            // StackFiltersMenu
+            // 
+            this.StackFiltersMenu.Name = "StackFiltersMenu";
+            this.StackFiltersMenu.Size = new System.Drawing.Size(339, 24);
+            this.StackFiltersMenu.Text = "S&tack Filters...";
+            this.StackFiltersMenu.Click += new System.EventHandler(this.StackFiltersMenu_Click);
+            // 
+            // toolStripMenuItem4
+            // 
+            this.toolStripMenuItem4.Name = "toolStripMenuItem4";
+            this.toolStripMenuItem4.Size = new System.Drawing.Size(336, 6);
             // 
             // AssociateRecordingsMenu
             // 
@@ -640,6 +656,8 @@
         private System.Windows.Forms.ToolStripMenuItem ViewBytesAllocatedPlusOverheadMenu;
         private System.Windows.Forms.ToolStripMenuItem ViewAllocationCountMenu;
         private FilterControl HeapFilter;
+        private System.Windows.Forms.ToolStripMenuItem StackFiltersMenu;
+        private System.Windows.Forms.ToolStripSeparator toolStripMenuItem4;
     }
 }
 

@@ -136,8 +136,7 @@ namespace HeapProfiler {
                 Arguments.Text,
                 WorkingDirectory.Text
             );
-            Instance.StatusChanged += (s, _) => RefreshStatus();
-            Instance.SnapshotsChanged += (s, _) => RefreshSnapshots();
+            SubscribeToEvents(Instance);
 
             RefreshStatus();
             RefreshSnapshots();
@@ -380,6 +379,16 @@ namespace HeapProfiler {
             }
         }
 
+        protected void SubscribeToEvents (HeapRecording instance) {
+            Instance.StatusChanged += (s, _) => RefreshStatus();
+            Instance.SnapshotsChanged += (s, _) => RefreshSnapshots();
+            Instance.SymbolsChanged += (s, _) => {
+                Scheduler.Start(
+                    RefreshFunctionNames(Instance), TaskExecutionPolicy.RunAsBackgroundTask
+                );
+            };
+        }
+
         public void OpenRecording (string filename) {
             if (!DatabaseFile.CheckTokenFileVersion(filename)) {
                 MessageBox.Show(this, "The recording you have selected was produced by a different version of Heap Profiler and cannot be opened.", "Error");
@@ -391,8 +400,7 @@ namespace HeapProfiler {
             Instance = HeapRecording.FromRecording(
                 Scheduler, Activities, filename
             );
-            Instance.StatusChanged += (s, _) => RefreshStatus();
-            Instance.SnapshotsChanged += (s, _) => RefreshSnapshots();
+            SubscribeToEvents(Instance);
 
             RefreshStatus();
             RefreshSnapshots();
@@ -408,8 +416,7 @@ namespace HeapProfiler {
             Instance = HeapRecording.FromSnapshots(
                 Scheduler, Activities, filenames.OrderBy((f) => f)
             );
-            Instance.StatusChanged += (s, _) => RefreshStatus();
-            Instance.SnapshotsChanged += (s, _) => RefreshSnapshots();
+            SubscribeToEvents(Instance);
 
             RefreshStatus();
             RefreshSnapshots();
@@ -886,11 +893,12 @@ namespace HeapProfiler {
 
         private void HeapFilter_FilterChanged (object sender, EventArgs e) {
             if (HeapFilter.Filter != CurrentFilter) {
-                if (HeapFilter.Filter == PendingFilter)
-                    return;
-
-                if (PendingFilterFuture != null)
-                    PendingFilterFuture.Dispose();
+                if (PendingFilterFuture != null) {
+                    if (HeapFilter.Filter == PendingFilter)
+                        return;
+                    else
+                        PendingFilterFuture.Dispose();
+                }
 
                 PendingFilter = HeapFilter.Filter;
                 PendingFilterFuture = Scheduler.Start(
@@ -905,6 +913,12 @@ namespace HeapProfiler {
                     PendingFilterFuture = null;
                 }
             }
+        }
+
+        private void StackFiltersMenu_Click (object sender, EventArgs e) {
+            using (var dialog = new StackFiltersDialog())
+                if (dialog.ShowDialog(this) == DialogResult.OK)
+                    Instance.UpdateFilteredTracebacks();
         }
     }
 }

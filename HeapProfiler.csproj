@@ -54,6 +54,12 @@
     <Compile Include="ActivityIndicator.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="StackFiltersDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="StackFiltersDialog.Designer.cs">
+      <DependentUpon>StackFiltersDialog.cs</DependentUpon>
+    </Compile>
     <Compile Include="DatabaseFile.cs" />
     <Compile Include="FilterControl.cs">
       <SubType>UserControl</SubType>
@@ -110,6 +116,7 @@
     <Compile Include="SnapshotTimeline.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="StackGraph.cs" />
     <Compile Include="SymbolSettingsDialog.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -145,8 +152,8 @@
       <DependentUpon>Resources.resx</DependentUpon>
       <DesignTime>True</DesignTime>
     </Compile>
-    <EmbeddedResource Include="SymbolSettingsDialog.resx">
-      <DependentUpon>SymbolSettingsDialog.cs</DependentUpon>
+    <EmbeddedResource Include="StackFiltersDialog.resx">
+      <DependentUpon>StackFiltersDialog.cs</DependentUpon>
     </EmbeddedResource>
     <None Include="app.config" />
     <None Include="Properties\Settings.settings">
@@ -160,15 +167,15 @@
     </Compile>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\DataMangler\DataMangler.csproj">
+    <ProjectReference Include="ext\DataMangler\DataMangler.csproj">
       <Project>{DC905B32-07FA-4161-9627-C8AF6E6241EE}</Project>
       <Name>DataMangler</Name>
     </ProjectReference>
-    <ProjectReference Include="..\Fracture\Squared\TaskLib\Squared.Task.csproj">
+    <ProjectReference Include="ext\Fracture\Squared\TaskLib\Squared.Task.csproj">
       <Project>{173ABDCA-7278-46FF-A300-D3BF8CCEF181}</Project>
       <Name>Squared.Task</Name>
     </ProjectReference>
-    <ProjectReference Include="..\Fracture\Squared\Util\Squared.Util.csproj">
+    <ProjectReference Include="ext\Fracture\Squared\Util\Squared.Util.csproj">
       <Project>{D7F549CF-E0A6-491C-A78C-ECAB590BB2A7}</Project>
       <Name>Squared.Util</Name>
     </ProjectReference>

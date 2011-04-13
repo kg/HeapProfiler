@@ -274,8 +274,7 @@ namespace HeapProfiler {
                     rgn = new Rectangle(x, 0, ItemWidth, height);
 
                     var barRectangle = ComputeBarRectangle(
-                        item.BytesDelta * (item.Added ? 1 : -1), 
-                        rgn.X, centerY, height, max
+                        item.BytesDelta, rgn.X, centerY, height, max
                     );
 
                     if (rgn.IntersectsWith(e.ClipRectangle))

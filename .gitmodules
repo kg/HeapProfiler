@@ -1,0 +1,6 @@
+[submodule "ext/DataMangler"]
+	path = ext/DataMangler
+	url = git@github.com:kevingadd/DataMangler.git
+[submodule "ext/Fracture"]
+	path = ext/Fracture
+	url = git@github.com:kevingadd/Fracture.git

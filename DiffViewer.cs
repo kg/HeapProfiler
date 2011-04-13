@@ -68,10 +68,48 @@ namespace HeapProfiler {
             Instance = instance;
             if (Instance != null) {
                 Timeline.Items = Instance.Snapshots;
+                Instance.TracebacksFiltered += Instance_TracebacksFiltered;
             } else {
                 Timeline.Visible = false;
                 MainSplit.Height += Timeline.Bottom - MainSplit.Bottom;
             }
+        }
+
+        void Instance_TracebacksFiltered (object sender, EventArgs e) {
+            SetBusy(true);
+            Enabled = false;
+            Start(ReloadTracebacks());
+        }
+
+        IEnumerator<object> ReloadTracebacks () {
+            var keys = from delta in Deltas select delta.TracebackID;
+            var fTracebacks = Instance.Database.FilteredTracebacks.CascadingSelect(
+                new[] { Instance.Database.Tracebacks },
+                keys
+            );
+
+            yield return fTracebacks;
+
+            var resolvedTracebacks = new Dictionary<UInt32, TracebackInfo>();
+            var functionNames = new NameTable();
+
+            yield return Instance.ResolveTracebackSymbols(
+                fTracebacks.Result, resolvedTracebacks, functionNames
+            );
+
+            foreach (var delta in Deltas)
+                delta.Traceback = resolvedTracebacks[delta.TracebackID];
+
+            FunctionNames = functionNames;
+
+            DoneReloadingTracebacks();
+        }
+
+        void DoneReloadingTracebacks () {
+            DeltaList.Invalidate();
+            DeltaHistogram.Invalidate();
+            SetBusy(false);
+            Enabled = true;
         }
 
         public DiffViewer (TaskScheduler scheduler)
@@ -153,10 +191,11 @@ namespace HeapProfiler {
                 },
                 OnSetProgress = (value) => {
                     if (value.HasValue) {
+                        var v = value.Value;
                         if (LoadingProgress.Style != ProgressBarStyle.Continuous)
                             LoadingProgress.Style = ProgressBarStyle.Continuous;
-                        LoadingProgress.Value = Math.Min(value.Value + 1, LoadingProgress.Maximum);
-                        LoadingProgress.Value = value.Value;
+                        LoadingProgress.Value = Math.Min(v + 1, LoadingProgress.Maximum);
+                        LoadingProgress.Value = v;
                     } else {
                         if (LoadingProgress.Style != ProgressBarStyle.Marquee)
                             LoadingProgress.Style = ProgressBarStyle.Marquee;
@@ -227,8 +266,8 @@ namespace HeapProfiler {
 
                     if (!filteredOut) {
                         newListItems.Add(delta);
-                        totalBytes += delta.BytesDelta * (delta.Added ? 1 : -1);
-                        totalAllocs += delta.CountDelta.GetValueOrDefault(0) * (delta.Added ? 1 : -1);
+                        totalBytes += delta.BytesDelta;
+                        totalAllocs += delta.CountDelta.GetValueOrDefault(0);
                         max = Math.Max(max, delta.BytesDelta);
                     }
                 }

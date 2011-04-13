@@ -325,6 +325,11 @@ namespace HeapProfiler {
 
             context.SerializeValue(input.Memory);
         }
+
+        internal void FlushCachedInstance () {
+            ReleaseStrongReference();
+            _WeakRef = null;
+        }
     }
 
     public class HeapSnapshot {
@@ -970,16 +975,11 @@ namespace HeapProfiler {
             );
         }
 
-        public static IEnumerator<object> LoadFromDatabase (DatabaseFile db, HeapSnapshotInfo info) {
-            var fResult = db.Snapshots.Get(info.Index);
-
-            yield return fResult;
-        }
-
-        public IEnumerator<object> SaveToDatabase (DatabaseFile db) {
+        public IEnumerator<object> SaveToRecording (HeapRecording recording) {
+            var db = recording.Database;
             SavedToDatabase = true;
 
-            yield return db.Snapshots.Set(Index, this.Info);
+            yield return db.Snapshots.Set(Index, Info);
 
             {
                 var batch = db.Modules.CreateBatch(Modules.Count);
@@ -999,6 +999,10 @@ namespace HeapProfiler {
                     tracebackBatch.Add(traceback.ID, traceback);
 
                 yield return tracebackBatch.Execute();
+
+                yield return recording.UpdateFilteredTracebacks(
+                    from traceback in Tracebacks select traceback.ID
+                );
             }
 
             UInt16 uIndex = (UInt16)Index;
@@ -1067,6 +1071,50 @@ namespace HeapProfiler {
 
         public override string ToString () {
             return String.Format("#{0} - {1}", Index, Timestamp.ToLongTimeString());
+        }
+    }
+
+    [Serializable]
+    public struct StackFilter {
+        public readonly string ModuleGlob;
+        public readonly string FunctionGlob;
+
+        public StackFilter (string module, string function) {
+            ModuleGlob = module;
+            FunctionGlob = function;
+        }
+
+        public CompiledStackFilter Compile () {
+            Regex module = null;
+            Regex function = null;
+
+            if (ModuleGlob != null)
+                module = new Regex(MainWindow.EscapeFilter(ModuleGlob), RegexOptions.Compiled);
+
+            if (FunctionGlob != null)
+                function = new Regex(MainWindow.EscapeFilter(FunctionGlob), RegexOptions.Compiled);
+
+            return new CompiledStackFilter(module, function);
+        }
+    }
+
+    public struct CompiledStackFilter {
+        public readonly Regex ModuleRegex;
+        public readonly Regex FunctionRegex;
+
+        public CompiledStackFilter (Regex module, Regex function) {
+            ModuleRegex = module;
+            FunctionRegex = function;
+        }
+
+        public bool IsMatch (TracebackFrame frame) {
+            if ((ModuleRegex != null) && ((frame.Module == null) || !ModuleRegex.IsMatch(frame.Module)))
+                return false;
+
+            if ((FunctionRegex != null) && ((frame.Function == null) || !FunctionRegex.IsMatch(frame.Function)))
+                return false;
+
+            return true;
         }
     }
 }

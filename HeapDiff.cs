@@ -55,7 +55,6 @@ namespace HeapProfiler {
             }
         }
 
-        public bool Added;
         public int BytesDelta, OldBytes, NewBytes, NewCount;
         public int? CountDelta, OldCount;
         public UInt32 TracebackID;
@@ -67,8 +66,8 @@ namespace HeapProfiler {
             get {
                 if (FormattedBytesCache == null)
                     FormattedBytesCache = 
-                        ((Added) ? "+" : "-") +
-                        FileSize.Format(BytesDelta);
+                        (BytesDelta >= 0 ? "+" : "-") +
+                        FileSize.Format(Math.Abs(BytesDelta));
 
                 return FormattedBytesCache;
             }
@@ -81,7 +80,7 @@ namespace HeapProfiler {
         public string ToString (bool includeTraceback) {
             var result = String.Format(
                 "{0} ({1} - {2}) (from {3} to {4} alloc(s))",
-                FormattedBytesDelta, OldBytes, NewBytes, OldCount, NewCount
+                FormattedBytesDelta, OldBytes, NewBytes, OldCount.GetValueOrDefault(0), NewCount
             );
 
             if (includeTraceback)
@@ -137,11 +136,33 @@ namespace HeapProfiler {
         }
     }
 
-    public class TracebackInfo {
+    public class TracebackInfo : IEnumerable<TracebackFrame> {
         public UInt32 TraceId;
         public ArraySegment<TracebackFrame> Frames;
         public NameTable Functions;
         public NameTable Modules;
+
+        public IEnumerator<TracebackFrame> GetEnumerator () {
+            for (int i = 0; i < Frames.Count; i++)
+                yield return Frames.Array[i + Frames.Offset];
+        }
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator () {
+            return this.GetEnumerator();
+        }
+
+        public bool Equals (TracebackInfo rhs) {
+            if (Frames.Count != rhs.Frames.Count)
+                return false;
+
+            int oLeft = Frames.Offset, oRight = rhs.Frames.Offset;
+            for (int i = 0, c = Frames.Count; i < c; i++) {
+                if (!Frames.Array[i + oLeft].Equals(rhs.Frames.Array[i + oRight]))
+                    return false;
+            }
+
+            return true;
+        }
 
         public float Render (Graphics g, ref DeltaInfo.RenderParams rp, string headerText) {
             var lineHeight = g.MeasureString(
@@ -257,6 +278,12 @@ namespace HeapProfiler {
             Offset2 = rawOffset;
         }
 
+        public UInt32 RawOffset {
+            get {
+                return Offset2.Value;
+            }
+        }
+
         static string ReadString (BinaryReader br) {
             if (br.ReadBoolean())
                 return br.ReadString();
@@ -271,14 +298,33 @@ namespace HeapProfiler {
                 bw.Write(str);
         }
 
+        public bool Equals (TracebackFrame rhs) {
+            if (Module != rhs.Module)
+                return false;
+            if (Function != rhs.Function)
+                return false;
+            if (Offset != rhs.Offset)
+                return false;
+            if (Offset2 != rhs.Offset2)
+                return false;
+
+            return true;
+        }
+
         [TangleSerializer]
         static void Serialize (ref SerializationContext context, ref TracebackFrame input) {
             var bw = new BinaryWriter(context.Stream, Encoding.UTF8);
 
             bw.Write(input.Offset);
+
+            bw.Write(false);
+            if (input.Offset2.HasValue && (input.Offset2 != (UInt32)context.Key.Value))
+                throw new InvalidDataException();
+            /*
             bw.Write(input.Offset2.HasValue);
             if (input.Offset2.HasValue)
                 bw.Write(input.Offset2.Value);
+             */
 
             WriteString(bw, input.Module);
             WriteString(bw, input.Function);
@@ -300,6 +346,8 @@ namespace HeapProfiler {
             output.Offset = br.ReadUInt32();
             if (br.ReadBoolean())
                 output.Offset2 = br.ReadUInt32();
+            else
+                output.Offset2 = (UInt32)context.Key.Value;
 
             output.Module = ReadString(br);
             output.Function = ReadString(br);
@@ -394,26 +442,29 @@ namespace HeapProfiler {
             int groupTracebackPath = regexes.TracebackFrame.GroupNumberFromName("path");
             int groupTracebackLine = regexes.TracebackFrame.GroupNumberFromName("line");
 
+            var delay = new Sleep(0.01);
             int i = 0;
+
             while (lr.ReadLine(out line)) {
+            retryFromHere:
+                i += 1;
                 if (i % ProgressInterval == 0) {
                     progress.Maximum = lr.Length;
                     progress.Progress = lr.Position;
 
-                    // Suspend processing until any messages in the windows message queue have been processed
-                    yield return new Yield();
+                    // Suspend processing for a bit
+                    yield return delay;
                 }
-
-            retryFromHere:
 
                 Match m;
                 if (regexes.DiffModule.TryMatch(ref line, out m)) {
                     moduleNames.Add(m.Groups[groupModule].Value);
                 } else if (regexes.BytesDelta.TryMatch(ref line, out m)) {
+                    var added = (m.Groups[groupType].Value == "+");
                     var traceId = UInt32.Parse(m.Groups[groupTraceId].Value, NumberStyles.HexNumber);
                     var info = new DeltaInfo {
-                        Added = (m.Groups[groupType].Value == "+"),
-                        BytesDelta = int.Parse(m.Groups[groupDeltaBytes].Value, NumberStyles.HexNumber),
+                        BytesDelta = int.Parse(m.Groups[groupDeltaBytes].Value, NumberStyles.HexNumber) *
+                            (added ? 1 : -1),
                         NewBytes = int.Parse(m.Groups[groupNewBytes].Value, NumberStyles.HexNumber),
                         OldBytes = int.Parse(m.Groups[groupOldBytes].Value, NumberStyles.HexNumber),
                         NewCount = int.Parse(m.Groups[groupNewCount].Value, NumberStyles.HexNumber),
@@ -422,7 +473,8 @@ namespace HeapProfiler {
                     if (lr.ReadLine(out line)) {
                         if (regexes.CountDelta.TryMatch(ref line, out m)) {
                             info.OldCount = int.Parse(m.Groups[groupOldCount].Value, NumberStyles.HexNumber);
-                            info.CountDelta = int.Parse(m.Groups[groupCountDelta].Value, NumberStyles.HexNumber);
+                            info.CountDelta = int.Parse(m.Groups[groupCountDelta].Value, NumberStyles.HexNumber) *
+                                (added ? 1 : -1);
                         }
                     }
 
