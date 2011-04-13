@@ -171,11 +171,11 @@
       <Project>{DC905B32-07FA-4161-9627-C8AF6E6241EE}</Project>
       <Name>DataMangler</Name>
     </ProjectReference>
-    <ProjectReference Include="..\Fracture\Squared\TaskLib\Squared.Task.csproj">
+    <ProjectReference Include="ext\Fracture\Squared\TaskLib\Squared.Task.csproj">
       <Project>{173ABDCA-7278-46FF-A300-D3BF8CCEF181}</Project>
       <Name>Squared.Task</Name>
     </ProjectReference>
-    <ProjectReference Include="..\Fracture\Squared\Util\Squared.Util.csproj">
+    <ProjectReference Include="ext\Fracture\Squared\Util\Squared.Util.csproj">
       <Project>{D7F549CF-E0A6-491C-A78C-ECAB590BB2A7}</Project>
       <Name>Squared.Util</Name>
     </ProjectReference>

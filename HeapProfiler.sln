@@ -3,11 +3,11 @@ Microsoft Visual Studio Solution File, Format Version 11.00
 # Visual Studio 2010
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HeapProfiler", "HeapProfiler.csproj", "{C8607672-510B-4BCD-AFAD-B0E6E1D0EA18}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Squared.Task", "..\Fracture\Squared\TaskLib\Squared.Task.csproj", "{173ABDCA-7278-46FF-A300-D3BF8CCEF181}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Squared.Task", "ext\Fracture\Squared\TaskLib\Squared.Task.csproj", "{173ABDCA-7278-46FF-A300-D3BF8CCEF181}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Squared.Util", "..\Fracture\Squared\Util\Squared.Util.csproj", "{D7F549CF-E0A6-491C-A78C-ECAB590BB2A7}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Squared.Util", "ext\Fracture\Squared\Util\Squared.Util.csproj", "{D7F549CF-E0A6-491C-A78C-ECAB590BB2A7}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DataMangler", "..\DataMangler\DataMangler.csproj", "{DC905B32-07FA-4161-9627-C8AF6E6241EE}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DataMangler", "ext\DataMangler\DataMangler.csproj", "{DC905B32-07FA-4161-9627-C8AF6E6241EE}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
