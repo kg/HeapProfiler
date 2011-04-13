@@ -80,7 +80,7 @@ namespace HeapProfiler {
         public string ToString (bool includeTraceback) {
             var result = String.Format(
                 "{0} ({1} - {2}) (from {3} to {4} alloc(s))",
-                FormattedBytesDelta, OldBytes, NewBytes, OldCount, NewCount
+                FormattedBytesDelta, OldBytes, NewBytes, OldCount.GetValueOrDefault(0), NewCount
             );
 
             if (includeTraceback)

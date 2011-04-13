@@ -20,6 +20,7 @@ namespace HeapProfiler {
         public Tangle<HeapSnapshotInfo> Snapshots;
         public Tangle<HeapSnapshot.Module> Modules;
         public Tangle<HeapSnapshot.Traceback> Tracebacks;
+        public Tangle<HeapSnapshot.Traceback> FilteredTracebacks;
         public Tangle<HeapSnapshot.AllocationRanges> Allocations;
         public Tangle<UInt32[]> HeapAllocations;
         public Tangle<TracebackFrame> SymbolCache;
@@ -43,6 +44,7 @@ namespace HeapProfiler {
                 BoundMember.New(() => Snapshots),
                 BoundMember.New(() => Modules),
                 BoundMember.New(() => Tracebacks),
+                BoundMember.New(() => FilteredTracebacks),
                 BoundMember.New(() => Allocations),
                 BoundMember.New(() => HeapAllocations),
                 BoundMember.New(() => SnapshotModules),

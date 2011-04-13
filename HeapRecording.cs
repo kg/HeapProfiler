@@ -17,6 +17,7 @@ Original Author: Kevin Gadd (kevin.gadd@gmail.com)
 */
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -46,16 +47,6 @@ namespace HeapProfiler {
             public static ActivityIndicator.CountedItem Progress;
         }
 
-        public struct PendingSymbolResolve {
-            public readonly UInt32 Frame;
-            public readonly Future<TracebackFrame> Result;
-
-            public PendingSymbolResolve (UInt32 frame, Future<TracebackFrame> result) {
-                Frame = frame;
-                Result = result;
-            }
-        }
-
         public readonly TaskScheduler Scheduler;
         public readonly ActivityIndicator Activities;
         public readonly OwnedFutureSet Futures = new OwnedFutureSet();
@@ -63,18 +54,22 @@ namespace HeapProfiler {
         public readonly HashSet<string> TemporaryFiles = new HashSet<string>();
         public readonly ProcessStartInfo StartInfo;
 
+        public event EventHandler SymbolsChanged;
         public event EventHandler StatusChanged;
         public event EventHandler SnapshotsChanged;
+        public event EventHandler TracebacksFiltered;
 
         public Process Process;
 
         protected DatabaseFile _Database;
         protected bool DatabaseIsTemporary;
 
+        protected IFuture _PendingFilterUpdate = null;
+
         protected readonly HashSet<HeapSnapshot.Module> SymbolModules = new HashSet<HeapSnapshot.Module>();
         protected readonly Dictionary<UInt32, TracebackFrame> ResolvedSymbolCache = new Dictionary<UInt32, TracebackFrame>();
-        protected readonly Dictionary<UInt32, Future<TracebackFrame>> PendingSymbolResolves = new Dictionary<UInt32, Future<TracebackFrame>>();
-        protected readonly BlockingQueue<PendingSymbolResolve> SymbolResolveQueue = new BlockingQueue<PendingSymbolResolve>();
+        protected readonly HashSet<UInt32> PendingSymbolResolves = new HashSet<UInt32>();
+        protected readonly BlockingQueue<UInt32> SymbolResolveQueue = new BlockingQueue<UInt32>();
         protected readonly BlockingQueue<string> SnapshotLoadQueue = new BlockingQueue<string>();
         protected readonly LRUCache<Pair<string>, string> DiffCache = new LRUCache<Pair<string>, string>(32);
         protected readonly object SymbolResolveLock = new object();
@@ -158,17 +153,15 @@ namespace HeapProfiler {
             ));
         }
 
-        protected bool ResolveFrame (UInt32 frame, out TracebackFrame resolved, out Future<TracebackFrame> pendingResolve) {
+        protected bool ResolveFrame (UInt32 frame, out TracebackFrame resolved) {
             if (ResolvedSymbolCache.TryGetValue(frame, out resolved)) {
-                pendingResolve = null;
                 return true;
             }
 
-            if (!PendingSymbolResolves.TryGetValue(frame, out pendingResolve)) {
-                var f = PendingSymbolResolves[frame] = new Future<TracebackFrame>();
-                var item = new PendingSymbolResolve(frame, f);
-
-                SymbolResolveQueue.Enqueue(item);
+            bool temp;
+            if (!PendingSymbolResolves.Contains(frame)) {
+                PendingSymbolResolves.Add(frame);
+                SymbolResolveQueue.Enqueue(frame);
             }
 
             return false;
@@ -176,7 +169,6 @@ namespace HeapProfiler {
 
         protected IEnumerator<object> ResolveSymbolsForSnapshot (HeapSnapshot snapshot) {
             TracebackFrame tf;
-            Future<TracebackFrame> ftf;
 
             SymbolResolveState.Count = 0;
 
@@ -186,13 +178,21 @@ namespace HeapProfiler {
 
                     lock (SymbolResolveLock)
                     foreach (var frame in traceback)
-                        ResolveFrame(frame, out tf, out ftf);
+                        ResolveFrame(frame, out tf);
                 }
             });
         }
 
+        protected void OnSymbolCacheUpdated () {
+            if (SnapshotLoadQueue.Count <= 0)
+                UpdateFilteredTracebacks();
+
+            if (SymbolsChanged != null)
+                SymbolsChanged(this, EventArgs.Empty);
+        }
+
         protected IEnumerator<object> SymbolResolverTask () {
-            var batch = new List<PendingSymbolResolve>();
+            var batch = new List<UInt32>();
             var nullProgress = new CallbackProgressListener();
             ActivityIndicator.CountedItem progress = null;
 
@@ -206,8 +206,10 @@ namespace HeapProfiler {
                         progress = null;
                     }
 
-                    if (!SymbolResolveState.Progress.Active && (SymbolResolveQueue.Count <= 0))
+                    if (!SymbolResolveState.Progress.Active && (SymbolResolveQueue.Count <= 0)) {
                         SymbolResolveState.Count = 0;
+                        OnSymbolCacheUpdated();
+                    }
 
                     var f = SymbolResolveQueue.Dequeue();
                     using (f)
@@ -259,7 +261,7 @@ namespace HeapProfiler {
                                     1, 0, i + 1, i + 1
                                 );
 
-                                sw.WriteLine("\t{0:X8}", batch[i].Frame);
+                                sw.WriteLine("\t{0:X8}", batch[i]);
                                 sw.WriteLine();
                             }
                         }
@@ -305,9 +307,8 @@ namespace HeapProfiler {
                             foreach (var traceback in rtc.Result.Tracebacks) {
                                 var index = (int)(traceback.Key) - 1;
 
-                                var key = batch[index].Frame;
+                                var key = batch[index];
                                 var frame = traceback.Value.Frames.Array[traceback.Value.Frames.Offset];
-                                batch[index].Result.Complete(frame);
 
                                 lock (SymbolResolveLock) {
                                     ResolvedSymbolCache[key] = frame;
@@ -322,21 +323,19 @@ namespace HeapProfiler {
                             }
 
                             foreach (var frame in batch) {
-                                if (frame.Result.Completed)
+                                if (!PendingSymbolResolves.Contains(frame))
                                     continue;
 
                                 Interlocked.Increment(ref TotalFrameResolveFailures);
 
-                                var tf = new TracebackFrame(frame.Frame);
-
-                                frame.Result.Complete(tf);
+                                var tf = new TracebackFrame(frame);
 
                                 lock (SymbolResolveLock) {
-                                    ResolvedSymbolCache[frame.Frame] = tf;
-                                    PendingSymbolResolves.Remove(frame.Frame);
+                                    ResolvedSymbolCache[frame] = tf;
+                                    PendingSymbolResolves.Remove(frame);
                                 }
 
-                                cacheBatch.Add(frame.Frame, tf);
+                                cacheBatch.Add(frame, tf);
 
                                 // Console.WriteLine("Could not resolve: {0:X8}", frame.Frame);
                             }
@@ -436,7 +435,7 @@ namespace HeapProfiler {
             );
 
             if (!snapshot.SavedToDatabase)
-                yield return snapshot.SaveToDatabase(Database);
+                yield return snapshot.SaveToRecording(this);
 
             Interlocked.Increment(ref SnapshotLoadState.Count);
         }
@@ -513,6 +512,8 @@ namespace HeapProfiler {
 
                 OnSnapshotsChanged();
             }
+
+            yield return UpdateFilteredTracebacks();
         }
 
         protected IEnumerator<object> ProfileMainTask () {
@@ -625,16 +626,156 @@ namespace HeapProfiler {
                 result.Heaps.Add(theHeap);
             }
 
-            var fTracebacks = Database.Tracebacks.Select(tracebackIDs);
+            var fTracebacks = Database.FilteredTracebacks.CascadingSelect(
+                new [] { Database.Tracebacks },
+                tracebackIDs
+            );
             using (fTracebacks)
                 yield return fTracebacks;
 
-            yield return Future.RunInThread(() => {
-                foreach (var traceback in fTracebacks.Result)
-                    result.Tracebacks.Add(traceback);
-            });
+            result.Tracebacks.ReplaceWith(fTracebacks.Result);
 
             yield return Result.New(result);
+        }
+
+        protected bool FilterTraceback (HeapSnapshot.Traceback traceback, HashSet<uint> filteredFrames, out HeapSnapshot.Traceback filtered) {
+            ArraySegment<uint>? newFrames = null;
+            int count = 0;
+
+            foreach (var frame in traceback) {
+                if (filteredFrames.Contains(frame)) {
+                    if (!newFrames.HasValue) {
+                        newFrames = ImmutableArrayPool<uint>.Allocate(traceback.Frames.Count);
+                        Array.Copy(
+                            traceback.Frames.Array, traceback.Frames.Offset,
+                            newFrames.Value.Array, newFrames.Value.Offset, count
+                        );
+                    }
+                } else {
+                    if (newFrames.HasValue)
+                        newFrames.Value.Array[count + newFrames.Value.Offset] = frame;
+
+                    count++;
+                }
+            }
+
+            if (newFrames.HasValue) {
+                filtered = new HeapSnapshot.Traceback(
+                    traceback.ID, new ArraySegment<uint>(
+                        newFrames.Value.Array, newFrames.Value.Offset, count
+                    )
+                );
+                return true;
+            }
+
+            filtered = traceback;
+            return false;
+        }
+
+        public IFuture UpdateFilteredTracebacks (IEnumerable<uint> tracebackIds = null) {
+            if (_PendingFilterUpdate != null)
+                _PendingFilterUpdate.Dispose();
+
+            foreach (var si in Snapshots)
+                si.FlushCachedInstance();
+
+            _PendingFilterUpdate = Scheduler.Start(
+                _UpdateFilteredTracebacks(tracebackIds), TaskExecutionPolicy.RunAsBackgroundTask
+            );
+
+            return _PendingFilterUpdate;
+        }
+
+        protected IEnumerator<object> _UpdateFilteredTracebacks (IEnumerable<uint> tracebackIds) {
+            using (var progress = Activities.AddItem("Filtering symbols")) {
+                var fFilters = Program.Preferences.Get("StackFilters");
+                yield return fFilters;
+
+                if (fFilters.Failed)
+                    yield break;
+
+                var compiledFilters = (from filter in (fFilters.Result as StackFilter[])
+                                   select filter.Compile()).ToArray();
+
+                var fAllKeys = Database.SymbolCache.GetAllKeys();
+                yield return fAllKeys;
+
+                var filteredFrames = new HashSet<uint>();
+                IFuture lastProcess = null;
+
+                progress.Maximum = fAllKeys.Result.Length * 2;
+                foreach (var range in Partitioner.Create(0, fAllKeys.Result.Length).GetDynamicPartitions()) {
+                    var rangeKeys = from i in Enumerable.Range(range.Item1, range.Item2 - range.Item1)
+                                    select fAllKeys.Result[i];
+
+                    var fSymbols = Database.SymbolCache.Select(rangeKeys);
+                    yield return fSymbols;
+
+                    if (lastProcess != null)
+                        yield return lastProcess;
+
+                    progress.Progress = range.Item1;
+
+                    lastProcess = Future.RunInThread(
+                        () => SequenceUtils.Zip(
+                            rangeKeys, fSymbols.Result,
+                            (key, symbol) => {
+                                foreach (var filter in compiledFilters)
+                                if (filter.IsMatch(symbol)) {
+                                    filteredFrames.Add((uint)key.Value);
+                                    break;
+                                }
+                            }
+                        )
+                    );
+                }
+
+                if (lastProcess != null)
+                    yield return lastProcess;
+
+                if (tracebackIds != null) {
+                    fAllKeys = new Future<TangleKey[]>(
+                        (from tracebackId in tracebackIds select new TangleKey(tracebackId)).ToArray()
+                    );
+                } else {
+                    fAllKeys = Database.Tracebacks.GetAllKeys();
+                    yield return fAllKeys;
+                }
+
+                progress.Maximum = fAllKeys.Result.Length * 2;
+                progress.Progress = fAllKeys.Result.Length;
+                lastProcess = null;
+
+                yield return Database.FilteredTracebacks.Clear();
+
+                foreach (var range in Partitioner.Create(0, fAllKeys.Result.Length).GetDynamicPartitions()) {
+                    var rangeKeys = from i in Enumerable.Range(range.Item1, range.Item2 - range.Item1)
+                                    select fAllKeys.Result[i];
+
+                    var fTracebacks = Database.Tracebacks.Select(rangeKeys);
+                    yield return fTracebacks;
+
+                    var batch = Database.FilteredTracebacks.CreateBatch(fTracebacks.Result.Length);
+                    SequenceUtils.Zip(rangeKeys, fTracebacks.Result, (key, traceback) => {
+                        HeapSnapshot.Traceback filtered;
+                        if (FilterTraceback(traceback, filteredFrames, out filtered))
+                            batch.Set(key, filtered);
+                    });
+
+                    if (lastProcess != null)
+                        yield return lastProcess;
+
+                    progress.Progress = range.Item1 + fAllKeys.Result.Length;
+
+                    lastProcess = batch.Execute();
+                }
+
+                if (lastProcess != null)
+                    yield return lastProcess;
+            }
+
+            if (TracebacksFiltered != null)
+                TracebacksFiltered(this, EventArgs.Empty);
         }
 
         public Future<HeapSnapshot> GetSnapshot (HeapSnapshotInfo info) {
@@ -906,44 +1047,18 @@ namespace HeapProfiler {
                     }
                 });
 
-                var fTracebacks = Database.Tracebacks.Select(tracebackIds);
+                var fTracebacks = Database.FilteredTracebacks.CascadingSelect(
+                    new [] { Database.Tracebacks },
+                    tracebackIds
+                );
                 using (fTracebacks)
                     yield return fTracebacks;
 
-                Dictionary<UInt32, TracebackFrame> frameSymbols;
-                {
-                    var rawFrames = new HashSet<UInt32>();
-
-                    yield return Future.RunInThread(() => {
-                        foreach (var traceback in fTracebacks.Result)
-                            foreach (var rawFrame in traceback)
-                                rawFrames.Add(rawFrame);
-                    });
-
-                    var fSymbols = Database.SymbolCache.Select(rawFrames);
-                    using (fSymbols)
-                        yield return fSymbols;
-
-                    var fSymbolDict = Future.RunInThread(() => 
-                        SequenceUtils.ToDictionary(rawFrames, fSymbols.Result)
-                    );
-                    yield return fSymbolDict;
-
-                    frameSymbols = fSymbolDict.Result;
-                }
+                yield return ResolveTracebackSymbols(
+                    fTracebacks.Result, tracebacks, functionNames
+                );
 
                 yield return Future.RunInThread(() => {
-                    foreach (var tf in frameSymbols.Values) {
-                        if (tf.Function != null)
-                            functionNames.Add(tf.Function);
-                    }
-
-                    foreach (var traceback in fTracebacks.Result) {
-                        tracebacks[traceback.ID] = ConstructTracebackInfo(
-                            traceback.ID, traceback.Frames, frameSymbols
-                        );
-                    }
-
                     foreach (var d in deltas)
                         d.Traceback = tracebacks[d.TracebackID];
                 });
@@ -960,6 +1075,48 @@ namespace HeapProfiler {
             yield return Result.New(new HeapDiff(
                 null, moduleNames, functionNames, deltas, tracebacks
             ));
+        }
+
+        public IEnumerator<object> ResolveTracebackSymbols (
+            IEnumerable<HeapSnapshot.Traceback> unresolvedTracebacks,
+            Dictionary<UInt32, TracebackInfo> resolvedTracebacks,
+            NameTable functionNames
+        ) {
+            Dictionary<UInt32, TracebackFrame> frameSymbols;
+            {
+                var rawFrames = new HashSet<UInt32>();
+
+                yield return Future.RunInThread(() => {
+                    foreach (var traceback in unresolvedTracebacks)
+                        foreach (var rawFrame in traceback)
+                            rawFrames.Add(rawFrame);
+                });
+
+                var fSymbols = Database.SymbolCache.Select(rawFrames);
+                using (fSymbols)
+                    yield return fSymbols;
+
+                var fSymbolDict = Future.RunInThread(() => 
+                    SequenceUtils.ToDictionary(rawFrames, fSymbols.Result)
+                );
+                yield return fSymbolDict;
+
+                frameSymbols = fSymbolDict.Result;
+            }
+
+            yield return Future.RunInThread(() => {
+                if (functionNames != null)
+                    foreach (var tf in frameSymbols.Values) {
+                        if (tf.Function != null)
+                            functionNames.Add(tf.Function);
+                    }
+
+                foreach (var traceback in unresolvedTracebacks) {
+                    resolvedTracebacks[traceback.ID] = ConstructTracebackInfo(
+                        traceback.ID, traceback.Frames, frameSymbols
+                    );
+                }
+            });
         }
 
         public static TracebackInfo ConstructTracebackInfo (UInt32 tracebackID, ArraySegment<UInt32> rawFrames, IDictionary<UInt32, TracebackFrame> symbols) {

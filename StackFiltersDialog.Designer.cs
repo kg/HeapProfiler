@@ -65,7 +65,7 @@
             this.groupBox1.Size = new System.Drawing.Size(458, 243);
             this.groupBox1.TabIndex = 0;
             this.groupBox1.TabStop = false;
-            this.groupBox1.Text = "Stack Filters";
+            this.groupBox1.Text = "Stack Frames To Ignore";
             // 
             // FilterList
             // 
@@ -78,10 +78,18 @@
             this.FilterList.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
             this.Module,
             this.Function});
+            this.FilterList.EditMode = System.Windows.Forms.DataGridViewEditMode.EditOnEnter;
             this.FilterList.Location = new System.Drawing.Point(6, 23);
             this.FilterList.Name = "FilterList";
+            this.FilterList.RowHeadersBorderStyle = System.Windows.Forms.DataGridViewHeaderBorderStyle.None;
             this.FilterList.RowHeadersVisible = false;
+            this.FilterList.RowHeadersWidthSizeMode = System.Windows.Forms.DataGridViewRowHeadersWidthSizeMode.DisableResizing;
             this.FilterList.RowTemplate.Height = 24;
+            this.FilterList.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
+            this.FilterList.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.CellSelect;
+            this.FilterList.ShowCellErrors = false;
+            this.FilterList.ShowEditingIcon = false;
+            this.FilterList.ShowRowErrors = false;
             this.FilterList.Size = new System.Drawing.Size(446, 214);
             this.FilterList.TabIndex = 0;
             // 

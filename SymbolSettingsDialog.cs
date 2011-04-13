@@ -31,7 +31,9 @@ namespace HeapProfiler {
         public SymbolSettingsDialog () {
             InitializeComponent();
 
-            PreferenceSerializer = new TanglePropertySerializer(Program.Preferences);
+            PreferenceSerializer = new TanglePropertySerializer(
+                Program.Preferences, ChooseName
+            );
 
             PreferenceSerializer.Bind(() => SymbolServers.Text);
             PreferenceSerializer.Bind(() => SymbolPath.Text);
@@ -43,7 +45,7 @@ namespace HeapProfiler {
         }
 
         protected string ChooseName (IBoundMember bm) {
-            return String.Format("{0}_{1}", (bm.Target as Control).Name, bm.Name);
+            return String.Format("{0}", (bm.Target as Control).Name);
         }
 
         private void OK_Click (object sender, EventArgs e) {

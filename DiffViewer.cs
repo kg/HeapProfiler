@@ -68,10 +68,48 @@ namespace HeapProfiler {
             Instance = instance;
             if (Instance != null) {
                 Timeline.Items = Instance.Snapshots;
+                Instance.TracebacksFiltered += Instance_TracebacksFiltered;
             } else {
                 Timeline.Visible = false;
                 MainSplit.Height += Timeline.Bottom - MainSplit.Bottom;
             }
+        }
+
+        void Instance_TracebacksFiltered (object sender, EventArgs e) {
+            SetBusy(true);
+            Enabled = false;
+            Start(ReloadTracebacks());
+        }
+
+        IEnumerator<object> ReloadTracebacks () {
+            var keys = from delta in Deltas select delta.TracebackID;
+            var fTracebacks = Instance.Database.FilteredTracebacks.CascadingSelect(
+                new[] { Instance.Database.Tracebacks },
+                keys
+            );
+
+            yield return fTracebacks;
+
+            var resolvedTracebacks = new Dictionary<UInt32, TracebackInfo>();
+            var functionNames = new NameTable();
+
+            yield return Instance.ResolveTracebackSymbols(
+                fTracebacks.Result, resolvedTracebacks, functionNames
+            );
+
+            foreach (var delta in Deltas)
+                delta.Traceback = resolvedTracebacks[delta.TracebackID];
+
+            FunctionNames = functionNames;
+
+            DoneReloadingTracebacks();
+        }
+
+        void DoneReloadingTracebacks () {
+            DeltaList.Invalidate();
+            DeltaHistogram.Invalidate();
+            SetBusy(false);
+            Enabled = true;
         }
 
         public DiffViewer (TaskScheduler scheduler)

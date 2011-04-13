@@ -600,6 +600,13 @@ namespace HeapProfiler {
             value = default(TValue);
             return false;
         }
+
+        public void ReplaceWith (IEnumerable<TValue> newValues) {
+            Clear();
+
+            foreach (var value in newValues)
+                Add(value);
+        }
     }
 
     public interface IProgressListener {
