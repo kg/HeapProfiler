@@ -29,7 +29,7 @@ namespace HeapProfiler {
         public const float MinTooltipSizeEm = 7.5f;
 
         public readonly ITooltipOwner Owner;
-        public ITooltipContent Content;
+        public TooltipContentBase Content;
 
         protected VisualStyleRenderer BackgroundRenderer;
 
@@ -69,7 +69,7 @@ namespace HeapProfiler {
             }
         }
 
-        public void SetContent (ITooltipContent content) {
+        public void SetContent (TooltipContentBase content) {
             bool wasVisible = Visible;
             Visible = false;
 
@@ -171,7 +171,7 @@ namespace HeapProfiler {
         }
 
         public static void FitContentOnScreen (
-            Graphics g, ITooltipContent content, 
+            Graphics g, TooltipContentBase content, 
             ref Font font, ref Point tooltipPosition,
             ref Size tooltipSize
         ) {
@@ -241,15 +241,12 @@ namespace HeapProfiler {
         }
     }
 
-    public interface ITooltipContent {
-        void Render (Graphics g);
-        Size Measure (Graphics g);
+    public abstract class TooltipContentBase {
+        public Font Font;
+        public Point Location;
+        public Size Size;
 
-        Point Location {
-            get;
-        }
-        Size Size {
-            get;
-        }
+        public abstract void Render (Graphics g);
+        public abstract Size Measure (Graphics g);
     }
 }

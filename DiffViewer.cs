@@ -18,21 +18,13 @@ Original Author: Kevin Gadd (kevin.gadd@gmail.com)
 
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
 using System.Drawing;
 using System.Linq;
-using System.Text;
 using System.Windows.Forms;
 using Squared.Task;
-using System.Diagnostics;
 using System.IO;
-using Squared.Task.IO;
 using System.Text.RegularExpressions;
-using Squared.Util.RegexExtensions;
-using System.Globalization;
 
-using Snapshot = HeapProfiler.HeapSnapshot;
 using Squared.Util;
 
 namespace HeapProfiler {
@@ -40,6 +32,7 @@ namespace HeapProfiler {
         public NameTable Modules = new NameTable();
         public NameTable FunctionNames = new NameTable();
         public List<DeltaInfo> Deltas = new List<DeltaInfo>();
+        public StackGraph StackGraph = null;
 
         public List<DeltaInfo> ListItems = new List<DeltaInfo>();
 
@@ -69,9 +62,11 @@ namespace HeapProfiler {
             if (Instance != null) {
                 Timeline.Items = Instance.Snapshots;
                 Instance.TracebacksFiltered += Instance_TracebacksFiltered;
+                ViewFunctionHistogramMenu.Enabled = true;
             } else {
                 Timeline.Visible = false;
                 MainSplit.Height += Timeline.Bottom - MainSplit.Bottom;
+                ViewFunctionHistogramMenu.Enabled = false;
             }
         }
 
@@ -108,6 +103,7 @@ namespace HeapProfiler {
         void DoneReloadingTracebacks () {
             DeltaList.Invalidate();
             DeltaHistogram.Invalidate();
+            GraphHistogram.Invalidate();
             SetBusy(false);
             Enabled = true;
         }
@@ -281,15 +277,28 @@ namespace HeapProfiler {
             StatusLabel.Text = String.Format("Showing {0} out of {1} item(s)", newListItems.Count, deltas.Count);
             AllocationTotals.Text = String.Format("Delta bytes: {0} Delta allocations: {1}", FileSize.Format(fTotalBytes.Result), fTotalAllocs.Result);
 
+            if (Instance != null) {
+                StackGraph = new StackGraph();
+                yield return StackGraph.Build(Instance, newListItems);
+            } else
+                StackGraph = null;
+
+            if (StackGraph != null)
+                GraphHistogram.Items = StackGraph.TopItems.ToArray();
+            else
+                GraphHistogram.Items = null;
+
             DeltaHistogram.Items = DeltaList.Items = newListItems;
             if (newListItems.Count > 0)
-                DeltaHistogram.Maximum = fMax.Result;
+                GraphHistogram.Maximum = DeltaHistogram.Maximum = fMax.Result;
             else
-                DeltaHistogram.Maximum = 1024;
-            DeltaHistogram.TotalDelta = fTotalBytes.Result;
+                GraphHistogram.Maximum = DeltaHistogram.Maximum = 1024;
+
+            GraphHistogram.TotalDelta = DeltaHistogram.TotalDelta = fTotalBytes.Result;
 
             DeltaList.Invalidate();
             DeltaHistogram.Invalidate();
+            GraphHistogram.Invalidate();
 
             SetBusy(false);
         }
@@ -348,18 +357,20 @@ namespace HeapProfiler {
 
         private void TracebackFilter_FilterChanged (object sender, EventArgs e) {
             var filter = MainWindow.FilterToRegex(TracebackFilter.Filter);
-            DeltaHistogram.FunctionFilter = DeltaList.FunctionFilter = FunctionFilter = filter;
+            GraphHistogram.FunctionFilter = DeltaHistogram.FunctionFilter = DeltaList.FunctionFilter = FunctionFilter = filter;
             Start(RefreshDeltas());
         }
 
         private void ViewListMenu_Click (object sender, EventArgs e) {
             DeltaHistogram.Visible = ViewHistogramMenu.Checked = false;
             DeltaList.Visible = ViewListMenu.Checked = true;
+            GraphHistogram.Visible = ViewFunctionHistogramMenu.Checked = false;
         }
 
         private void ViewHistogramMenu_Click (object sender, EventArgs e) {
             DeltaList.Visible = ViewListMenu.Checked = false;
             DeltaHistogram.Visible = ViewHistogramMenu.Checked = true;
+            GraphHistogram.Visible = ViewFunctionHistogramMenu.Checked = false;
         }
 
         private void Timeline_RangeChanged (object sender, EventArgs e) {
@@ -381,6 +392,12 @@ namespace HeapProfiler {
 
         private void ModuleList_FilterChanged (object sender, EventArgs e) {
             Start(RefreshDeltas());
+        }
+
+        private void ViewFunctionHistogramMenu_Click (object sender, EventArgs e) {
+            DeltaList.Visible = ViewListMenu.Checked = false;
+            DeltaHistogram.Visible = ViewHistogramMenu.Checked = false;
+            GraphHistogram.Visible = ViewFunctionHistogramMenu.Checked = true;
         }
     }
 }

@@ -20,19 +20,14 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
-using System.Data;
-using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
 using System.Windows.Forms;
-using Squared.Task;
+using Squared.Data.Mangler;
 using Squared.Util;
 
-using TItem = HeapProfiler.DeltaInfo;
-using System.Globalization;
-
 namespace HeapProfiler {
-    public class DeltaHistogram : UserControl, ITooltipOwner {
+    public class GenericHistogram<TItem> : UserControl, ITooltipOwner
+        where TItem : class {
         public struct ItemData {
         }
 
@@ -48,6 +43,9 @@ namespace HeapProfiler {
         }
 
         public const int ItemWidth = 32;
+
+        public Func<TItem, long> GetItemValue;
+        public Func<TItem, TooltipContentBase> GetItemTooltip;
 
         public IList<TItem> Items = new List<TItem>();
         public int? TotalDelta = null;
@@ -68,7 +66,7 @@ namespace HeapProfiler {
         protected int _SelectedIndex = -1;
         protected int _ScrollOffset = 0;
 
-        public DeltaHistogram () {
+        public GenericHistogram () {
             SetStyle(
                 ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint |
                 ControlStyles.Opaque | ControlStyles.ResizeRedraw |
@@ -119,7 +117,8 @@ namespace HeapProfiler {
         }
 
         protected Color SelectItemColor (ref TItem item) {
-            var id = BitConverter.ToInt32(BitConverter.GetBytes(item.Traceback.TraceId), 0);
+            var hashBytes = ImmutableBufferPool.GetBytes(item.GetHashCode());
+            var id = BitConverter.ToInt32(hashBytes.Array, hashBytes.Offset);
 
             int hue = (id & 0xFFFF) % (HSV.HueMax);
             int value = ((id & (0xFFFF << 16)) % (HSV.ValueMax * 70 / 100)) + (HSV.ValueMax * 25 / 100);
@@ -132,13 +131,13 @@ namespace HeapProfiler {
         protected override void OnPaintBackground (PaintEventArgs e) {            
         }
 
-        protected float GraphLog (int value) {
+        protected float GraphLog (long value) {
             const double scale = 2.0;
             double result = (Math.Log(Math.Abs(value) + 1) / Math.Log(scale)) * Math.Sign(value);
             return (float)result;
         }
 
-        protected RectangleF ComputeBarRectangle (int bytesDelta, float x, float centerY, float height, float max) {
+        protected RectangleF ComputeBarRectangle (long bytesDelta, float x, float centerY, float height, float max) {
             float y1, y2;
 
             var value = GraphLog(bytesDelta);
@@ -272,9 +271,10 @@ namespace HeapProfiler {
                     GetItemData(i, out data);
 
                     rgn = new Rectangle(x, 0, ItemWidth, height);
+                    var bytesDelta = GetItemValue(item);
 
                     var barRectangle = ComputeBarRectangle(
-                        item.BytesDelta, rgn.X, centerY, height, max
+                        bytesDelta, rgn.X, centerY, height, max
                     );
 
                     if (rgn.IntersectsWith(e.ClipRectangle))
@@ -410,31 +410,16 @@ namespace HeapProfiler {
                 Tooltip = new CustomTooltip(this);
 
             var item = Items[itemIndex];
-            var sf = CustomTooltip.GetDefaultStringFormat();
 
             using (var g = CreateGraphics()) {
-                var content = new DeltaInfoTooltipContent(
-                    item, new DeltaInfo.RenderParams {
-                        BackgroundBrush = new SolidBrush(SystemColors.Info),
-                        BackgroundColor = SystemColors.Info,
-                        TextBrush = new SolidBrush(SystemColors.InfoText),
-                        IsExpanded = true,
-                        IsSelected = false,
-                        FunctionHighlightBrush = new SolidBrush(SystemColors.Highlight),
-                        FunctionHighlightTextBrush = new SolidBrush(SystemColors.HighlightText),
-                        FunctionFilter = FunctionFilter,
-                        Font = Font,
-                        ShadeBrush = new SolidBrush(Color.FromArgb(31, 0, 0, 0)),
-                        StringFormat = sf
-                    }
-                ) {
-                    Location = this.PointToScreen(location)
-                };
+                var content = GetItemTooltip(item);
+
+                content.Font = Font;
+                content.Location = PointToScreen(location);
 
                 CustomTooltip.FitContentOnScreen(
                     g, content,
-                    ref content.RenderParams.Font,
-                    ref content.Location, ref content.Size
+                    ref content.Font, ref content.Location, ref content.Size
                 );
 
                 Tooltip.SetContent(content);
@@ -612,6 +597,47 @@ namespace HeapProfiler {
 
         void ITooltipOwner.MouseUp (MouseEventArgs e) {
             OnMouseUp(e);
+        }
+    }
+
+    public class DeltaHistogram : GenericHistogram<DeltaInfo> {
+        public DeltaHistogram () {
+            base.GetItemValue = (di) => di.BytesDelta;
+            base.GetItemTooltip = (di) => {
+                var sf = CustomTooltip.GetDefaultStringFormat();
+
+                var content = new DeltaInfoTooltipContent(
+                    di, new DeltaInfo.RenderParams {
+                        BackgroundBrush = new SolidBrush(SystemColors.Info),
+                        BackgroundColor = SystemColors.Info,
+                        TextBrush = new SolidBrush(SystemColors.InfoText),
+                        IsExpanded = true,
+                        IsSelected = false,
+                        FunctionHighlightBrush = new SolidBrush(SystemColors.Highlight),
+                        FunctionHighlightTextBrush = new SolidBrush(SystemColors.HighlightText),
+                        FunctionFilter = FunctionFilter,
+                        ShadeBrush = new SolidBrush(Color.FromArgb(31, 0, 0, 0)),
+                        StringFormat = sf
+                    }
+                );
+
+                return content;
+            };
+        }
+    }
+
+    public class GraphHistogram : GenericHistogram<StackGraphNode> {
+        public GraphHistogram () {
+            base.GetItemValue = (sgn) => sgn.BytesRequested;
+            base.GetItemTooltip = (sgn) => {
+                var sf = CustomTooltip.GetDefaultStringFormat();
+
+                TooltipContentBase content = new StackGraphTooltipContent(
+                    sgn, sf
+                );
+
+                return content;
+            };
         }
     }
 }

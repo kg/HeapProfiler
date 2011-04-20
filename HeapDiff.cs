@@ -94,45 +94,31 @@ namespace HeapProfiler {
         }
     }
 
-    public class DeltaInfoTooltipContent : ITooltipContent {
+    public class DeltaInfoTooltipContent : TooltipContentBase {
         public readonly DeltaInfo Delta;
         public DeltaInfo.RenderParams RenderParams;
-        public Point Location;
-        public Size Size;
 
         public DeltaInfoTooltipContent (DeltaInfo delta, DeltaInfo.RenderParams renderParams) {
             Delta = delta;
             RenderParams = renderParams;
         }
 
-        public void Render (Graphics g) {
+        public override void Render (Graphics g) {
             RenderParams.ContentRegion = new Rectangle(
                 0, 0, Size.Width, Size.Height
             );
+            RenderParams.Font = Font;
             Delta.Render(g, ref RenderParams);
         }
 
-        public Size Measure (Graphics g) {
-            var font = RenderParams.Font;
+        public override Size Measure (Graphics g) {
             var sf = RenderParams.StringFormat;
 
-            var width = (int)Math.Ceiling(g.MeasureString(Delta.ToString(true), font, 99999, sf).Width);
-            var lineHeight = g.MeasureString("AaBbYyZz", font, width, sf).Height;
+            var width = (int)Math.Ceiling(g.MeasureString(Delta.ToString(true), Font, 99999, sf).Width);
+            var lineHeight = g.MeasureString("AaBbYyZz", Font, width, sf).Height;
             return new Size(
                 width, (int)Math.Ceiling(lineHeight * (Delta.Traceback.Frames.Count + 1))
             );
-        }
-
-        Point ITooltipContent.Location {
-            get {
-                return Location;
-            }
-        }
-
-        Size ITooltipContent.Size {
-            get {
-                return Size;
-            }
         }
     }
 

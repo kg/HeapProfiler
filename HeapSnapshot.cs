@@ -697,11 +697,9 @@ namespace HeapProfiler {
             }
         }
 
-        public class AllocationTooltipContent : ITooltipContent {
+        public class AllocationTooltipContent : TooltipContentBase {
             public readonly Allocation Allocation;
             public readonly TracebackInfo Traceback;
-            public Point Location;
-            public Size Size;
             public DeltaInfo.RenderParams RenderParams;
 
             public AllocationTooltipContent (ref Allocation allocation, ref TracebackInfo traceback, ref DeltaInfo.RenderParams renderParams) {
@@ -710,39 +708,27 @@ namespace HeapProfiler {
                 RenderParams = renderParams;
             }
 
-            public void Render (Graphics g) {
+            public override void Render (Graphics g) {
                 RenderParams.ContentRegion = new Rectangle(
                     0, 0, Size.Width, Size.Height
                 );
+                RenderParams.Font = Font;
                 var headerText = Allocation.ToString();
                 Traceback.Render(g, ref RenderParams, headerText);
             }
 
-            public Size Measure (Graphics g) {
-                var font = RenderParams.Font;
+            public override Size Measure (Graphics g) {
                 var sf = RenderParams.StringFormat;
                 var headerText = Allocation.ToString();
 
                 var width = (int)Math.Ceiling(g.MeasureString(
                     headerText + Environment.NewLine + Traceback.ToString(), 
-                    font, 99999, sf
+                    Font, 99999, sf
                 ).Width);
-                var lineHeight = g.MeasureString("AaBbYyZz", font, width, sf).Height;
+                var lineHeight = g.MeasureString("AaBbYyZz", Font, width, sf).Height;
                 return new Size(
                     width, (int)Math.Ceiling(lineHeight * (Traceback.Frames.Count + 1))
                 );                
-            }
-
-            Point ITooltipContent.Location {
-                get {
-                    return Location;
-                }
-            }
-
-            Size ITooltipContent.Size {
-                get {
-                    return Size;
-                }
             }
         }
 

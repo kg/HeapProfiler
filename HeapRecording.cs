@@ -908,6 +908,7 @@ namespace HeapProfiler {
             var functionNames = new NameTable();
             var deltas = new List<DeltaInfo>();
             var tracebacks = new Dictionary<UInt32, TracebackInfo>();
+            var stackGraph = new StackGraph();
 
             {
                 var fModulesFirst = Database.SnapshotModules.Get(first.Index);
@@ -1060,10 +1061,6 @@ namespace HeapProfiler {
                     foreach (var d in deltas)
                         d.Traceback = tracebacks[d.TracebackID];
                 });
-
-                var stackGraph = new StackGraph();
-
-                yield return stackGraph.Build(this, deltas);
             }
 
             yield return Future.RunInThread(() =>
