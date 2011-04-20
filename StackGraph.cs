@@ -56,13 +56,15 @@ namespace HeapProfiler {
         }
 
         public void Visit (DeltaInfo delta) {
-            if (VisitedDeltas.Contains(delta))
-                return;
-            else
-                VisitedDeltas.Add(delta);
+            lock (this) {
+                if (VisitedDeltas.Contains(delta))
+                    return;
+                else
+                    VisitedDeltas.Add(delta);
 
-            Allocations += delta.CountDelta.GetValueOrDefault(0);
-            BytesRequested += delta.BytesDelta;
+                Allocations += delta.CountDelta.GetValueOrDefault(0);
+                BytesRequested += delta.BytesDelta;
+            }
         }
 
         public override string ToString () {
@@ -74,6 +76,10 @@ namespace HeapProfiler {
                 (BytesRequested > 0) ? "+" : "-",
                 FileSize.Format(Math.Abs(BytesRequested))
             );
+        }
+
+        public override int GetHashCode () {
+            return Key.GetHashCode();
         }
     }
 

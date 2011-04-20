@@ -20,6 +20,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Text.RegularExpressions;
 using System.Windows.Forms;
 using Squared.Data.Mangler;
@@ -45,6 +46,7 @@ namespace HeapProfiler {
         public const int ItemWidth = 32;
 
         public Func<TItem, long> GetItemValue;
+        public Func<TItem, string> GetItemText;
         public Func<TItem, TooltipContentBase> GetItemTooltip;
 
         public IList<TItem> Items = new List<TItem>();
@@ -179,14 +181,18 @@ namespace HeapProfiler {
 
             ItemData data;
 
+            using (var outlinePath = new GraphicsPath())
             using (var sf = CustomTooltip.GetDefaultStringFormat())
             using (var gridLineFont = new Font(Font.FontFamily, Font.Size * 0.85f, Font.Style))
             using (var outlinePen = new Pen(Color.Black))
             using (var activeOutlinePen = new Pen(SystemColors.HighlightText))
             using (var gridPen = new Pen(Color.FromArgb(96, 0, 0, 0)))
             using (var backgroundBrush = new SolidBrush(BackColor))
+            using (var textOutlinePen = new Pen(Color.White, 3f))
             using (var textBrush = new SolidBrush(ForeColor))
             using (var highlightBrush = new SolidBrush(SystemColors.Highlight)) {
+                textOutlinePen.LineJoin = LineJoin.Round;
+
                 int marginWidth = 0;
                 for (int i = Maximum; i >= Math.Min(Maximum, 16); i /= 4) {
                     marginWidth = Math.Max(marginWidth,
@@ -299,6 +305,42 @@ namespace HeapProfiler {
                             barRectangle.X - 0.5f, barRectangle.Y - 0.5f,
                             barRectangle.Width + 1f, barRectangle.Height + 1f
                         );
+
+                        string itemText = null;
+
+                        if ((GetItemText != null) && (itemText = GetItemText(item)) != null) {
+                            var oldTransform = g.Transform;
+                            var oldClip = g.Clip;
+                            var oldAlignment = sf.LineAlignment;
+                            var oldRenderingHint = g.TextRenderingHint;
+
+                            try {
+                                g.SetClip(barRectangle, CombineMode.Replace);
+                                g.ResetTransform();
+                                g.RotateTransform(90);
+                                g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias;
+                                sf.LineAlignment = StringAlignment.Far;
+
+                                // For some reason, generating a path produces smaller text than DrawString
+                                const float fontScaleRatio = 1.15f;
+
+                                outlinePath.Reset();
+                                outlinePath.AddString(
+                                    itemText, Font.FontFamily, (int)Font.Style, Font.Size * fontScaleRatio, 
+                                    new PointF(
+                                        Math.Min(barRectangle.Y, barRectangle.Bottom), 0f
+                                    ), sf
+                                );
+
+                                g.DrawPath(textOutlinePen, outlinePath);
+                                g.FillPath(textBrush, outlinePath);
+                            } finally {
+                                sf.LineAlignment = oldAlignment;
+                                g.Transform = oldTransform;
+                                g.TextRenderingHint = oldRenderingHint;
+                                g.Clip = oldClip;
+                            }
+                        }
                     }
 
                     VisibleItems.Add(new VisibleItem {
@@ -629,6 +671,7 @@ namespace HeapProfiler {
     public class GraphHistogram : GenericHistogram<StackGraphNode> {
         public GraphHistogram () {
             base.GetItemValue = (sgn) => sgn.BytesRequested;
+            base.GetItemText = (sgn) => sgn.Key.FunctionName;
             base.GetItemTooltip = (sgn) => {
                 var sf = CustomTooltip.GetDefaultStringFormat();
 

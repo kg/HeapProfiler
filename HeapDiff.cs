@@ -89,6 +89,11 @@ namespace HeapProfiler {
             return result;
         }
 
+        public override int GetHashCode () {
+            var tbid = ImmutableBufferPool.GetBytes(TracebackID);
+            return BitConverter.ToInt32(tbid.Array, tbid.Offset);
+        }
+
         public override string ToString () {
             return ToString(true);
         }

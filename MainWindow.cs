@@ -777,8 +777,7 @@ namespace HeapProfiler {
         protected IEnumerator<object> FilterHeapData (HeapRecording instance, string filter) {
             var result = new Dictionary<HeapSnapshotInfo, FilteredHeapSnapshotInfo>();
 
-            filter = EscapeFilter(filter);
-            var regex = new Regex(filter);
+            var regex = MainWindow.FilterToRegex(filter);
             var functionNames = (from functionName in KnownFunctionNames
                                  where regex.IsMatch(functionName)
                                  select functionName).Distinct();
@@ -860,22 +859,25 @@ namespace HeapProfiler {
             );
         }
 
-        public static Regex FilterToRegex (string rawFilter) {
+        public static Regex FilterToRegex (string rawFilter, bool compiled = false) {
             if (rawFilter == null)
                 return null;
 
             var escaped = EscapeFilter(rawFilter);
-            return new Regex(escaped);
+            var options = RegexOptions.IgnoreCase;
+            if (compiled)
+                options |= RegexOptions.Compiled;
+
+            return new Regex(escaped, options);
         }
 
         private void HeapFilter_FilterChanging (object sender, FilterChangingEventArgs args) {
             if (args.Filter.Trim().Length == 0)
                 return;
 
-            var filter = EscapeFilter(args.Filter);
             Regex regex;
             try {
-                regex = new Regex(filter);
+                regex = FilterToRegex(args.Filter);
             } catch {
                 args.SetValid(false);
                 return;
@@ -918,7 +920,8 @@ namespace HeapProfiler {
         private void StackFiltersMenu_Click (object sender, EventArgs e) {
             using (var dialog = new StackFiltersDialog())
                 if (dialog.ShowDialog(this) == DialogResult.OK)
-                    Instance.UpdateFilteredTracebacks();
+                    if (Instance != null)
+                        Instance.UpdateFilteredTracebacks();
         }
     }
 }

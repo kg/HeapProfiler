@@ -1075,10 +1075,10 @@ namespace HeapProfiler {
             Regex function = null;
 
             if (ModuleGlob != null)
-                module = new Regex(MainWindow.EscapeFilter(ModuleGlob), RegexOptions.Compiled);
+                module = MainWindow.FilterToRegex(ModuleGlob, true);
 
             if (FunctionGlob != null)
-                function = new Regex(MainWindow.EscapeFilter(FunctionGlob), RegexOptions.Compiled);
+                function = MainWindow.FilterToRegex(FunctionGlob, true);
 
             return new CompiledStackFilter(module, function);
         }

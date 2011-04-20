@@ -336,10 +336,9 @@ namespace HeapProfiler {
             if (e.Filter.Trim().Length == 0)
                 return;
 
-            var filter = MainWindow.EscapeFilter(e.Filter);
             Regex regex;
             try {
-                regex = new Regex(filter);
+                regex = MainWindow.FilterToRegex(e.Filter);
             } catch {
                 e.SetValid(false);
                 return;
