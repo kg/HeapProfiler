@@ -917,11 +917,27 @@ namespace HeapProfiler {
             }
         }
 
+        protected IEnumerator<object> UpdateStats () {
+            yield return Instance.UpdateFilteredTracebacks();
+
+            var fDataSeries = Instance.GenerateTopFunctions();
+            yield return fDataSeries;
+
+            SnapshotTimeline.DataSeries.Clear();
+            foreach (var kvp in fDataSeries.Result)
+                SnapshotTimeline.DataSeries.Add(kvp.Key, kvp.Value);
+
+            SnapshotTimeline.Invalidate();
+        }
+
         private void StackFiltersMenu_Click (object sender, EventArgs e) {
-            using (var dialog = new StackFiltersDialog())
-                if (dialog.ShowDialog(this) == DialogResult.OK)
+            using (var dialog = new StackFiltersDialog()) {
+                if (dialog.ShowDialog(this) == DialogResult.OK) {
                     if (Instance != null)
-                        Instance.UpdateFilteredTracebacks();
+                        Start(UpdateStats());
+
+                }
+            }
         }
     }
 }

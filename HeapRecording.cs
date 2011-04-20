@@ -25,14 +25,9 @@ using System.Diagnostics;
 using Squared.Data.Mangler;
 using Squared.Task;
 using System.IO;
-using System.Windows.Forms;
 using Squared.Util;
-using Squared.Util.RegexExtensions;
-using System.Text.RegularExpressions;
 using System.Threading;
 using Squared.Task.IO;
-using System.Reflection;
-using Squared.Data.Mangler.Internal;
 
 namespace HeapProfiler {
     public class HeapRecording : IDisposable {
@@ -774,6 +769,109 @@ namespace HeapProfiler {
 
             if (TracebacksFiltered != null)
                 TracebacksFiltered(this, EventArgs.Empty);
+        }
+
+        public Future<Dictionary<string, int[]>> GenerateTopFunctions () {
+            foreach (var si in Snapshots)
+                si.FlushCachedInstance();
+
+            var f = new Future<Dictionary<string, int[]>>();
+            Scheduler.Start(
+                f, new SchedulableGeneratorThunk(_GenerateTopFunctions()),
+                TaskExecutionPolicy.RunAsBackgroundTask
+            );
+
+            return f;
+        }
+
+        protected IEnumerator<object> _GenerateTopFunctions () {
+            var topNodes = new List<StackGraphNode[]>();
+            const int resultCount = 10;
+
+            using (var activity = Activities.AddItem("Finding top functions")) {
+                for (int i = 0, c = Snapshots.Count; i < c; i++) {
+                    activity.Maximum = c + 1;
+
+                    var info = Snapshots[i];
+
+                    var fSnapshot = GetSnapshot(info);
+                    using (fSnapshot)
+                        yield return fSnapshot;
+
+                    var snapshot = fSnapshot.Result;
+
+                    var tracebackIds = (from heap in snapshot.Heaps
+                        from allocation in heap.Allocations
+                        select allocation.TracebackID).Distinct().ToArray();
+
+                    var fTracebacks = Database.FilteredTracebacks.CascadingSelect(
+                        new [] { Database.Tracebacks }, tracebackIds
+                    );
+
+                    yield return fTracebacks;
+
+                    var frameIds = (from traceback in fTracebacks.Result
+                                    from frame in traceback
+                                    select frame).Distinct().ToArray();
+
+                    var fSymbols = Database.SymbolCache.Select(frameIds);
+
+                    yield return fSymbols;
+
+                    var tracebacks = SequenceUtils.ToDictionary(
+                        tracebackIds, fTracebacks.Result
+                    );
+
+                    var symbols = SequenceUtils.ToDictionary(
+                        frameIds, fSymbols.Result
+                    );
+
+                    var graph = new StackGraph();
+
+                    yield return graph.Build(snapshot, tracebacks, symbols);
+
+                    topNodes.Add(graph.TopItems.Take(resultCount).ToArray());
+
+                    info.ReleaseStrongReference();
+
+                    activity.Progress = i;
+                }
+
+                var fTopFunctions = Future.RunInThread(() => {
+                    var grouped =
+                        from ti in topNodes
+                        from node in ti
+                        group node by node.Key
+                            into nodeGroup
+                            select new {
+                                key = nodeGroup.Key,
+                                maxBytes = nodeGroup.Max((sgn) => sgn.BytesRequested)
+                            };
+
+                    var sorted = (from item in grouped
+                           orderby item.maxBytes descending
+                           select item);
+
+                    var result = new Dictionary<string, int[]>();
+
+                    foreach (var item in sorted) {
+                        var resultArray = new int[Snapshots.Count];
+
+                        for (int j = 0; j < resultArray.Length; j++)
+                            resultArray[j] = (from sgn in topNodes[j]
+                                              where sgn.Key.Equals(item.key)
+                                              select sgn.BytesRequested).FirstOrDefault();
+
+                        result[item.key.FunctionName] = resultArray;
+                    }
+
+                    return result;
+                });
+
+                yield return fTopFunctions;
+
+                yield return new Result(fTopFunctions.Result);
+            }            
         }
 
         public Future<HeapSnapshot> GetSnapshot (HeapSnapshotInfo info) {

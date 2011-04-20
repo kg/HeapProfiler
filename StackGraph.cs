@@ -46,7 +46,7 @@ namespace HeapProfiler {
     public class StackGraphNode {
         public readonly FunctionKey Key;
 
-        public readonly HashSet<DeltaInfo> VisitedDeltas = new HashSet<DeltaInfo>();
+        public readonly HashSet<UInt32> VisitedTracebacks = new HashSet<UInt32>();
 
         public int Allocations = 0;
         public int BytesRequested = 0;
@@ -57,13 +57,25 @@ namespace HeapProfiler {
 
         public void Visit (DeltaInfo delta) {
             lock (this) {
-                if (VisitedDeltas.Contains(delta))
+                if (VisitedTracebacks.Contains(delta.TracebackID))
                     return;
                 else
-                    VisitedDeltas.Add(delta);
+                    VisitedTracebacks.Add(delta.TracebackID);
 
                 Allocations += delta.CountDelta.GetValueOrDefault(0);
                 BytesRequested += delta.BytesDelta;
+            }
+        }
+
+        public void Visit (HeapSnapshot.Allocation allocation) {
+            lock (this) {
+                if (VisitedTracebacks.Contains(allocation.TracebackID))
+                    return;
+                else
+                    VisitedTracebacks.Add(allocation.TracebackID);
+
+                Allocations += 1;
+                BytesRequested += (int)allocation.Size;
             }
         }
 
@@ -122,7 +134,36 @@ namespace HeapProfiler {
 
             lock (Lock)
                 foreach (StackGraphNode node in this.Values)
-                    node.VisitedDeltas.Clear();
+                    node.VisitedTracebacks.Clear();
+        }
+
+        public IEnumerator<object> Build (
+            HeapSnapshot snapshot, 
+            Dictionary<uint, HeapSnapshot.Traceback> tracebacks,
+            Dictionary<uint, TracebackFrame> symbols
+        ) {
+            var allocations = from heap in snapshot.Heaps
+                              from allocation in heap.Allocations
+                              select allocation;
+
+            yield return Future.RunInThread(() => {
+                Parallel.ForEach(
+                    allocations, (alloc) => {
+                        var traceback = tracebacks[alloc.TracebackID];
+                        foreach (var frameId in traceback) {
+                            var frame = symbols[frameId];
+                            var node = GetNodeForFrame(frame);
+
+                            if (node != null)
+                                node.Visit(alloc);
+                        }
+                    }
+                );
+            });
+
+            lock (Lock)
+                foreach (StackGraphNode node in this.Values)
+                    node.VisitedTracebacks.Clear();
         }
 
         public IEnumerable<StackGraphNode> TopItems {

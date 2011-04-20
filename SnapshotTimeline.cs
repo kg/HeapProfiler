@@ -24,7 +24,7 @@ namespace HeapProfiler {
         public const int MinSelectionDistance = 5;
 
         public List<TItem> Items = new List<TItem>();
-        public readonly Dictionary<string, ICollection<long>> DataSeries = new Dictionary<string, ICollection<long>>();
+        public readonly Dictionary<string, int[]> DataSeries = new Dictionary<string, int[]>();
 
         protected ScratchBuffer Scratch = new ScratchBuffer();
         protected Button ZoomInButton = null, ZoomOutButton = null;
@@ -260,13 +260,25 @@ namespace HeapProfiler {
                                         select
                                             (int)((item.Timestamp.Ticks - minTicks)
                                             * pixelsPerMinute / minuteInTicks
-                                            ) - _ScrollOffset);
+                                            ) - _ScrollOffset).ToArray();
                 var itemYCoordinates = (from item in Items
                                         select
                                             (float)(height - VerticalMargin - (
                                             (_ItemValueGetter(item) / (double)maxValue) *
                                             (height - VerticalMargin * 2)
                                             )));
+
+                var valueSeriesYCoordinates = (
+                    from series in DataSeries.Values
+                    select (
+                        from value in series
+                        select
+                            (float)(height - VerticalMargin - (
+                            (value / (double)maxValue) *
+                            (height - VerticalMargin * 2)
+                            ))
+                    )
+                );
 
                 var firstIndex = Math.Max(0, IndexFromPoint(new Point(0, 0), -1));
 
@@ -278,6 +290,26 @@ namespace HeapProfiler {
                         ClientSize.Width, height, 
                         brush, outlinePen
                     );
+
+                int seriesIndex = 0;
+                foreach (var series in valueSeriesYCoordinates) {
+                    int hue = (HSV.HueMax * seriesIndex) / DataSeries.Count;
+
+                    var seriesColor = HSV.ColorFromHSV(
+                        (UInt16)hue, HSV.SaturationMax, HSV.ValueMax
+                    );
+
+                    using (var brush = new SolidBrush(Color.FromArgb(15, seriesColor)))
+                    using (var pen = new Pen(Color.FromArgb(160, seriesColor)))
+                        DrawValueSeries(
+                            g, itemXCoordinates.Skip(firstIndex),
+                            series.Skip(firstIndex),
+                            ClientSize.Width, height,
+                            brush, pen
+                        );
+
+                    seriesIndex += 1;
+                }
 
                 firstIndex = Selection.First;
                 var takeCount = Selection.Second - Selection.First + 1;
