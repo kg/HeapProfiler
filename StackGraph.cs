@@ -47,7 +47,10 @@ namespace HeapProfiler {
         public readonly FunctionKey Key;
 
         public readonly HashSet<UInt32> VisitedTracebacks = new HashSet<UInt32>();
+        public readonly HashSet<StackGraphNode> Parents = new HashSet<StackGraphNode>();
+        public readonly HashSet<StackGraphNode> Children = new HashSet<StackGraphNode>();
 
+        public bool Ignored = false;
         public int Allocations = 0;
         public int BytesRequested = 0;
 
@@ -79,15 +82,37 @@ namespace HeapProfiler {
             }
         }
 
+        public void AddChild (StackGraphNode child) {
+            lock (Children)
+                Children.Add(child);
+
+            lock (child.Parents)
+                child.Parents.Add(this);
+        }
+
+        public void RemoveChild (StackGraphNode child) {
+            lock (Children)
+                Children.Remove(child);
+
+            lock (child.Parents)
+                child.Parents.Remove(this);
+        }
+
         public override string ToString () {
             return String.Format(
-                "{0}\r\n{1}{2} allocation(s), {3}{4}", 
+                "{0}\r\n{1}{2} allocation(s), {3}{4}\r\nCalls {5} different function(s)\r\nCalled by {6} different function(s)", 
                 Key.ToString(), 
                 (Allocations > 0) ? "+" : "-",
                 Math.Abs(Allocations), 
                 (BytesRequested > 0) ? "+" : "-",
-                FileSize.Format(Math.Abs(BytesRequested))
+                FileSize.Format(Math.Abs(BytesRequested)),
+                Children.Count,
+                Parents.Count
             );
+        }
+
+        public override bool Equals (object obj) {
+            return Object.ReferenceEquals(this, obj);
         }
 
         public override int GetHashCode () {
@@ -118,23 +143,60 @@ namespace HeapProfiler {
             return result;
         }
 
+        protected IEnumerator<object> FinalizeBuild () {
+            yield return Future.RunInThread(() => {
+                lock (Lock)
+                    Parallel.ForEach(
+                        this.Values,
+                        (node) => node.VisitedTracebacks.Clear()
+                    );
+            });
+
+            lock (Lock) {
+                int numIgnored = 0;
+                StackGraphNode child;
+
+                foreach (var node in Values) {
+                    while ((node.Children.Count == 1) &&
+                        ((child = node.Children.First()).Parents.Count == 1)) {
+
+                            numIgnored += 1;
+                        child.Ignored = true;
+                        node.Children.Remove(child);
+
+                        foreach (var subchild in child.Children.ToArray()) {
+                            node.AddChild(subchild);
+                            child.RemoveChild(subchild);
+                        }
+                    }
+                }
+            }
+        }
+
         public IEnumerator<object> Build (HeapRecording instance, IEnumerable<DeltaInfo> deltas) {
             yield return Future.RunInThread(() => {
                 Parallel.ForEach(
                     deltas, (delta) => {
+                        StackGraphNode parent = null;
+
                         foreach (var frame in delta.Traceback) {
                             var node = GetNodeForFrame(frame);
 
-                            if (node != null)
+                            if (node != null) {
                                 node.Visit(delta);
+
+                                if (parent != null)
+                                    parent.AddChild(node);
+                            }
+
+                            if (node != null)
+                                parent = node;
                         }
                     }
                 );
             });
 
-            lock (Lock)
-                foreach (StackGraphNode node in this.Values)
-                    node.VisitedTracebacks.Clear();
+            yield return FinalizeBuild();
         }
 
         public IEnumerator<object> Build (
@@ -149,21 +211,28 @@ namespace HeapProfiler {
             yield return Future.RunInThread(() => {
                 Parallel.ForEach(
                     allocations, (alloc) => {
+                        StackGraphNode parent = null;
                         var traceback = tracebacks[alloc.TracebackID];
+
                         foreach (var frameId in traceback) {
                             var frame = symbols[frameId];
                             var node = GetNodeForFrame(frame);
 
-                            if (node != null)
+                            if (node != null) {
                                 node.Visit(alloc);
+
+                                if (parent != null)
+                                    parent.AddChild(node);
+                            }
+
+                            if (node != null)
+                                parent = node;
                         }
                     }
                 );
             });
 
-            lock (Lock)
-                foreach (StackGraphNode node in this.Values)
-                    node.VisitedTracebacks.Clear();
+            yield return FinalizeBuild();
         }
 
         public IEnumerable<StackGraphNode> TopItems {
@@ -171,10 +240,12 @@ namespace HeapProfiler {
                 if (this.Dictionary != null)
                     return from kvp in this.Dictionary
                            orderby kvp.Value.BytesRequested descending
+                           where !kvp.Value.Ignored
                            select kvp.Value;
                 else
                     return from item in this.Items
                            orderby item.BytesRequested descending
+                           where !item.Ignored
                            select item;
             }
         }
