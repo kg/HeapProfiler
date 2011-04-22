@@ -188,10 +188,13 @@ namespace HeapProfiler {
             using (var activeOutlinePen = new Pen(SystemColors.HighlightText))
             using (var gridPen = new Pen(Color.FromArgb(96, 0, 0, 0)))
             using (var backgroundBrush = new SolidBrush(BackColor))
-            using (var textOutlinePen = new Pen(Color.White, 3f))
+            using (var whiteOutlinePen = new Pen(Color.White, 2.5f))
+            using (var blackOutlinePen = new Pen(Color.Black, 2.5f))
+            using (var whiteBrush = new SolidBrush(Color.White))
+            using (var blackBrush = new SolidBrush(Color.Black))
             using (var textBrush = new SolidBrush(ForeColor))
             using (var highlightBrush = new SolidBrush(SystemColors.Highlight)) {
-                textOutlinePen.LineJoin = LineJoin.Round;
+                blackOutlinePen.LineJoin = whiteOutlinePen.LineJoin = LineJoin.Round;
 
                 int marginWidth = 0;
                 for (int i = Maximum; i >= Math.Min(Maximum, 16); i /= 4) {
@@ -283,8 +286,10 @@ namespace HeapProfiler {
                         bytesDelta, rgn.X, centerY, height, max
                     );
 
+                    var itemColor = SelectItemColor(ref item);
+
                     if (rgn.IntersectsWith(e.ClipRectangle))
-                    using (var itemBrush = new SolidBrush(SelectItemColor(ref item)))
+                    using (var itemBrush = new SolidBrush(itemColor))
                     using (var scratch = Scratch.Get(e.Graphics, rgn)) {
                         var g = scratch.Graphics;
 
@@ -314,6 +319,8 @@ namespace HeapProfiler {
                             var oldAlignment = sf.LineAlignment;
                             var oldRenderingHint = g.TextRenderingHint;
 
+                            bool white = (itemColor.GetBrightness() <= 0.25f);
+
                             try {
                                 g.SetClip(barRectangle, CombineMode.Replace);
                                 g.ResetTransform();
@@ -332,8 +339,8 @@ namespace HeapProfiler {
                                     ), sf
                                 );
 
-                                g.DrawPath(textOutlinePen, outlinePath);
-                                g.FillPath(textBrush, outlinePath);
+                                g.DrawPath(white ? blackOutlinePen : whiteOutlinePen, outlinePath);
+                                g.FillPath(white ? whiteBrush : blackBrush, outlinePath);
                             } finally {
                                 sf.LineAlignment = oldAlignment;
                                 g.Transform = oldTransform;
