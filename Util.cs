@@ -72,6 +72,15 @@ namespace HeapProfiler {
                 var minWidth = (int)Math.Ceiling(region.Width / 16.0f) * 16;
                 var minHeight = (int)Math.Ceiling(region.Height / 16.0f) * 16;
 
+                if ((minWidth < 0) || (minHeight < 0)) {
+                    Cancelled = true;
+                    Bitmap = null;
+                    Graphics = DestinationGraphics = null;
+                    DestinationRegion = new Rectangle();
+                    HBitmap = HDC = IntPtr.Zero;
+                    return;
+                }
+
                 var needNewBitmap =
                     (sb._ScratchBuffer == null) || (sb._ScratchBuffer.Width < minWidth) ||
                     (sb._ScratchBuffer.Height < minHeight);
@@ -102,7 +111,9 @@ namespace HeapProfiler {
                 }
 
                 Graphics.ResetTransform();
-                Graphics.TranslateTransform(-region.X, -region.Y, System.Drawing.Drawing2D.MatrixOrder.Prepend);
+                Graphics.TranslateTransform(
+                    -region.X, -region.Y, System.Drawing.Drawing2D.MatrixOrder.Prepend
+                );
                 Graphics.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceOver;
                 Graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
                 Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
@@ -110,7 +121,26 @@ namespace HeapProfiler {
                 DestinationGraphics = graphics;
                 DestinationRegion = region;
 
+                var destDC = DestinationGraphics.GetHdc();
+
+                try {
+                    BitBlt(
+                        HDC,
+                        0, 0, DestinationRegion.Width, DestinationRegion.Height,
+                        destDC,
+                        DestinationRegion.X, DestinationRegion.Y, SRCCOPY
+                    );
+                } finally {
+                    DestinationGraphics.ReleaseHdc(destDC);
+                }
+
                 Cancelled = false;
+            }
+
+            public bool IsCancelled {
+                get {
+                    return Cancelled;
+                }
             }
 
             public void Cancel () {

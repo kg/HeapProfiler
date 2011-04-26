@@ -420,7 +420,8 @@ namespace HeapProfiler {
             var content = new HeapSnapshot.AllocationTooltipContent(
                 ref allocation, ref tracebackInfo, ref renderParams
             ) {
-                Location = mouseLocation
+                Location = mouseLocation,
+                Font = Font
             };
 
             using (var g = CreateGraphics())

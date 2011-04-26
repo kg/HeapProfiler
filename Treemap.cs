@@ -38,6 +38,8 @@ namespace HeapProfiler {
         public IList<TItem> Items = new List<TItem>();
         public readonly List<LayoutGroup> Layout = new List<LayoutGroup>();
 
+        protected ScratchBuffer Scratch = new ScratchBuffer();
+
         static float ComputeAspectRatio (float width, float height) {
             return Math.Max(width / height, height / width);
         }
@@ -53,29 +55,27 @@ namespace HeapProfiler {
             ForeColor = SystemColors.WindowText;
         }
 
-        protected void ComputeLayoutGroup (int firstIndex, int lastIndex, RectangleF rectangle, double scaleRatio, List<LayoutItem> result, out float aspectRatio) {
-            bool packVertically = (rectangle.Width > rectangle.Height);
-            float? lastAspectRatio = null;
-            float availableArea = rectangle.Width * rectangle.Height;
-            float fixedSize = (packVertically) ? rectangle.Height : rectangle.Width;
+        protected void ComputeLayoutGroup (int firstIndex, ref int lastIndex, ref RectangleF unfilledRectangle, double scaleRatio, List<LayoutItem> result, out RectangleF resultRectangle) {
+            var buffer = new List<LayoutItem>();
+            bool packVertically = (unfilledRectangle.Width > unfilledRectangle.Height);
+            float? lastAspectRatio = null, lastVariableSize = null;
+            float fixedSize = (packVertically) ? unfilledRectangle.Height : unfilledRectangle.Width;
 
-            aspectRatio = 0f;
+            resultRectangle = unfilledRectangle;
 
-            for (int i = lastIndex; i <= lastIndex; i++) {
+            for (int i = firstIndex; i <= lastIndex; i++) {
                 double area = 0;
                 for (int j = firstIndex; j <= i; j++)
                     area += GetItemValue(Items[j]);
                 area *= scaleRatio;
 
-                /*
-                if (area > availableArea)
-                    Console.WriteLine("Too big");
-                 */
-
                 result.Clear();
+                result.AddRange(buffer);
+                buffer.Clear();
 
                 float variableSize = (float)(area / fixedSize);
                 float pos = 0f;
+                float aspectRatio = 999f;
 
                 for (int j = firstIndex; j <= i; j++) {
                     var item = Items[j];
@@ -85,26 +85,56 @@ namespace HeapProfiler {
 
                     if (packVertically) {
                         itemRect = new RectangleF(
-                            rectangle.X, rectangle.Y + pos,
+                            unfilledRectangle.X, unfilledRectangle.Y + pos,
                             variableSize, itemSize
                         );
                     } else {
                         itemRect = new RectangleF(
-                            rectangle.X + pos, rectangle.Y,
+                            unfilledRectangle.X + pos, unfilledRectangle.Y,
                             itemSize, variableSize
                         );
                     }
 
-                    result.Add(new LayoutItem {
+                    buffer.Add(new LayoutItem {
                         Item = item,
                         Rectangle = itemRect
                     });
 
                     pos += itemSize;
                     aspectRatio = ComputeAspectRatio(itemRect.Width, itemRect.Height);
-                    if ((lastAspectRatio.HasValue) && (lastAspectRatio.Value < aspectRatio))
-                        Console.WriteLine("Worse");
                 }
+
+                if (packVertically) {
+                    resultRectangle = new RectangleF(
+                        unfilledRectangle.X, unfilledRectangle.Y,
+                        variableSize, unfilledRectangle.Height
+                    );
+                } else {
+                    resultRectangle = new RectangleF(
+                        unfilledRectangle.X, unfilledRectangle.Y,
+                        unfilledRectangle.Width, variableSize
+                    );
+                }
+
+                if ((lastAspectRatio.HasValue) && (lastAspectRatio.Value < aspectRatio)) {
+                    lastIndex = i;
+                    if (packVertically) {
+                        unfilledRectangle = new RectangleF(
+                            unfilledRectangle.X + lastVariableSize.Value, unfilledRectangle.Y,
+                            unfilledRectangle.Width - lastVariableSize.Value, unfilledRectangle.Height
+                        );
+                    } else {
+                        unfilledRectangle = new RectangleF(
+                            unfilledRectangle.X, unfilledRectangle.Y + lastVariableSize.Value,
+                            unfilledRectangle.Width, unfilledRectangle.Height - lastVariableSize.Value
+                        );
+                    }
+
+                    return;
+                }
+
+                lastAspectRatio = aspectRatio;
+                lastVariableSize = variableSize;
             }
         }
 
@@ -118,13 +148,30 @@ namespace HeapProfiler {
             double scaleRatio = (totalRect.Width * totalRect.Height) / totalArea;
 
             float resultAspect;
-            ComputeLayoutGroup(0, Items.Count - 1, totalRect, scaleRatio, buffer, out resultAspect);
+            RectangleF resultRect;
 
             Layout.Clear();
-            Layout.Add(new LayoutGroup {
-                Rectangle = totalRect,
-                Items = buffer.ToArray()
-            });
+
+            var last = Items.Count - 1;
+            for (int i = 0; i <= last;) {
+                int lastIndex = last;
+
+                ComputeLayoutGroup(
+                    i, ref lastIndex,
+                    ref totalRect, scaleRatio,
+                    buffer, out resultRect
+                );
+
+                Layout.Add(new LayoutGroup {
+                    Rectangle = resultRect,
+                    Items = buffer.ToArray()
+                });
+
+                if (i == lastIndex)
+                    break;
+                else
+                    i = lastIndex;
+            }
 
             Invalidate();
         }
@@ -142,18 +189,25 @@ namespace HeapProfiler {
         }
 
         protected override void OnPaint (PaintEventArgs e) {
-            var g = e.Graphics;
-            g.Clear(BackColor);
+            e.Graphics.Clear(BackColor);
 
             using (var textBrush = new SolidBrush(ForeColor))
             foreach (var group in Layout) {
-                foreach (var item in group.Items) {
-                    var itemColor = SelectItemColor(item.Item);
+                using (var scratch = Scratch.Get(e.Graphics, group.Rectangle)) {
+                    var g = scratch.Graphics;
+                    if (scratch.IsCancelled)
+                        continue;
 
-                    using (var brush = new SolidBrush(itemColor))
-                        g.FillRectangle(brush, item.Rectangle);
+                    g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
 
-                    g.DrawString(GetItemText(item.Item), Font, textBrush, item.Rectangle);
+                    foreach (var item in group.Items) {
+                        var itemColor = SelectItemColor(item.Item);
+
+                        using (var brush = new SolidBrush(itemColor))
+                            g.FillRectangle(brush, item.Rectangle);
+
+                        g.DrawString(GetItemText(item.Item), Font, textBrush, item.Rectangle);
+                    }
                 }
             }
         }
@@ -169,8 +223,14 @@ namespace HeapProfiler {
 
     public class GraphTreemap : GenericTreemap<StackGraphNode> {
         public GraphTreemap () {
-            base.GetItemValue = (sgn) => sgn.BytesRequested;
-            base.GetItemText = (sgn) => sgn.Key.FunctionName;
+            base.GetItemValue = (sgn) => Math.Abs(sgn.BytesRequested);
+            base.GetItemText = (sgn) => {
+                var text = sgn.Key.FunctionName ?? "";
+                if (text.Length > 64)
+                    return text.Substring(0, 64);
+                else
+                    return text;
+            };
             base.GetItemTooltip = (sgn) => {
                 var sf = CustomTooltip.GetDefaultStringFormat();
 
