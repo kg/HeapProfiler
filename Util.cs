@@ -18,6 +18,7 @@ Original Author: Kevin Gadd (kevin.gadd@gmail.com)
 
 using System;
 using System.Collections.Generic;
+using System.Drawing.Drawing2D;
 using System.Linq;
 using System.Text;
 using System.Drawing;
@@ -120,19 +121,6 @@ namespace HeapProfiler {
 
                 DestinationGraphics = graphics;
                 DestinationRegion = region;
-
-                var destDC = DestinationGraphics.GetHdc();
-
-                try {
-                    BitBlt(
-                        HDC,
-                        0, 0, DestinationRegion.Width, DestinationRegion.Height,
-                        destDC,
-                        DestinationRegion.X, DestinationRegion.Y, SRCCOPY
-                    );
-                } finally {
-                    DestinationGraphics.ReleaseHdc(destDC);
-                }
 
                 Cancelled = false;
             }
@@ -608,7 +596,7 @@ namespace HeapProfiler {
 
         public virtual IEnumerable<TKey> Keys {
             get {
-                return base.Dictionary.Keys;
+                return from item in base.Items select GetKeyForItem(item);
             }
         }
 
@@ -896,6 +884,114 @@ namespace HeapProfiler {
             }
 
             return result;
+        }
+    }
+
+    public class OutlinedTextCache : KeyedCollection2<string, OutlinedTextCache.CacheEntry>, IDisposable {
+        public class CacheEntry : IDisposable {
+            public Bitmap Bitmap;
+            public Font Font;
+            public Color TextColor, OutlineColor;
+            public string Text;
+
+            public void Dispose () {
+                Bitmap.Dispose();
+                Bitmap = null;
+                Text = null;
+            }
+        }
+
+        public Bitmap Get (
+            Graphics graphics, string text, 
+            Font font, RotateFlipType rotation,
+            Color textColor, Color outlineColor, 
+            StringFormat stringFormat
+        ) {
+            CacheEntry ce = null;
+
+            bool needNewBitmap = true;
+
+            if (TryGetValue(text, out ce)) {
+                if ((ce.Font == font) && (ce.TextColor == textColor) &&
+                    (ce.OutlineColor == outlineColor))
+                    needNewBitmap = false;
+            }
+
+            if (needNewBitmap) {
+                var size = graphics.MeasureString(text, font, new PointF(0, 0), stringFormat);
+                var bitmap = new Bitmap(
+                    (int)Math.Ceiling(size.Width),
+                    (int)Math.Ceiling(size.Height),
+                    System.Drawing.Imaging.PixelFormat.Format32bppPArgb
+                );
+
+                using (var g = Graphics.FromImage(bitmap)) {
+                    g.Clear(Color.FromArgb(0, outlineColor));
+                    g.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceOver;
+                    g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
+                    g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias;
+                    g.CompositingQuality = System.Drawing.Drawing2D.CompositingQuality.HighQuality;
+
+                    using (var brush = new SolidBrush(textColor))
+                    using (var pen = new Pen(outlineColor, 2.5f))
+                    using (var path = new GraphicsPath()) {
+                        float emSize = g.DpiY * font.Size / 72f;
+
+                        path.AddString(
+                            text, font.FontFamily, 
+                            (int)font.Style, emSize, 
+                            new PointF(0f, 0f), stringFormat
+                        );
+
+                        pen.LineJoin = LineJoin.Round;
+                        g.DrawPath(pen, path);
+                        g.FillPath(brush, path);
+                    }
+                }
+
+                if (ce != null) {
+                    Remove(ce.Text);
+                    ce.Dispose();
+                }
+
+                bitmap.RotateFlip(rotation);
+
+                ce = new CacheEntry {
+                    Bitmap = bitmap,
+                    Font = font,
+                    OutlineColor = outlineColor,
+                    TextColor = textColor,
+                    Text = text
+                };
+
+                Add(ce);
+            }
+
+            var result = ce.Bitmap;
+            return result;
+        }
+
+        public void Flush (IEnumerable<string> strings) {
+            CacheEntry ce;
+
+            foreach (var key in strings) {
+                if (TryGetValue(key, out ce)) {
+                    Remove(key);
+                    ce.Dispose();
+                }
+            }
+        }
+
+        public void Flush () {
+            Flush(Keys.ToArray());
+        }
+
+        public void Dispose () {
+            Flush(Keys.ToArray());
+        }
+
+        protected override string GetKeyForItem (OutlinedTextCache.CacheEntry item) {
+            return item.Text;
         }
     }
 }

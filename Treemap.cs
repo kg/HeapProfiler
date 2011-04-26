@@ -9,7 +9,7 @@ using System.Windows.Forms;
 using Squared.Data.Mangler;
 
 namespace HeapProfiler {
-    public class GenericTreemap<TItem> : UserControl 
+    public class GenericTreemap<TItem> : UserControl, ITooltipOwner
         where TItem: class {
 
         public struct LayoutGroup : IEnumerable<LayoutItem> {
@@ -31,6 +31,9 @@ namespace HeapProfiler {
             public TItem Item;
         }
 
+        public const int MinimumTextWidth = 32;
+        public const int MinimumTextHeight = 14;
+
         public Func<TItem, long> GetItemValue;
         public Func<TItem, string> GetItemText;
         public Func<TItem, TooltipContentBase> GetItemTooltip;
@@ -38,6 +41,9 @@ namespace HeapProfiler {
         public IList<TItem> Items = new List<TItem>();
         public readonly List<LayoutGroup> Layout = new List<LayoutGroup>();
 
+        protected LayoutItem? _HoverItem = null;
+        protected CustomTooltip Tooltip = null;
+        protected OutlinedTextCache TextCache = new OutlinedTextCache();
         protected ScratchBuffer Scratch = new ScratchBuffer();
 
         static float ComputeAspectRatio (float width, float height) {
@@ -53,6 +59,13 @@ namespace HeapProfiler {
 
             BackColor = SystemColors.Window;
             ForeColor = SystemColors.WindowText;
+        }
+
+        protected override void Dispose (bool disposing) {
+            TextCache.Dispose();
+            Scratch.Dispose();
+
+            base.Dispose(disposing);
         }
 
         protected void ComputeLayoutGroup (int firstIndex, ref int lastIndex, ref RectangleF unfilledRectangle, double scaleRatio, List<LayoutItem> result, out RectangleF resultRectangle) {
@@ -104,26 +117,23 @@ namespace HeapProfiler {
                     aspectRatio = ComputeAspectRatio(itemRect.Width, itemRect.Height);
                 }
 
-                if (packVertically) {
-                    resultRectangle = new RectangleF(
-                        unfilledRectangle.X, unfilledRectangle.Y,
-                        variableSize, unfilledRectangle.Height
-                    );
-                } else {
-                    resultRectangle = new RectangleF(
-                        unfilledRectangle.X, unfilledRectangle.Y,
-                        unfilledRectangle.Width, variableSize
-                    );
-                }
-
                 if ((lastAspectRatio.HasValue) && (lastAspectRatio.Value < aspectRatio)) {
                     lastIndex = i;
+
                     if (packVertically) {
+                        resultRectangle = new RectangleF(
+                            unfilledRectangle.X, unfilledRectangle.Y,
+                            lastVariableSize.Value, unfilledRectangle.Height
+                        );
                         unfilledRectangle = new RectangleF(
                             unfilledRectangle.X + lastVariableSize.Value, unfilledRectangle.Y,
                             unfilledRectangle.Width - lastVariableSize.Value, unfilledRectangle.Height
                         );
                     } else {
+                        resultRectangle = new RectangleF(
+                            unfilledRectangle.X, unfilledRectangle.Y,
+                            unfilledRectangle.Width, lastVariableSize.Value
+                        );
                         unfilledRectangle = new RectangleF(
                             unfilledRectangle.X, unfilledRectangle.Y + lastVariableSize.Value,
                             unfilledRectangle.Width, unfilledRectangle.Height - lastVariableSize.Value
@@ -135,6 +145,76 @@ namespace HeapProfiler {
 
                 lastAspectRatio = aspectRatio;
                 lastVariableSize = variableSize;
+            }
+        }
+
+        protected LayoutItem? ItemFromPoint (Point pt) {
+            foreach (var group in Layout) {
+                if (group.Rectangle.Contains(pt.X, pt.Y))
+                    foreach (var item in group.Items)
+                        if (item.Rectangle.Contains(pt.X, pt.Y))
+                            return item;
+            }
+
+            return null;
+        }
+
+        protected override void OnMouseMove (MouseEventArgs e) {
+            var newItem = ItemFromPoint(e.Location);
+
+            if (newItem.GetValueOrDefault().Item != _HoverItem.GetValueOrDefault().Item) {
+                if (newItem != null)
+                    ShowTooltip(newItem.Value, e.Location);
+                else
+                    HideTooltip();
+            }
+
+            base.OnMouseMove(e);
+        }
+        protected void ShowTooltip (LayoutItem item, Point location) {
+            if (Tooltip == null)
+                Tooltip = new CustomTooltip(this);
+
+            using (var g = CreateGraphics()) {
+                var content = GetItemTooltip(item.Item);
+
+                content.Font = Font;
+                content.Location = PointToScreen(location);
+
+                CustomTooltip.FitContentOnScreen(
+                    g, content,
+                    ref content.Font, ref content.Location, ref content.Size
+                );
+
+                Tooltip.SetContent(content);
+            }
+
+            if (_HoverItem.GetValueOrDefault().Item != item.Item) {
+                var oldItem = _HoverItem;
+                _HoverItem = item;
+                Invalidate(oldItem.GetValueOrDefault().Rectangle);
+                Invalidate(item.Rectangle);
+            }
+        }
+
+        protected void Invalidate (RectangleF rectangle) {
+            if ((rectangle.Width <= 0f) || (rectangle.Height <= 0f))
+                return;
+
+            Invalidate(new Rectangle(
+                (int)Math.Floor(rectangle.X), (int)Math.Floor(rectangle.Y),
+                (int)Math.Ceiling(rectangle.Width), (int)Math.Ceiling(rectangle.Height)
+            ), false);
+        }
+
+        protected void HideTooltip () {
+            if ((Tooltip != null) && Tooltip.Visible)
+                Tooltip.Hide();
+
+            if (_HoverItem != null) {
+                var oldItem = _HoverItem;
+                _HoverItem = null;
+                Invalidate(oldItem.GetValueOrDefault().Rectangle);
             }
         }
 
@@ -189,35 +269,98 @@ namespace HeapProfiler {
         }
 
         protected override void OnPaint (PaintEventArgs e) {
-            e.Graphics.Clear(BackColor);
+            var clipRectF = (RectangleF)e.ClipRectangle;
+
+            if (Layout.Count == 0)
+                e.Graphics.Clear(BackColor);
+
+            var textToFlush = new HashSet<string>(TextCache.Keys);
 
             using (var textBrush = new SolidBrush(ForeColor))
             foreach (var group in Layout) {
+                if (!group.Rectangle.IntersectsWith(clipRectF)) {
+                    foreach (var item in group.Items)
+                        textToFlush.Remove(GetItemText(item.Item));
+
+                    continue;
+                }
+
                 using (var scratch = Scratch.Get(e.Graphics, group.Rectangle)) {
                     var g = scratch.Graphics;
                     if (scratch.IsCancelled)
                         continue;
 
                     g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
+                    g.Clear(BackColor);
 
                     foreach (var item in group.Items) {
                         var itemColor = SelectItemColor(item.Item);
 
+                        bool white = (itemColor.GetBrightness() <= 0.25f);
+
                         using (var brush = new SolidBrush(itemColor))
                             g.FillRectangle(brush, item.Rectangle);
 
-                        g.DrawString(GetItemText(item.Item), Font, textBrush, item.Rectangle);
+                        if ((item.Rectangle.Width > MinimumTextWidth) && (item.Rectangle.Height > MinimumTextHeight)) {
+                            var itemText = GetItemText(item.Item);
+                            textToFlush.Remove(itemText);
+
+                            var bitmap = TextCache.Get(
+                                g, itemText, Font, RotateFlipType.RotateNoneFlipNone, 
+                                white ? Color.White : Color.Black, 
+                                white ? Color.Black : Color.LightGray, 
+                                StringFormat.GenericDefault
+                            );
+
+                            g.DrawImageUnscaled(
+                                bitmap, new Rectangle(
+                                    (int)item.Rectangle.X, (int)item.Rectangle.Y,
+                                    (int)Math.Min(item.Rectangle.Width, bitmap.Width),
+                                    (int)Math.Min(item.Rectangle.Height, bitmap.Height)
+                                )
+                            );
+                        }
                     }
                 }
             }
+
+            TextCache.Flush(textToFlush);
         }
 
         protected override void OnSizeChanged (EventArgs e) {
             ComputeLayout();
         }
 
+        protected override void OnMouseLeave (EventArgs e) {
+            base.OnMouseLeave(e);
+
+            if (Tooltip == null)
+                return;
+
+            if (!Tooltip.ClientRectangle.Contains(Tooltip.PointToClient(Cursor.Position)))
+                HideTooltip();
+        }
+
+        protected override void OnVisibleChanged (EventArgs e) {
+            base.OnVisibleChanged(e);
+
+            TextCache.Flush();
+        }
+
         public override void Refresh () {
             ComputeLayout();
+        }
+
+        void ITooltipOwner.MouseDown (MouseEventArgs e) {
+            OnMouseDown(e);
+        }
+
+        void ITooltipOwner.MouseMove (MouseEventArgs e) {
+            OnMouseMove(e);
+        }
+
+        void ITooltipOwner.MouseUp (MouseEventArgs e) {
+            OnMouseUp(e);
         }
     }
 
