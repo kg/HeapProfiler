@@ -63,10 +63,12 @@ namespace HeapProfiler {
                 Timeline.Items = Instance.Snapshots;
                 Instance.TracebacksFiltered += Instance_TracebacksFiltered;
                 ViewFunctionHistogramMenu.Enabled = true;
+                ViewFunctionTreemapMenu.Enabled = true;
             } else {
                 Timeline.Visible = false;
                 MainSplit.Height += Timeline.Bottom - MainSplit.Bottom;
                 ViewFunctionHistogramMenu.Enabled = false;
+                ViewFunctionTreemapMenu.Enabled = false;
             }
         }
 
@@ -283,10 +285,11 @@ namespace HeapProfiler {
             } else
                 StackGraph = null;
 
-            if (StackGraph != null)
-                GraphHistogram.Items = StackGraph.TopItems.ToArray();
-            else
-                GraphHistogram.Items = null;
+            if (StackGraph != null) {
+                GraphTreemap.Items = GraphHistogram.Items = StackGraph.TopItems.ToArray();                
+            } else {
+                GraphTreemap.Items = GraphHistogram.Items = null;
+            }
 
             DeltaHistogram.Items = DeltaList.Items = newListItems;
             if (newListItems.Count > 0)
@@ -299,6 +302,7 @@ namespace HeapProfiler {
             DeltaList.Invalidate();
             DeltaHistogram.Invalidate();
             GraphHistogram.Invalidate();
+            GraphTreemap.Refresh();
 
             SetBusy(false);
         }
@@ -364,12 +368,14 @@ namespace HeapProfiler {
             DeltaHistogram.Visible = ViewHistogramMenu.Checked = false;
             DeltaList.Visible = ViewListMenu.Checked = true;
             GraphHistogram.Visible = ViewFunctionHistogramMenu.Checked = false;
+            GraphTreemap.Visible = ViewFunctionTreemapMenu.Checked = false;
         }
 
         private void ViewHistogramMenu_Click (object sender, EventArgs e) {
             DeltaList.Visible = ViewListMenu.Checked = false;
             DeltaHistogram.Visible = ViewHistogramMenu.Checked = true;
             GraphHistogram.Visible = ViewFunctionHistogramMenu.Checked = false;
+            GraphTreemap.Visible = ViewFunctionTreemapMenu.Checked = false;
         }
 
         private void Timeline_RangeChanged (object sender, EventArgs e) {
@@ -397,6 +403,14 @@ namespace HeapProfiler {
             DeltaList.Visible = ViewListMenu.Checked = false;
             DeltaHistogram.Visible = ViewHistogramMenu.Checked = false;
             GraphHistogram.Visible = ViewFunctionHistogramMenu.Checked = true;
+            GraphTreemap.Visible = ViewFunctionTreemapMenu.Checked = false;
+        }
+
+        private void ViewFunctionTreemapMenu_Click (object sender, EventArgs e) {
+            DeltaList.Visible = ViewListMenu.Checked = false;
+            DeltaHistogram.Visible = ViewHistogramMenu.Checked = false;
+            GraphHistogram.Visible = ViewFunctionHistogramMenu.Checked = false;
+            GraphTreemap.Visible = ViewFunctionTreemapMenu.Checked = true;
         }
     }
 }

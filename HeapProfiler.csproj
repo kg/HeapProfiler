@@ -123,6 +123,9 @@
     <Compile Include="SymbolSettingsDialog.Designer.cs">
       <DependentUpon>SymbolSettingsDialog.cs</DependentUpon>
     </Compile>
+    <Compile Include="Treemap.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
     <Compile Include="Util.cs" />
     <EmbeddedResource Include="CustomTooltip.resx">
       <DependentUpon>CustomTooltip.cs</DependentUpon>

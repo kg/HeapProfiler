@@ -118,7 +118,7 @@ namespace HeapProfiler {
             base.OnResize(e);
         }
 
-        protected Color SelectItemColor (ref TItem item) {
+        protected Color SelectItemColor (TItem item) {
             var hashBytes = ImmutableBufferPool.GetBytes(item.GetHashCode());
             var id = BitConverter.ToInt32(hashBytes.Array, hashBytes.Offset);
 
@@ -286,7 +286,7 @@ namespace HeapProfiler {
                         bytesDelta, rgn.X, centerY, height, max
                     );
 
-                    var itemColor = SelectItemColor(ref item);
+                    var itemColor = SelectItemColor(item);
 
                     if (rgn.IntersectsWith(e.ClipRectangle))
                     using (var itemBrush = new SolidBrush(itemColor))

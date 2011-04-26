@@ -31,8 +31,10 @@
             this.ModuleList = new HeapProfiler.ModuleSelector();
             this.ViewSplit = new System.Windows.Forms.SplitContainer();
             this.TracebackFilter = new HeapProfiler.FilterControl();
+            this.GraphTreemap = new HeapProfiler.GraphTreemap();
             this.DeltaHistogram = new HeapProfiler.DeltaHistogram();
             this.DeltaList = new HeapProfiler.DeltaList();
+            this.GraphHistogram = new HeapProfiler.GraphHistogram();
             this.MainMenu = new System.Windows.Forms.MenuStrip();
             this.fileToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.SaveDiffMenu = new System.Windows.Forms.ToolStripMenuItem();
@@ -42,12 +44,12 @@
             this.ViewListMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.ViewHistogramMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.ViewFunctionHistogramMenu = new System.Windows.Forms.ToolStripMenuItem();
+            this.ViewFunctionTreemapMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.ToolTips = new System.Windows.Forms.ToolTip(this.components);
             this.StatusBar = new System.Windows.Forms.StatusStrip();
             this.StatusLabel = new System.Windows.Forms.ToolStripStatusLabel();
             this.AllocationTotals = new System.Windows.Forms.ToolStripStatusLabel();
             this.Timeline = new HeapProfiler.SnapshotTimeline();
-            this.GraphHistogram = new HeapProfiler.GraphHistogram();
             this.LoadingPanel.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.MainSplit)).BeginInit();
             this.MainSplit.Panel1.SuspendLayout();
@@ -76,9 +78,9 @@
             // 
             // LoadingProgress
             // 
-            this.LoadingProgress.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)
-                        | System.Windows.Forms.AnchorStyles.Left)
-                        | System.Windows.Forms.AnchorStyles.Right)));
+            this.LoadingProgress.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
             this.LoadingProgress.Location = new System.Drawing.Point(8, 21);
             this.LoadingProgress.Margin = new System.Windows.Forms.Padding(4);
             this.LoadingProgress.MarqueeAnimationSpeed = 25;
@@ -89,9 +91,9 @@
             // 
             // MainSplit
             // 
-            this.MainSplit.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)
-                        | System.Windows.Forms.AnchorStyles.Left)
-                        | System.Windows.Forms.AnchorStyles.Right)));
+            this.MainSplit.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
             this.MainSplit.Location = new System.Drawing.Point(0, 26);
             this.MainSplit.Margin = new System.Windows.Forms.Padding(4);
             this.MainSplit.Name = "MainSplit";
@@ -136,6 +138,7 @@
             // 
             // ViewSplit.Panel2
             // 
+            this.ViewSplit.Panel2.Controls.Add(this.GraphTreemap);
             this.ViewSplit.Panel2.Controls.Add(this.DeltaHistogram);
             this.ViewSplit.Panel2.Controls.Add(this.DeltaList);
             this.ViewSplit.Panel2.Controls.Add(this.GraphHistogram);
@@ -154,6 +157,17 @@
             this.TracebackFilter.TabIndex = 0;
             this.TracebackFilter.FilterChanging += new HeapProfiler.FilterChangingEventHandler(this.TracebackFilter_FilterChanging);
             this.TracebackFilter.FilterChanged += new System.EventHandler(this.TracebackFilter_FilterChanged);
+            // 
+            // GraphTreemap
+            // 
+            this.GraphTreemap.BackColor = System.Drawing.SystemColors.Window;
+            this.GraphTreemap.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.GraphTreemap.ForeColor = System.Drawing.SystemColors.WindowText;
+            this.GraphTreemap.Location = new System.Drawing.Point(0, 0);
+            this.GraphTreemap.Name = "GraphTreemap";
+            this.GraphTreemap.Size = new System.Drawing.Size(459, 297);
+            this.GraphTreemap.TabIndex = 5;
+            this.GraphTreemap.Visible = false;
             // 
             // DeltaHistogram
             // 
@@ -179,6 +193,19 @@
             this.DeltaList.Name = "DeltaList";
             this.DeltaList.Size = new System.Drawing.Size(459, 297);
             this.DeltaList.TabIndex = 3;
+            // 
+            // GraphHistogram
+            // 
+            this.GraphHistogram.BackColor = System.Drawing.SystemColors.Window;
+            this.GraphHistogram.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.GraphHistogram.Font = new System.Drawing.Font("Consolas", 11.25F);
+            this.GraphHistogram.ForeColor = System.Drawing.SystemColors.WindowText;
+            this.GraphHistogram.Location = new System.Drawing.Point(0, 0);
+            this.GraphHistogram.Margin = new System.Windows.Forms.Padding(5);
+            this.GraphHistogram.Name = "GraphHistogram";
+            this.GraphHistogram.Size = new System.Drawing.Size(459, 297);
+            this.GraphHistogram.TabIndex = 4;
+            this.GraphHistogram.Visible = false;
             // 
             // MainMenu
             // 
@@ -226,7 +253,8 @@
             this.viewToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.ViewListMenu,
             this.ViewHistogramMenu,
-            this.ViewFunctionHistogramMenu});
+            this.ViewFunctionHistogramMenu,
+            this.ViewFunctionTreemapMenu});
             this.viewToolStripMenuItem.Name = "viewToolStripMenuItem";
             this.viewToolStripMenuItem.Size = new System.Drawing.Size(44, 20);
             this.viewToolStripMenuItem.Text = "&View";
@@ -254,6 +282,14 @@
             this.ViewFunctionHistogramMenu.Size = new System.Drawing.Size(180, 22);
             this.ViewFunctionHistogramMenu.Text = "&Function Histogram";
             this.ViewFunctionHistogramMenu.Click += new System.EventHandler(this.ViewFunctionHistogramMenu_Click);
+            // 
+            // ViewFunctionTreemapMenu
+            // 
+            this.ViewFunctionTreemapMenu.Enabled = false;
+            this.ViewFunctionTreemapMenu.Name = "ViewFunctionTreemapMenu";
+            this.ViewFunctionTreemapMenu.Size = new System.Drawing.Size(180, 22);
+            this.ViewFunctionTreemapMenu.Text = "Function &Treemap";
+            this.ViewFunctionTreemapMenu.Click += new System.EventHandler(this.ViewFunctionTreemapMenu_Click);
             // 
             // StatusBar
             // 
@@ -287,8 +323,8 @@
             // Timeline
             // 
             this.Timeline.AllowMultiselect = true;
-            this.Timeline.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)
-                        | System.Windows.Forms.AnchorStyles.Right)));
+            this.Timeline.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
             this.Timeline.BackColor = System.Drawing.SystemColors.Control;
             this.Timeline.Enabled = false;
             this.Timeline.ForeColor = System.Drawing.SystemColors.ControlText;
@@ -300,19 +336,6 @@
             this.Timeline.Size = new System.Drawing.Size(584, 32);
             this.Timeline.TabIndex = 4;
             this.Timeline.SelectionChanged += new System.EventHandler(this.Timeline_RangeChanged);
-            // 
-            // GraphHistogram
-            // 
-            this.GraphHistogram.BackColor = System.Drawing.SystemColors.Window;
-            this.GraphHistogram.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.GraphHistogram.Font = new System.Drawing.Font("Consolas", 11.25F);
-            this.GraphHistogram.ForeColor = System.Drawing.SystemColors.WindowText;
-            this.GraphHistogram.Location = new System.Drawing.Point(0, 0);
-            this.GraphHistogram.Margin = new System.Windows.Forms.Padding(5);
-            this.GraphHistogram.Name = "GraphHistogram";
-            this.GraphHistogram.Size = new System.Drawing.Size(611, 373);
-            this.GraphHistogram.TabIndex = 4;
-            this.GraphHistogram.Visible = false;
             // 
             // DiffViewer
             // 
@@ -375,5 +398,7 @@
         private DeltaList DeltaList;
         private FilterControl TracebackFilter;
         private System.Windows.Forms.ToolStripMenuItem ViewFunctionHistogramMenu;
+        private GraphTreemap GraphTreemap;
+        private System.Windows.Forms.ToolStripMenuItem ViewFunctionTreemapMenu;
     }
 }
