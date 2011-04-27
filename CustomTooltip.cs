@@ -133,6 +133,13 @@ namespace HeapProfiler {
             return Owner.ClientRectangle.Contains(adjustedPos);
         }
 
+        protected override void OnMouseClick (MouseEventArgs e) {
+            if (AdjustMouseEvent(ref e))
+                Owner.Click(e);
+            else
+                Hide();
+        }
+
         protected override void OnMouseDown (MouseEventArgs e) {
             if (AdjustMouseEvent(ref e))
                 Owner.MouseDown(e);
@@ -233,6 +240,7 @@ namespace HeapProfiler {
         void MouseDown (MouseEventArgs e);
         void MouseMove (MouseEventArgs e);
         void MouseUp (MouseEventArgs e);
+        void Click (MouseEventArgs e);
 
         Point PointToClient (Point screenPoint);
 

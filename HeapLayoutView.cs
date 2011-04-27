@@ -550,6 +550,10 @@ namespace HeapProfiler {
             }
         }
 
+        void ITooltipOwner.Click (MouseEventArgs e) {
+            OnMouseClick(e);
+        }
+
         void ITooltipOwner.MouseDown (MouseEventArgs e) {
             OnMouseDown(e);
         }

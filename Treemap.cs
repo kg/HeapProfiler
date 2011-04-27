@@ -26,11 +26,13 @@ namespace HeapProfiler {
             }
         }
 
-        public struct LayoutItem {
+        public class LayoutItem {
             public RectangleF Rectangle;
             public TItem Item;
+            public int NestingDepth = 0;
         }
 
+        public const int LayoutNestingLimit = 2;
         public const int MinimumTextWidth = 32;
         public const int MinimumTextHeight = 14;
 
@@ -39,9 +41,10 @@ namespace HeapProfiler {
         public Func<TItem, TooltipContentBase> GetItemTooltip;
 
         public IList<TItem> Items = new List<TItem>();
+        public readonly Stack<TItem> DrilldownStack = new Stack<TItem>();
         public readonly List<LayoutGroup> Layout = new List<LayoutGroup>();
 
-        protected LayoutItem? _HoverItem = null;
+        protected LayoutItem _HoverItem = null;
         protected CustomTooltip Tooltip = null;
         protected OutlinedTextCache TextCache = new OutlinedTextCache();
         protected ScratchBuffer Scratch = new ScratchBuffer();
@@ -68,8 +71,15 @@ namespace HeapProfiler {
             base.Dispose(disposing);
         }
 
-        protected void ComputeLayoutGroup (int firstIndex, ref int lastIndex, ref RectangleF unfilledRectangle, double scaleRatio, List<LayoutItem> result, out RectangleF resultRectangle) {
-            var buffer = new List<LayoutItem>();
+        protected void ComputeLayoutGroup (
+            IList<TItem> items, int firstIndex, ref int lastIndex, 
+            ref RectangleF unfilledRectangle, double scaleRatio, 
+            List<LayoutItem> result, out RectangleF resultRectangle,
+            int nestingDepth = 0
+        ) {
+            var currentPass = new List<LayoutItem>();
+            var lastPass = new List<LayoutItem>();
+
             bool packVertically = (unfilledRectangle.Width > unfilledRectangle.Height);
             float? lastAspectRatio = null, lastVariableSize = null;
             float fixedSize = (packVertically) ? unfilledRectangle.Height : unfilledRectangle.Width;
@@ -79,19 +89,23 @@ namespace HeapProfiler {
             for (int i = firstIndex; i <= lastIndex; i++) {
                 double area = 0;
                 for (int j = firstIndex; j <= i; j++)
-                    area += GetItemValue(Items[j]);
+                    area += GetItemValue(items[j]);
                 area *= scaleRatio;
 
-                result.Clear();
-                result.AddRange(buffer);
-                buffer.Clear();
+                var temp = currentPass;
+                currentPass = lastPass;
+                lastPass = temp;
+                currentPass.Clear();
 
-                float variableSize = (float)(area / fixedSize);
+                float variableSize = Math.Min(
+                    (float)(area / fixedSize),
+                    (packVertically) ? unfilledRectangle.Width : unfilledRectangle.Height
+                );
                 float pos = 0f;
                 float aspectRatio = 999f;
 
                 for (int j = firstIndex; j <= i; j++) {
-                    var item = Items[j];
+                    var item = items[j];
                     double itemArea = GetItemValue(item) * scaleRatio;
                     float itemSize = (float)(itemArea / variableSize);
                     RectangleF itemRect;
@@ -99,18 +113,19 @@ namespace HeapProfiler {
                     if (packVertically) {
                         itemRect = new RectangleF(
                             unfilledRectangle.X, unfilledRectangle.Y + pos,
-                            variableSize, itemSize
+                            variableSize, Math.Min(itemSize, unfilledRectangle.Height - pos)
                         );
                     } else {
                         itemRect = new RectangleF(
                             unfilledRectangle.X + pos, unfilledRectangle.Y,
-                            itemSize, variableSize
+                            Math.Min(itemSize, unfilledRectangle.Width - pos), variableSize
                         );
                     }
 
-                    buffer.Add(new LayoutItem {
+                    currentPass.Add(new LayoutItem {
                         Item = item,
-                        Rectangle = itemRect
+                        Rectangle = itemRect,
+                        NestingDepth = nestingDepth
                     });
 
                     pos += itemSize;
@@ -140,31 +155,64 @@ namespace HeapProfiler {
                         );
                     }
 
+                    result.AddRange(lastPass);
+
                     return;
                 }
 
                 lastAspectRatio = aspectRatio;
                 lastVariableSize = variableSize;
             }
+
+            result.AddRange(currentPass);
+            lastIndex = -1;
         }
 
-        protected LayoutItem? ItemFromPoint (Point pt) {
+        protected LayoutItem ItemFromPoint (Point pt) {
             foreach (var group in Layout) {
                 if (group.Rectangle.Contains(pt.X, pt.Y))
-                    foreach (var item in group.Items)
-                        if (item.Rectangle.Contains(pt.X, pt.Y))
-                            return item;
+                    for (var i = group.Items.Length - 1; i >= 0; i--)
+                        if (group.Items[i].Rectangle.Contains(pt.X, pt.Y))
+                            return group.Items[i];
             }
 
             return null;
         }
 
+        protected override void OnMouseClick (MouseEventArgs e) {
+            var item = ItemFromPoint(e.Location);
+            TItem currentDrilldown = null;
+            if (DrilldownStack.Count > 0)
+                currentDrilldown = DrilldownStack.Peek();
+
+            if (
+                (e.Button == System.Windows.Forms.MouseButtons.Right) ||
+                (item.Item == currentDrilldown)
+            ) {
+                if (DrilldownStack.Count > 0) {
+                    DrilldownStack.Pop();
+                    ComputeLayout();
+                }
+
+                return;
+            }
+
+            var ie = item.Item as IEnumerable<TItem>;
+            if (ie == null)
+                return;
+
+            DrilldownStack.Push(item.Item);
+            ComputeLayout();
+
+            base.OnMouseClick(e);
+        }
+
         protected override void OnMouseMove (MouseEventArgs e) {
             var newItem = ItemFromPoint(e.Location);
 
-            if (newItem.GetValueOrDefault().Item != _HoverItem.GetValueOrDefault().Item) {
+            if (newItem != _HoverItem) {
                 if (newItem != null)
-                    ShowTooltip(newItem.Value, e.Location);
+                    ShowTooltip(newItem, e.Location);
                 else
                     HideTooltip();
             }
@@ -179,7 +227,10 @@ namespace HeapProfiler {
                 var content = GetItemTooltip(item.Item);
 
                 content.Font = Font;
-                content.Location = PointToScreen(location);
+                content.Location = PointToScreen(new Point(
+                    (int)item.Rectangle.Left,
+                    (int)item.Rectangle.Bottom + 2
+                ));
 
                 CustomTooltip.FitContentOnScreen(
                     g, content,
@@ -189,10 +240,13 @@ namespace HeapProfiler {
                 Tooltip.SetContent(content);
             }
 
-            if (_HoverItem.GetValueOrDefault().Item != item.Item) {
+            if (_HoverItem != item) {
                 var oldItem = _HoverItem;
                 _HoverItem = item;
-                Invalidate(oldItem.GetValueOrDefault().Rectangle);
+
+                if (oldItem != null)
+                    Invalidate(oldItem.Rectangle);
+
                 Invalidate(item.Rectangle);
             }
         }
@@ -202,8 +256,8 @@ namespace HeapProfiler {
                 return;
 
             Invalidate(new Rectangle(
-                (int)Math.Floor(rectangle.X), (int)Math.Floor(rectangle.Y),
-                (int)Math.Ceiling(rectangle.Width), (int)Math.Ceiling(rectangle.Height)
+                (int)Math.Floor(rectangle.X - 1f), (int)Math.Floor(rectangle.Y - 1f),
+                (int)Math.Ceiling(rectangle.Width + 2f), (int)Math.Ceiling(rectangle.Height + 2f)
             ), false);
         }
 
@@ -214,13 +268,84 @@ namespace HeapProfiler {
             if (_HoverItem != null) {
                 var oldItem = _HoverItem;
                 _HoverItem = null;
-                Invalidate(oldItem.GetValueOrDefault().Rectangle);
+
+                if (oldItem != null)
+                    Invalidate(oldItem.Rectangle);
+            }
+        }
+
+        protected void ComputeNestedLayouts (List<LayoutItem> buffer, int firstIndex, int lastIndex, int depth = 1) {
+            var limit = LayoutNestingLimit;
+            if (DrilldownStack.Count > 0)
+                limit += 1;
+
+            if (depth > limit)
+                return;
+
+            var newRanges = new List<Tuple<int, int>>();
+
+            for (int j = firstIndex; j <= lastIndex; j++) {
+                var item = buffer[j];
+                var ie = item.Item as IEnumerable<TItem>;
+                if (ie == null)
+                    continue;
+
+                var children = ie.ToArray();
+                if (children.Length == 0)
+                    continue;
+
+                RectangleF resultChildRect;
+                var childRect = item.Rectangle;
+
+                childRect.Inflate(-4f, -4f);
+                childRect.Height -= 20;
+                if ((childRect.Height <= 0) || (childRect.Width <= 0))
+                    continue;
+
+                float totalChildArea = 0;
+                foreach (var child in children)
+                    totalChildArea += GetItemValue(child);
+
+                double childScaleRatio = (childRect.Width * childRect.Height) / totalChildArea;
+
+                int previousCount = buffer.Count;
+
+                int k = 0;
+                var lastChildIndex = children.Length - 1;
+                while (k <= lastChildIndex) {
+                    ComputeLayoutGroup(
+                        children, k, ref lastChildIndex,
+                        ref childRect, childScaleRatio,
+                        buffer, out resultChildRect,
+                        depth
+                    );
+
+                    if (lastChildIndex == -1)
+                        break;
+
+                    k = lastChildIndex;
+                    lastChildIndex = children.Length - 1;
+                }
+
+                if (buffer.Count != previousCount)
+                    newRanges.Add(new Tuple<int, int>(
+                        previousCount, buffer.Count - 1
+                    ));
+            }
+
+            foreach (var range in newRanges) {
+                ComputeNestedLayouts(buffer, range.Item1, range.Item2, depth + 1);
             }
         }
 
         protected void ComputeLayout () {
+            var items = Items;
+            if (DrilldownStack.Count > 0) {
+                items = new TItem[] { DrilldownStack.Peek() };
+            }
+
             float totalArea = 0;
-            foreach (var item in Items)
+            foreach (var item in items)
                 totalArea += GetItemValue(item);
 
             var buffer = new List<LayoutItem>();
@@ -230,16 +355,22 @@ namespace HeapProfiler {
             float resultAspect;
             RectangleF resultRect;
 
+            _HoverItem = null;
             Layout.Clear();
 
-            var last = Items.Count - 1;
+            var last = items.Count - 1;
             for (int i = 0; i <= last;) {
                 int lastIndex = last;
 
+                buffer.Clear();
                 ComputeLayoutGroup(
-                    i, ref lastIndex,
+                    items, i, ref lastIndex,
                     ref totalRect, scaleRatio,
                     buffer, out resultRect
+                );
+
+                ComputeNestedLayouts(
+                    buffer, 0, buffer.Count - 1
                 );
 
                 Layout.Add(new LayoutGroup {
@@ -247,7 +378,7 @@ namespace HeapProfiler {
                     Items = buffer.ToArray()
                 });
 
-                if (i == lastIndex)
+                if (lastIndex == -1)
                     break;
                 else
                     i = lastIndex;
@@ -261,7 +392,8 @@ namespace HeapProfiler {
             var id = BitConverter.ToInt32(hashBytes.Array, hashBytes.Offset);
 
             int hue = (id & 0xFFFF) % (HSV.HueMax);
-            int value = ((id & (0xFFFF << 16)) % (HSV.ValueMax * 70 / 100)) + (HSV.ValueMax * 25 / 100);
+            int value = ((id & (0xFFFF << 16)) % (HSV.ValueMax * 60 / 100))
+                + (HSV.ValueMax * 20 / 100);
 
             return HSV.ColorFromHSV(
                 (UInt16)hue, HSV.SaturationMax, (UInt16)value
@@ -275,8 +407,8 @@ namespace HeapProfiler {
                 e.Graphics.Clear(BackColor);
 
             var textToFlush = new HashSet<string>(TextCache.Keys);
+            int textSuppressLimit = 2;
 
-            using (var textBrush = new SolidBrush(ForeColor))
             foreach (var group in Layout) {
                 if (!group.Rectangle.IntersectsWith(clipRectF)) {
                     foreach (var item in group.Items)
@@ -294,12 +426,38 @@ namespace HeapProfiler {
                     g.Clear(BackColor);
 
                     foreach (var item in group.Items) {
-                        var itemColor = SelectItemColor(item.Item);
+                        var opacity = 255;
+                        Color itemColor;
+                        Color outlineColor;
+
+                        if ((item.NestingDepth > 0) && (item != _HoverItem)) {
+                            opacity = (int)(opacity * Math.Pow(0.7, item.NestingDepth));
+                        }
+
+                        if (item == _HoverItem) {
+                            itemColor = SystemColors.Highlight;
+                            outlineColor = SystemColors.HighlightText;
+                        } else {
+                            itemColor = SelectItemColor(item.Item);
+                            outlineColor = Color.FromArgb(opacity / 2, 0, 0, 0);
+                        }
 
                         bool white = (itemColor.GetBrightness() <= 0.25f);
 
-                        using (var brush = new SolidBrush(itemColor))
+                        using (var brush = new SolidBrush(
+                            Color.FromArgb(opacity, itemColor.R, itemColor.G, itemColor.B)
+                        ))
                             g.FillRectangle(brush, item.Rectangle);
+
+                        using (var outlinePen = new Pen(outlineColor))
+                            g.DrawRectangle(
+                                outlinePen, 
+                                item.Rectangle.X, item.Rectangle.Y,
+                                item.Rectangle.Width, item.Rectangle.Height
+                            );
+
+                        if ((item.NestingDepth >= textSuppressLimit) && (item != _HoverItem))
+                            continue;
 
                         if ((item.Rectangle.Width > MinimumTextWidth) && (item.Rectangle.Height > MinimumTextHeight)) {
                             var itemText = GetItemText(item.Item);
@@ -312,11 +470,13 @@ namespace HeapProfiler {
                                 StringFormat.GenericDefault
                             );
 
-                            g.DrawImageUnscaled(
+                            var w = (int)Math.Min(item.Rectangle.Width, bitmap.Width);
+                            var h = (int)Math.Min(item.Rectangle.Height, bitmap.Height);
+                            g.DrawImageUnscaledAndClipped(
                                 bitmap, new Rectangle(
-                                    (int)item.Rectangle.X, (int)item.Rectangle.Y,
-                                    (int)Math.Min(item.Rectangle.Width, bitmap.Width),
-                                    (int)Math.Min(item.Rectangle.Height, bitmap.Height)
+                                    (int)item.Rectangle.Right - w, 
+                                    (int)item.Rectangle.Bottom - h,
+                                    w, h
                                 )
                             );
                         }
@@ -344,11 +504,20 @@ namespace HeapProfiler {
         protected override void OnVisibleChanged (EventArgs e) {
             base.OnVisibleChanged(e);
 
-            TextCache.Flush();
+            Refresh();
         }
 
         public override void Refresh () {
+            if (!Visible)
+                return;
+
+            TextCache.Flush();
+            DrilldownStack.Clear();
             ComputeLayout();
+        }
+
+        void ITooltipOwner.Click (MouseEventArgs e) {
+            OnMouseClick(e);
         }
 
         void ITooltipOwner.MouseDown (MouseEventArgs e) {
