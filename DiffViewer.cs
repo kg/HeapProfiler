@@ -40,6 +40,8 @@ namespace HeapProfiler {
         protected Pair<int> PendingLoadPair = new Pair<int>(-1, -1);
         protected HeapRecording Instance = null;
 
+        protected IFuture PendingRefresh = null;
+
         protected Pair<int> CurrentPair = new Pair<int>(-1, -1);
         protected string Filename;
         protected Regex FunctionFilter = null;
@@ -169,7 +171,10 @@ namespace HeapProfiler {
             Filename = filename;
 
             RefreshModules();
-            Start(RefreshDeltas());
+
+            if (PendingRefresh != null)
+                PendingRefresh.Dispose();
+            PendingRefresh = Start(RefreshDeltas());
 
             MainMenuStrip.Enabled = true;
             LoadingPanel.Visible = false;
@@ -222,91 +227,93 @@ namespace HeapProfiler {
         }
 
         public IEnumerator<object> RefreshDeltas () {
-            if (Updating)
-                yield break;
+            try {
+                if (Updating)
+                    yield break;
 
-            SetBusy(true);
+                SetBusy(true);
 
-            Future<int> fTotalBytes = new Future<int>(),
-                fTotalAllocs = new Future<int>(), 
-                fMax = new Future<int>();
-            var newListItems = new List<DeltaInfo>();
-            var moduleList = ModuleList;
-            var deltas = Deltas;
-            var functionFilter = FunctionFilter;
+                Future<int> fTotalBytes = new Future<int>(),
+                    fTotalAllocs = new Future<int>(),
+                    fMax = new Future<int>();
+                var newListItems = new List<DeltaInfo>();
+                var moduleList = ModuleList;
+                var deltas = Deltas;
+                var functionFilter = FunctionFilter;
 
-            yield return Future.RunInThread(() => {
-                int max = -int.MaxValue;
-                int totalBytes = 0, totalAllocs = 0;
+                yield return Future.RunInThread(() => {
+                    int max = -int.MaxValue;
+                    int totalBytes = 0, totalAllocs = 0;
 
-                foreach (var delta in deltas) {
-                    if (functionFilter != null) {
-                        bool matched = false;
+                    foreach (var delta in deltas) {
+                        if (functionFilter != null) {
+                            bool matched = false;
 
-                        foreach (var functionName in delta.Traceback.Functions) {
-                            if (functionFilter.IsMatch(functionName)) {
-                                matched = true;
-                                break;
+                            foreach (var functionName in delta.Traceback.Functions) {
+                                if (functionFilter.IsMatch(functionName)) {
+                                    matched = true;
+                                    break;
+                                }
                             }
+
+                            if (!matched)
+                                continue;
                         }
 
-                        if (!matched)
-                            continue;
+                        bool filteredOut = (delta.Traceback.Modules.Count > 0);
+                        foreach (var module in delta.Traceback.Modules) {
+                            filteredOut &= !moduleList.SelectedItems.Contains(module);
+
+                            if (!filteredOut)
+                                break;
+                        }
+
+                        if (!filteredOut) {
+                            newListItems.Add(delta);
+                            totalBytes += delta.BytesDelta;
+                            totalAllocs += delta.CountDelta.GetValueOrDefault(0);
+                            max = Math.Max(max, delta.BytesDelta);
+                        }
                     }
 
-                    bool filteredOut = (delta.Traceback.Modules.Count > 0);
-                    foreach (var module in delta.Traceback.Modules) {
-                        filteredOut &= !moduleList.SelectedItems.Contains(module);
+                    max = Math.Max(max, Math.Abs(totalBytes));
+                    fTotalBytes.Complete(totalBytes);
+                    fTotalAllocs.Complete(totalAllocs);
+                    fMax.Complete(max);
+                });
 
-                        if (!filteredOut)
-                            break;
-                    }
+                StatusLabel.Text = String.Format("Showing {0} out of {1} item(s)", newListItems.Count, deltas.Count);
+                AllocationTotals.Text = String.Format("Delta bytes: {0} Delta allocations: {1}", FileSize.Format(fTotalBytes.Result), fTotalAllocs.Result);
 
-                    if (!filteredOut) {
-                        newListItems.Add(delta);
-                        totalBytes += delta.BytesDelta;
-                        totalAllocs += delta.CountDelta.GetValueOrDefault(0);
-                        max = Math.Max(max, delta.BytesDelta);
-                    }
+                if (Instance != null) {
+                    StackGraph = new StackGraph();
+                    yield return StackGraph.Build(Instance, newListItems);
+                } else
+                    StackGraph = null;
+
+                if (StackGraph != null) {
+                    GraphHistogram.Items = StackGraph.Functions.OrderedItems.ToArray();
+                    GraphTreemap.Items = StackGraph.OrderedItems.ToArray();
+                } else {
+                    GraphHistogram.Items = null;
+                    GraphTreemap.Items = null;
                 }
 
-                max = Math.Max(max, Math.Abs(totalBytes));
-                fTotalBytes.Complete(totalBytes);
-                fTotalAllocs.Complete(totalAllocs);
-                fMax.Complete(max);
-            });
+                DeltaHistogram.Items = DeltaList.Items = newListItems;
+                if (newListItems.Count > 0)
+                    GraphHistogram.Maximum = DeltaHistogram.Maximum = fMax.Result;
+                else
+                    GraphHistogram.Maximum = DeltaHistogram.Maximum = 1024;
 
-            StatusLabel.Text = String.Format("Showing {0} out of {1} item(s)", newListItems.Count, deltas.Count);
-            AllocationTotals.Text = String.Format("Delta bytes: {0} Delta allocations: {1}", FileSize.Format(fTotalBytes.Result), fTotalAllocs.Result);
+                GraphHistogram.TotalDelta = DeltaHistogram.TotalDelta = fTotalBytes.Result;
 
-            if (Instance != null) {
-                StackGraph = new StackGraph();
-                yield return StackGraph.Build(Instance, newListItems);
-            } else
-                StackGraph = null;
-
-            if (StackGraph != null) {
-                GraphHistogram.Items = StackGraph.TopItems.ToArray();
-                GraphTreemap.Items = StackGraph.Roots.ToArray();
-            } else {
-                GraphHistogram.Items = null;
-                GraphTreemap.Items = null;
+                DeltaList.Invalidate();
+                DeltaHistogram.Invalidate();
+                GraphHistogram.Invalidate();
+                GraphTreemap.Refresh();
+            } finally {
+                SetBusy(false);
             }
-
-            DeltaHistogram.Items = DeltaList.Items = newListItems;
-            if (newListItems.Count > 0)
-                GraphHistogram.Maximum = DeltaHistogram.Maximum = fMax.Result;
-            else
-                GraphHistogram.Maximum = DeltaHistogram.Maximum = 1024;
-
-            GraphHistogram.TotalDelta = DeltaHistogram.TotalDelta = fTotalBytes.Result;
-
-            DeltaList.Invalidate();
-            DeltaHistogram.Invalidate();
-            GraphHistogram.Invalidate();
-            GraphTreemap.Refresh();
-
-            SetBusy(false);
         }
 
         private void DiffViewer_Shown (object sender, EventArgs e) {
@@ -363,7 +370,11 @@ namespace HeapProfiler {
         private void TracebackFilter_FilterChanged (object sender, EventArgs e) {
             var filter = MainWindow.FilterToRegex(TracebackFilter.Filter);
             GraphHistogram.FunctionFilter = DeltaHistogram.FunctionFilter = DeltaList.FunctionFilter = FunctionFilter = filter;
-            Start(RefreshDeltas());
+
+            if (PendingRefresh != null)
+                PendingRefresh.Dispose();
+
+            PendingRefresh = Start(RefreshDeltas());
         }
 
         private void ViewListMenu_Click (object sender, EventArgs e) {
@@ -398,7 +409,9 @@ namespace HeapProfiler {
         }
 
         private void ModuleList_FilterChanged (object sender, EventArgs e) {
-            Start(RefreshDeltas());
+            if (PendingRefresh != null)
+                PendingRefresh.Dispose();
+            PendingRefresh = Start(RefreshDeltas());
         }
 
         private void ViewFunctionHistogramMenu_Click (object sender, EventArgs e) {

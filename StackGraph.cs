@@ -54,7 +54,7 @@ namespace HeapProfiler {
         public readonly HashSet<StackGraphNode> Parents = new HashSet<StackGraphNode>();
         public readonly StackGraphNodeCollection Children = new StackGraphNodeCollection();
 
-        public bool Ignored = false;
+        public int CulledFrames = 0;
         public int Allocations = 0;
         public int BytesRequested = 0;
 
@@ -109,10 +109,10 @@ namespace HeapProfiler {
                     (Children.Count == 1) && 
                     ((child = Children.First()).Parents.Count == 1)
                 ) {
-                    child.Ignored = true;
                     Children.Remove(child);
 
                     foreach (var subchild in child.Children) {
+                        subchild.CulledFrames = child.CulledFrames + 1;
                         Children.Add(subchild);
                         subchild.Parents.Clear();
                         subchild.Parents.Add(this);
@@ -169,7 +169,6 @@ namespace HeapProfiler {
         IEnumerator<StackGraphNode> IEnumerable<StackGraphNode>.GetEnumerator () {
             return
                 (from child in Children
-                where !child.Ignored
                 orderby child.BytesRequested descending
                 select child).GetEnumerator();
         }
@@ -212,14 +211,24 @@ namespace HeapProfiler {
 
             return result;
         }
+
+        public IEnumerable<StackGraphNode> OrderedItems {
+            get {
+                return from item in this.Items
+                       orderby item.BytesRequested descending
+                       select item;
+            }
+        }
     }
 
     public class StackGraph : StackGraphNodeCollection {
+        public readonly StackGraphNodeCollection Functions = new StackGraphNodeCollection();
+
         protected IEnumerator<object> FinalizeBuild () {
             yield return Future.RunInThread(() => {
                 lock (Lock)
                     Parallel.ForEach(
-                        this.Values,
+                        this.Items,
                         (node) => node.Finalize()
                     );
             });
@@ -231,7 +240,7 @@ namespace HeapProfiler {
                     deltas, (delta) => {
                         StackGraphNode parent = null, node;
 
-                        foreach (var frame in delta.Traceback) {
+                        foreach (var frame in delta.Traceback.Reverse()) {
                             if (parent != null)
                                 node = parent.GetNodeForChildFrame(frame);
                             else
@@ -242,6 +251,9 @@ namespace HeapProfiler {
 
                             if (node != null)
                                 parent = node;
+
+                            node = Functions.GetNodeForFrame(frame);
+                            node.Visit(delta);
                         }
                     }
                 );
@@ -265,7 +277,7 @@ namespace HeapProfiler {
                         StackGraphNode parent = null, node;
                         var traceback = tracebacks[alloc.TracebackID];
 
-                        foreach (var frameId in traceback) {
+                        foreach (var frameId in traceback.Reverse()) {
                             var frame = symbols[frameId];
 
                             if (parent != null)
@@ -278,30 +290,15 @@ namespace HeapProfiler {
 
                             if (node != null)
                                 parent = node;
+
+                            node = Functions.GetNodeForFrame(frame);
+                            node.Visit(alloc);
                         }
                     }
                 );
             });
 
             yield return FinalizeBuild();
-        }
-
-        public IEnumerable<StackGraphNode> Roots {
-            get {
-                return from item in this.Items
-                       where !item.Ignored && item.Parents.Count == 0
-                       orderby item.BytesRequested descending
-                       select item;
-            }
-        }
-
-        public IEnumerable<StackGraphNode> TopItems {
-            get {
-                return from item in this.Items
-                       where !item.Ignored
-                       orderby item.BytesRequested descending
-                       select item;
-            }
         }
     }
 

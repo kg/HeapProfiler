@@ -36,33 +36,35 @@
             this.FindIcon.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Center;
             this.FindIcon.Dock = System.Windows.Forms.DockStyle.Left;
             this.FindIcon.Location = new System.Drawing.Point(0, 0);
-            this.FindIcon.Margin = new System.Windows.Forms.Padding(5);
+            this.FindIcon.Margin = new System.Windows.Forms.Padding(4);
             this.FindIcon.Name = "FindIcon";
-            this.FindIcon.Size = new System.Drawing.Size(29, 29);
+            this.FindIcon.Size = new System.Drawing.Size(22, 24);
             this.FindIcon.TabIndex = 7;
             this.FindIcon.TabStop = false;
             // 
             // FilterText
             // 
+            this.FilterText.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.FilterText.AutoCompleteMode = System.Windows.Forms.AutoCompleteMode.SuggestAppend;
             this.FilterText.AutoCompleteSource = System.Windows.Forms.AutoCompleteSource.CustomSource;
-            this.FilterText.Dock = System.Windows.Forms.DockStyle.Right;
             this.FilterText.Font = new System.Drawing.Font("Consolas", 11.25F);
-            this.FilterText.Location = new System.Drawing.Point(30, 0);
-            this.FilterText.Margin = new System.Windows.Forms.Padding(5);
+            this.FilterText.Location = new System.Drawing.Point(21, 0);
+            this.FilterText.Margin = new System.Windows.Forms.Padding(4);
             this.FilterText.Name = "FilterText";
-            this.FilterText.Size = new System.Drawing.Size(320, 29);
+            this.FilterText.Size = new System.Drawing.Size(241, 25);
             this.FilterText.TabIndex = 6;
             this.FilterText.TextChanged += new System.EventHandler(this.FilterText_TextChanged);
             // 
             // FilterControl
             // 
-            this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
+            this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.Controls.Add(this.FilterText);
             this.Controls.Add(this.FindIcon);
+            this.Margin = new System.Windows.Forms.Padding(2);
+            this.Font = new System.Drawing.Font("Consolas", 11.25F);
             this.Name = "FilterControl";
-            this.Size = new System.Drawing.Size(350, 29);
+            this.Size = new System.Drawing.Size(262, 24);
             this.SizeChanged += new System.EventHandler(this.FilterControl_SizeChanged);
             ((System.ComponentModel.ISupportInitialize)(this.FindIcon)).EndInit();
             this.ResumeLayout(false);

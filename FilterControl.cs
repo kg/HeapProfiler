@@ -17,6 +17,12 @@ namespace HeapProfiler {
 
         public FilterControl () {
             InitializeComponent();
+
+            var height = Math.Max(FilterText.Height, FilterText.GetPreferredSize(new Size(999, 999)).Height);
+
+            MinimumSize = new Size(0, height);
+            MaximumSize = new Size(999999, height);
+            Height = height;
         }
 
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
@@ -51,7 +57,9 @@ namespace HeapProfiler {
         }
 
         private void FilterControl_SizeChanged (object sender, EventArgs e) {
-            FilterText.Width = this.ClientSize.Width - FindIcon.Width;
+            FilterText.SetBounds(
+                FindIcon.Width, 0, ClientSize.Width - FindIcon.Width, ClientSize.Height
+            );
         }
 
         private void FilterText_TextChanged (object sender, EventArgs e) {

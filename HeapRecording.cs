@@ -836,7 +836,7 @@ namespace HeapProfiler {
 
                     yield return graph.Build(snapshot, tracebacks, symbols);
 
-                    topNodes.Add(graph.TopItems.Take(resultCount).ToArray());
+                    topNodes.Add(graph.OrderedItems.Take(resultCount).ToArray());
 
                     info.ReleaseStrongReference();
 

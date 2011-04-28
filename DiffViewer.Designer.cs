@@ -162,7 +162,7 @@
             // 
             this.GraphTreemap.BackColor = System.Drawing.SystemColors.Window;
             this.GraphTreemap.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.GraphTreemap.Font = new System.Drawing.Font("Consolas", 11.25F);
+            this.GraphTreemap.Font = new System.Drawing.Font("Consolas", 10f);
             this.GraphTreemap.ForeColor = System.Drawing.SystemColors.WindowText;
             this.GraphTreemap.Location = new System.Drawing.Point(0, 0);
             this.GraphTreemap.Name = "GraphTreemap";

@@ -320,7 +320,8 @@ namespace HeapProfiler {
                             var bitmap = TextCache.Get(
                                 g, itemText, Font, RotateFlipType.Rotate90FlipNone,
                                 white ? Color.White : Color.Black,
-                                white ? Color.Black : Color.LightGray, sf
+                                white ? Color.Black : Color.LightGray, sf,
+                                new SizeF(barRectangle.Height, barRectangle.Width)
                             );
 
                             g.DrawImageUnscaled(

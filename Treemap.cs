@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Drawing;
 using System.Data;
 using System.Linq;
@@ -33,7 +34,7 @@ namespace HeapProfiler {
         }
 
         public const int LayoutNestingLimit = 2;
-        public const int MinimumTextWidth = 32;
+        public const int MinimumTextWidth = 70;
         public const int MinimumTextHeight = 14;
 
         public Func<TItem, long> GetItemValue;
@@ -49,6 +50,8 @@ namespace HeapProfiler {
         protected OutlinedTextCache TextCache = new OutlinedTextCache();
         protected ScratchBuffer Scratch = new ScratchBuffer();
 
+        protected readonly ToolStrip Breadcrumbs = new ToolStrip();
+
         static float ComputeAspectRatio (float width, float height) {
             return Math.Max(width / height, height / width);
         }
@@ -62,6 +65,52 @@ namespace HeapProfiler {
 
             BackColor = SystemColors.Window;
             ForeColor = SystemColors.WindowText;
+
+            Breadcrumbs.Visible = false;
+            Breadcrumbs.GripStyle = ToolStripGripStyle.Hidden;
+            Breadcrumbs.RenderMode = ToolStripRenderMode.System;
+            Breadcrumbs.Items.Add("«").Click += BreadcrumbClick;
+            Controls.Add(Breadcrumbs);
+        }
+
+        protected void BreadcrumbClick (object sender, EventArgs e) {
+            var index = Breadcrumbs.Items.IndexOf(sender as ToolStripItem);
+
+            while (DrilldownStack.Count > index)
+                DrilldownStack.Pop();
+
+            RefreshBreadcrumbs();
+            ComputeLayout();
+        }
+
+        protected void RefreshBreadcrumbs () {
+            if (DrilldownStack.Count == 0) {
+                Breadcrumbs.Visible = false;
+                return;
+            }
+
+            Breadcrumbs.SuspendLayout();
+
+            var items = DrilldownStack.Reverse().ToArray();
+
+            while (Breadcrumbs.Items.Count > DrilldownStack.Count + 1)
+                Breadcrumbs.Items.RemoveAt(Breadcrumbs.Items.Count - 1);
+
+            while (DrilldownStack.Count + 1 > Breadcrumbs.Items.Count) {
+                var index = Breadcrumbs.Items.Count - 1;
+                Breadcrumbs.Items.Add(GetItemText(items[index])).Click += BreadcrumbClick;
+            }
+
+            for (var i = 0; i < items.Length; i++) {
+                var btn = Breadcrumbs.Items[i + 1] as ToolStripButton;
+                btn.Text = GetItemText(items[i]);
+                btn.Checked = false;
+            }
+
+            (Breadcrumbs.Items[Breadcrumbs.Items.Count - 1] as ToolStripButton).Checked = true;
+
+            Breadcrumbs.ResumeLayout(true);
+            Breadcrumbs.Visible = (DrilldownStack.Count > 0);
         }
 
         protected override void Dispose (bool disposing) {
@@ -191,6 +240,7 @@ namespace HeapProfiler {
             ) {
                 if (DrilldownStack.Count > 0) {
                     DrilldownStack.Pop();
+                    RefreshBreadcrumbs();
                     ComputeLayout();
                 }
 
@@ -202,6 +252,7 @@ namespace HeapProfiler {
                 return;
 
             DrilldownStack.Push(item.Item);
+            RefreshBreadcrumbs();
             ComputeLayout();
 
             base.OnMouseClick(e);
@@ -298,15 +349,12 @@ namespace HeapProfiler {
                 var childRect = item.Rectangle;
 
                 childRect.Inflate(-4f, -4f);
-                childRect.Height -= 20;
-                if ((childRect.Height <= 0) || (childRect.Width <= 0))
-                    continue;
 
-                /*
-                float totalChildArea = 0;
-                foreach (var child in children)
-                    totalChildArea += GetItemValue(child);
-                 */
+                if ((item.Rectangle.Width > MinimumTextWidth) && (item.Rectangle.Height > MinimumTextHeight))
+                    childRect.Height -= 19;
+
+                if ((childRect.Height <= 4f) || (childRect.Width <= 4f))
+                    continue;
 
                 double childScaleRatio = (childRect.Width * childRect.Height) / GetItemValue(item.Item);
 
@@ -352,6 +400,12 @@ namespace HeapProfiler {
 
             var buffer = new List<LayoutItem>();
             var totalRect = new RectangleF(0f, 0f, ClientSize.Width, ClientSize.Height);
+
+            if (Breadcrumbs.Visible) {
+                totalRect.Y += Breadcrumbs.Height;
+                totalRect.Height -= Breadcrumbs.Height;
+            }
+
             double scaleRatio = (totalRect.Width * totalRect.Height) / totalArea;
 
             float resultAspect;
@@ -408,6 +462,13 @@ namespace HeapProfiler {
             if (Layout.Count == 0)
                 e.Graphics.Clear(BackColor);
 
+            var stringFormat = new StringFormat {
+                Alignment = StringAlignment.Near,
+                FormatFlags = StringFormatFlags.FitBlackBox | 
+                    StringFormatFlags.NoFontFallback | StringFormatFlags.NoWrap,
+                Trimming = StringTrimming.EllipsisPath,
+                HotkeyPrefix = System.Drawing.Text.HotkeyPrefix.Show
+            };
             var textToFlush = new HashSet<string>(TextCache.Keys);
             int textSuppressLimit = 2;
 
@@ -469,7 +530,8 @@ namespace HeapProfiler {
                                 g, itemText, Font, RotateFlipType.RotateNoneFlipNone, 
                                 white ? Color.White : Color.Black, 
                                 white ? Color.Black : Color.LightGray, 
-                                StringFormat.GenericDefault
+                                stringFormat,
+                                new SizeF(item.Rectangle.Width, item.Rectangle.Height)
                             );
 
                             var w = (int)Math.Min(item.Rectangle.Width, bitmap.Width);
@@ -490,6 +552,9 @@ namespace HeapProfiler {
         }
 
         protected override void OnSizeChanged (EventArgs e) {
+            var optimalSize = Breadcrumbs.GetPreferredSize(ClientSize);
+            Breadcrumbs.SetBounds(0, 0, ClientSize.Width, optimalSize.Height);
+
             ComputeLayout();
         }
 
@@ -515,6 +580,7 @@ namespace HeapProfiler {
 
             TextCache.Flush();
             DrilldownStack.Clear();
+            RefreshBreadcrumbs();
             ComputeLayout();
         }
 
@@ -539,11 +605,7 @@ namespace HeapProfiler {
         public GraphTreemap () {
             base.GetItemValue = (sgn) => Math.Abs(sgn.BytesRequested);
             base.GetItemText = (sgn) => {
-                var text = sgn.Key.FunctionName ?? "";
-                if (text.Length > 64)
-                    return text.Substring(0, 64);
-                else
-                    return text;
+                return String.Format("{0}!{1}", sgn.Key.ModuleName, sgn.Key.FunctionName);
             };
             base.GetItemTooltip = (sgn) => {
                 var sf = CustomTooltip.GetDefaultStringFormat();

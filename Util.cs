@@ -892,6 +892,7 @@ namespace HeapProfiler {
             public Bitmap Bitmap;
             public Font Font;
             public Color TextColor, OutlineColor;
+            public SizeF Size;
             public string Text;
 
             public void Dispose () {
@@ -905,7 +906,7 @@ namespace HeapProfiler {
             Graphics graphics, string text, 
             Font font, RotateFlipType rotation,
             Color textColor, Color outlineColor, 
-            StringFormat stringFormat
+            StringFormat stringFormat, SizeF size
         ) {
             CacheEntry ce = null;
 
@@ -913,15 +914,15 @@ namespace HeapProfiler {
 
             if (TryGetValue(text, out ce)) {
                 if ((ce.Font == font) && (ce.TextColor == textColor) &&
-                    (ce.OutlineColor == outlineColor))
+                    (ce.OutlineColor == outlineColor) && (ce.Size == size))
                     needNewBitmap = false;
             }
 
             if (needNewBitmap) {
-                var size = graphics.MeasureString(text, font, new PointF(0, 0), stringFormat);
+                var fullSize = graphics.MeasureString(text, font, new PointF(0, 0), stringFormat);
                 var bitmap = new Bitmap(
-                    (int)Math.Ceiling(size.Width),
-                    (int)Math.Ceiling(size.Height),
+                    (int)Math.Ceiling(Math.Min(size.Width, fullSize.Width)),
+                    (int)Math.Ceiling(Math.Min(size.Height, fullSize.Height)),
                     System.Drawing.Imaging.PixelFormat.Format32bppPArgb
                 );
 
@@ -940,7 +941,7 @@ namespace HeapProfiler {
                         path.AddString(
                             text, font.FontFamily, 
                             (int)font.Style, emSize, 
-                            new PointF(0f, 0f), stringFormat
+                            new RectangleF(0f, 0f, size.Width, size.Height), stringFormat
                         );
 
                         pen.LineJoin = LineJoin.Round;
@@ -961,7 +962,8 @@ namespace HeapProfiler {
                     Font = font,
                     OutlineColor = outlineColor,
                     TextColor = textColor,
-                    Text = text
+                    Text = text,
+                    Size = size
                 };
 
                 Add(ce);

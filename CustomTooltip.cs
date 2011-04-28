@@ -172,7 +172,7 @@ namespace HeapProfiler {
                 FormatFlags = StringFormatFlags.FitBlackBox | StringFormatFlags.NoWrap |
                     StringFormatFlags.DisplayFormatControl | StringFormatFlags.MeasureTrailingSpaces,
                 HotkeyPrefix = System.Drawing.Text.HotkeyPrefix.None,
-                Trimming = StringTrimming.None
+                Trimming = StringTrimming.EllipsisPath
             };
 
         }
