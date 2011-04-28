@@ -96,6 +96,30 @@ namespace HeapProfiler {
             return result;
         }
 
+        public void Finalize () {
+            VisitedTracebacks.Clear();
+
+            lock (Children) {
+                StackGraphNode child;
+                if (
+                    (Children.Count == 1) && 
+                    ((child = Children.First()).Parents.Count == 1)
+                ) {
+                    child.Ignored = true;
+                    Children.Remove(child);
+
+                    foreach (var subchild in child.Children) {
+                        Children.Add(subchild);
+                        subchild.Parents.Clear();
+                        subchild.Parents.Add(this);
+                    }
+                }
+
+                foreach (var c in Children)
+                    c.Finalize();
+            }
+        }
+
         public void AddChild (StackGraphNode child) {
             lock (Children)
                 Children.Add(child);
@@ -192,29 +216,9 @@ namespace HeapProfiler {
                 lock (Lock)
                     Parallel.ForEach(
                         this.Values,
-                        (node) => node.VisitedTracebacks.Clear()
+                        (node) => node.Finalize()
                     );
             });
-
-            lock (Lock) {
-                int numIgnored = 0;
-                StackGraphNode child;
-
-                foreach (var node in Values) {
-                    while ((node.Children.Count == 1) &&
-                        ((child = node.Children.First()).Parents.Count == 1)) {
-
-                            numIgnored += 1;
-                        child.Ignored = true;
-                        node.Children.Remove(child);
-
-                        foreach (var subchild in child.Children.ToArray()) {
-                            node.AddChild(subchild);
-                            child.RemoveChild(subchild);
-                        }
-                    }
-                }
-            }
         }
 
         public IEnumerator<object> Build (HeapRecording instance, IEnumerable<DeltaInfo> deltas) {

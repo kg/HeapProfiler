@@ -302,11 +302,13 @@ namespace HeapProfiler {
                 if ((childRect.Height <= 0) || (childRect.Width <= 0))
                     continue;
 
+                /*
                 float totalChildArea = 0;
                 foreach (var child in children)
                     totalChildArea += GetItemValue(child);
+                 */
 
-                double childScaleRatio = (childRect.Width * childRect.Height) / totalChildArea;
+                double childScaleRatio = (childRect.Width * childRect.Height) / GetItemValue(item.Item);
 
                 int previousCount = buffer.Count;
 
