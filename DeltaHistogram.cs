@@ -60,6 +60,7 @@ namespace HeapProfiler {
         protected readonly List<VisibleItem> VisibleItems = new List<VisibleItem>();
         protected bool ShouldAutoscroll = false;
 
+        protected OutlinedTextCache TextCache = new OutlinedTextCache();
         protected CustomTooltip Tooltip = null;
         protected ScratchBuffer Scratch = new ScratchBuffer();
         protected ScrollBar ScrollBar = null;
@@ -100,6 +101,7 @@ namespace HeapProfiler {
         }
 
         protected override void Dispose (bool disposing) {
+            TextCache.Dispose();
             Scratch.Dispose();
 
             base.Dispose(disposing);
@@ -180,8 +182,8 @@ namespace HeapProfiler {
             VisibleItems.Clear();
 
             ItemData data;
+            HashSet<string> textToFlush = new HashSet<string>(TextCache.Keys);
 
-            using (var outlinePath = new GraphicsPath())
             using (var sf = CustomTooltip.GetDefaultStringFormat())
             using (var gridLineFont = new Font(Font.FontFamily, Font.Size * 0.85f, Font.Style))
             using (var outlinePen = new Pen(Color.Black))
@@ -190,8 +192,6 @@ namespace HeapProfiler {
             using (var backgroundBrush = new SolidBrush(BackColor))
             using (var whiteOutlinePen = new Pen(Color.White, 2.5f))
             using (var blackOutlinePen = new Pen(Color.Black, 2.5f))
-            using (var whiteBrush = new SolidBrush(Color.White))
-            using (var blackBrush = new SolidBrush(Color.Black))
             using (var textBrush = new SolidBrush(ForeColor))
             using (var highlightBrush = new SolidBrush(SystemColors.Highlight)) {
                 blackOutlinePen.LineJoin = whiteOutlinePen.LineJoin = LineJoin.Round;
@@ -314,39 +314,20 @@ namespace HeapProfiler {
                         string itemText = null;
 
                         if ((GetItemText != null) && (itemText = GetItemText(item)) != null) {
-                            var oldTransform = g.Transform;
-                            var oldClip = g.Clip;
-                            var oldAlignment = sf.LineAlignment;
-                            var oldRenderingHint = g.TextRenderingHint;
-
                             bool white = (itemColor.GetBrightness() <= 0.25f);
 
-                            try {
-                                g.SetClip(barRectangle, CombineMode.Replace);
-                                g.ResetTransform();
-                                g.RotateTransform(90);
-                                g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias;
-                                sf.LineAlignment = StringAlignment.Far;
+                            textToFlush.Remove(itemText);
+                            var bitmap = TextCache.Get(
+                                g, itemText, Font, RotateFlipType.Rotate90FlipNone,
+                                white ? Color.White : Color.Black,
+                                white ? Color.Black : Color.LightGray, sf
+                            );
 
-                                // For some reason, generating a path produces smaller text than DrawString
-                                const float fontScaleRatio = 1.15f;
-
-                                outlinePath.Reset();
-                                outlinePath.AddString(
-                                    itemText, Font.FontFamily, (int)Font.Style, Font.Size * fontScaleRatio, 
-                                    new PointF(
-                                        Math.Min(barRectangle.Y, barRectangle.Bottom), 0f
-                                    ), sf
-                                );
-
-                                g.DrawPath(white ? blackOutlinePen : whiteOutlinePen, outlinePath);
-                                g.FillPath(white ? whiteBrush : blackBrush, outlinePath);
-                            } finally {
-                                sf.LineAlignment = oldAlignment;
-                                g.Transform = oldTransform;
-                                g.TextRenderingHint = oldRenderingHint;
-                                g.Clip = oldClip;
-                            }
+                            g.DrawImageUnscaled(
+                                bitmap,
+                                (int)Math.Floor(barRectangle.X), 
+                                (int)Math.Floor(barRectangle.Y)
+                            );
                         }
                     }
 
@@ -402,6 +383,8 @@ namespace HeapProfiler {
             if (ScrollBar.Value != ScrollOffset)
                 ScrollBar.Value = ScrollOffset;
 
+            TextCache.Flush(textToFlush);
+
             ShouldAutoscroll = false;
             base.OnPaint(e);
         }
@@ -412,6 +395,12 @@ namespace HeapProfiler {
                     return vi.Index;
 
             return null;
+        }
+
+        protected override void OnVisibleChanged (EventArgs e) {
+            base.OnVisibleChanged(e);
+
+            TextCache.Flush();
         }
 
         protected override void OnMouseDown (MouseEventArgs e) {
@@ -454,6 +443,24 @@ namespace HeapProfiler {
                 HideTooltip();
         }
 
+        protected void InvalidateItem (int index) {
+            if (index < VisibleItems[0].Index)
+                return;
+            if (index > VisibleItems[VisibleItems.Count - 1].Index)
+                return;
+
+            var vi = new VisibleItem { Index = index };
+            var visibleIndex = VisibleItems.BinarySearch(vi, new VisibleItemComparer());
+            var rectF = VisibleItems[visibleIndex].Rectangle;
+
+            Invalidate(new Rectangle(
+                (int)Math.Floor(rectF.X) - 4,
+                (int)Math.Floor(rectF.Y) - 4,
+                (int)Math.Ceiling(rectF.Width) + 8,
+                (int)Math.Ceiling(rectF.Height) + 8
+            ));
+        }
+
         protected void ShowTooltip (int itemIndex, Point location) {
             if (Tooltip == null)
                 Tooltip = new CustomTooltip(this);
@@ -480,24 +487,6 @@ namespace HeapProfiler {
                 InvalidateItem(oldIndex);
                 InvalidateItem(_HoverIndex);
             }
-        }
-
-        protected void InvalidateItem (int index) {
-            if (index < VisibleItems[0].Index)
-                return;
-            if (index > VisibleItems[VisibleItems.Count - 1].Index)
-                return;
-
-            var vi = new VisibleItem { Index = index };
-            var visibleIndex = VisibleItems.BinarySearch(vi, new VisibleItemComparer());
-            var rectF = VisibleItems[visibleIndex].Rectangle;
-
-            Invalidate(new Rectangle(
-                (int)Math.Floor(rectF.X) - 4,
-                (int)Math.Floor(rectF.Y) - 4,
-                (int)Math.Ceiling(rectF.Width) + 8,
-                (int)Math.Ceiling(rectF.Height) + 8
-            ));
         }
 
         protected void HideTooltip () {
@@ -634,6 +623,10 @@ namespace HeapProfiler {
                     Invalidate();
                 }
             }
+        }
+
+        void ITooltipOwner.Click (MouseEventArgs e) {
+            OnMouseClick(e);
         }
 
         void ITooltipOwner.MouseDown (MouseEventArgs e) {

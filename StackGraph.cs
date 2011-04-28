@@ -12,10 +12,15 @@ namespace HeapProfiler {
         public readonly string FunctionName;
         public readonly string SourceFile;
 
+        private readonly int HashCode;
+
         public FunctionKey (string module, string function, string sourceFile) {
             ModuleName = module;
             FunctionName = function;
             SourceFile = sourceFile;
+
+            HashCode = ModuleName.GetHashCode() ^
+                FunctionName.GetHashCode();
         }
 
         public bool Equals (FunctionKey rhs) {
@@ -31,8 +36,7 @@ namespace HeapProfiler {
         }
 
         public override int GetHashCode () {
-            return ModuleName.GetHashCode() ^ 
-                FunctionName.GetHashCode();
+            return HashCode;
         }
 
         public override string ToString () {
@@ -43,12 +47,12 @@ namespace HeapProfiler {
         }
     }
 
-    public class StackGraphNode {
+    public class StackGraphNode : IEnumerable<StackGraphNode> {
         public readonly FunctionKey Key;
 
         public readonly HashSet<UInt32> VisitedTracebacks = new HashSet<UInt32>();
         public readonly HashSet<StackGraphNode> Parents = new HashSet<StackGraphNode>();
-        public readonly HashSet<StackGraphNode> Children = new HashSet<StackGraphNode>();
+        public readonly StackGraphNodeCollection Children = new StackGraphNodeCollection();
 
         public bool Ignored = false;
         public int Allocations = 0;
@@ -82,6 +86,44 @@ namespace HeapProfiler {
             }
         }
 
+        public StackGraphNode GetNodeForChildFrame (TracebackFrame frameInfo) {
+            bool isNew;
+            StackGraphNode result;
+
+            lock (Children)
+                result = Children.GetNodeForFrame(frameInfo, out isNew);
+
+            if (isNew)
+                lock (result.Parents)
+                    result.Parents.Add(this);
+
+            return result;
+        }
+
+        public void Finalize () {
+            VisitedTracebacks.Clear();
+
+            lock (Children) {
+                StackGraphNode child;
+                if (
+                    (Children.Count == 1) && 
+                    ((child = Children.First()).Parents.Count == 1)
+                ) {
+                    child.Ignored = true;
+                    Children.Remove(child);
+
+                    foreach (var subchild in child.Children) {
+                        Children.Add(subchild);
+                        subchild.Parents.Clear();
+                        subchild.Parents.Add(this);
+                    }
+                }
+
+                foreach (var c in Children)
+                    c.Finalize();
+            }
+        }
+
         public void AddChild (StackGraphNode child) {
             lock (Children)
                 Children.Add(child);
@@ -112,82 +154,91 @@ namespace HeapProfiler {
         }
 
         public override bool Equals (object obj) {
-            return Object.ReferenceEquals(this, obj);
+            var rhs = obj as StackGraphNode;
+
+            if (rhs != null)
+                return Key.Equals(rhs.Key);
+            else
+                return base.Equals(obj);
         }
 
         public override int GetHashCode () {
             return Key.GetHashCode();
         }
+
+        IEnumerator<StackGraphNode> IEnumerable<StackGraphNode>.GetEnumerator () {
+            return
+                (from child in Children
+                where !child.Ignored
+                orderby child.BytesRequested descending
+                select child).GetEnumerator();
+        }
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator () {
+            return ((IEnumerable<StackGraphNode>)this).GetEnumerator();
+        }
     }
 
-    public class StackGraph : KeyedCollection2<FunctionKey, StackGraphNode> {
-        private readonly object Lock = new object();
+    public class StackGraphNodeCollection : KeyedCollection2<FunctionKey, StackGraphNode> {
+        protected readonly object Lock = new object();
 
         protected override FunctionKey GetKeyForItem (StackGraphNode item) {
             return item.Key;
         }
 
-        protected StackGraphNode GetNodeForFrame (TracebackFrame frameInfo) {
+        public StackGraphNode GetNodeForFrame (TracebackFrame frameInfo) {
+            bool temp;
+            return GetNodeForFrame(frameInfo, out temp);
+        }
+
+        public StackGraphNode GetNodeForFrame (TracebackFrame frameInfo, out bool isNew) {
             StackGraphNode result;
 
-            if ((frameInfo.Module == null) || (frameInfo.Function == null))
+            if ((frameInfo.Module == null) || (frameInfo.Function == null)) {
+                isNew = false;
                 return null;
+            }
 
             var key = new FunctionKey(frameInfo.Module, frameInfo.Function, frameInfo.SourceFile);
 
             lock (Lock) {
-                if (!this.TryGetValue(key, out result))
+                if (!this.TryGetValue(key, out result)) {
+                    isNew = true;
                     this.Add(result = new StackGraphNode(key));
+                } else {
+                    isNew = false;
+                }
             }
 
             return result;
         }
+    }
 
+    public class StackGraph : StackGraphNodeCollection {
         protected IEnumerator<object> FinalizeBuild () {
             yield return Future.RunInThread(() => {
                 lock (Lock)
                     Parallel.ForEach(
                         this.Values,
-                        (node) => node.VisitedTracebacks.Clear()
+                        (node) => node.Finalize()
                     );
             });
-
-            lock (Lock) {
-                int numIgnored = 0;
-                StackGraphNode child;
-
-                foreach (var node in Values) {
-                    while ((node.Children.Count == 1) &&
-                        ((child = node.Children.First()).Parents.Count == 1)) {
-
-                            numIgnored += 1;
-                        child.Ignored = true;
-                        node.Children.Remove(child);
-
-                        foreach (var subchild in child.Children.ToArray()) {
-                            node.AddChild(subchild);
-                            child.RemoveChild(subchild);
-                        }
-                    }
-                }
-            }
         }
 
         public IEnumerator<object> Build (HeapRecording instance, IEnumerable<DeltaInfo> deltas) {
             yield return Future.RunInThread(() => {
                 Parallel.ForEach(
                     deltas, (delta) => {
-                        StackGraphNode parent = null;
+                        StackGraphNode parent = null, node;
 
                         foreach (var frame in delta.Traceback) {
-                            var node = GetNodeForFrame(frame);
+                            if (parent != null)
+                                node = parent.GetNodeForChildFrame(frame);
+                            else
+                                node = GetNodeForFrame(frame);
 
-                            if (node != null) {
+                            if (node != null)
                                 node.Visit(delta);
-
-                                if (parent != null)
-                                    parent.AddChild(node);
-                            }
 
                             if (node != null)
                                 parent = node;
@@ -211,19 +262,19 @@ namespace HeapProfiler {
             yield return Future.RunInThread(() => {
                 Parallel.ForEach(
                     allocations, (alloc) => {
-                        StackGraphNode parent = null;
+                        StackGraphNode parent = null, node;
                         var traceback = tracebacks[alloc.TracebackID];
 
                         foreach (var frameId in traceback) {
                             var frame = symbols[frameId];
-                            var node = GetNodeForFrame(frame);
 
-                            if (node != null) {
+                            if (parent != null)
+                                node = parent.GetNodeForChildFrame(frame);
+                            else
+                                node = GetNodeForFrame(frame);
+
+                            if (node != null)
                                 node.Visit(alloc);
-
-                                if (parent != null)
-                                    parent.AddChild(node);
-                            }
 
                             if (node != null)
                                 parent = node;
@@ -235,18 +286,21 @@ namespace HeapProfiler {
             yield return FinalizeBuild();
         }
 
+        public IEnumerable<StackGraphNode> Roots {
+            get {
+                return from item in this.Items
+                       where !item.Ignored && item.Parents.Count == 0
+                       orderby item.BytesRequested descending
+                       select item;
+            }
+        }
+
         public IEnumerable<StackGraphNode> TopItems {
             get {
-                if (this.Dictionary != null)
-                    return from kvp in this.Dictionary
-                           orderby kvp.Value.BytesRequested descending
-                           where !kvp.Value.Ignored
-                           select kvp.Value;
-                else
-                    return from item in this.Items
-                           orderby item.BytesRequested descending
-                           where !item.Ignored
-                           select item;
+                return from item in this.Items
+                       where !item.Ignored
+                       orderby item.BytesRequested descending
+                       select item;
             }
         }
     }

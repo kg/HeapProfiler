@@ -286,9 +286,11 @@ namespace HeapProfiler {
                 StackGraph = null;
 
             if (StackGraph != null) {
-                GraphTreemap.Items = GraphHistogram.Items = StackGraph.TopItems.ToArray();                
+                GraphHistogram.Items = StackGraph.TopItems.ToArray();
+                GraphTreemap.Items = StackGraph.Roots.ToArray();
             } else {
-                GraphTreemap.Items = GraphHistogram.Items = null;
+                GraphHistogram.Items = null;
+                GraphTreemap.Items = null;
             }
 
             DeltaHistogram.Items = DeltaList.Items = newListItems;

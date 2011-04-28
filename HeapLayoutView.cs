@@ -420,7 +420,8 @@ namespace HeapProfiler {
             var content = new HeapSnapshot.AllocationTooltipContent(
                 ref allocation, ref tracebackInfo, ref renderParams
             ) {
-                Location = mouseLocation
+                Location = mouseLocation,
+                Font = Font
             };
 
             using (var g = CreateGraphics())
@@ -547,6 +548,10 @@ namespace HeapProfiler {
 
                 return (int)((bytes / BytesPerRow) + Snapshot.Heaps.Count);
             }
+        }
+
+        void ITooltipOwner.Click (MouseEventArgs e) {
+            OnMouseClick(e);
         }
 
         void ITooltipOwner.MouseDown (MouseEventArgs e) {

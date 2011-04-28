@@ -693,6 +693,9 @@ namespace HeapProfiler {
                 var fAllKeys = Database.SymbolCache.GetAllKeys();
                 yield return fAllKeys;
 
+                if (fAllKeys.Result.Length == 0)
+                    yield break;
+
                 var filteredFrames = new HashSet<uint>();
                 IFuture lastProcess = null;
 
@@ -734,6 +737,9 @@ namespace HeapProfiler {
                     fAllKeys = Database.Tracebacks.GetAllKeys();
                     yield return fAllKeys;
                 }
+
+                if (fAllKeys.Result.Length == 0)
+                    yield break;
 
                 progress.Maximum = fAllKeys.Result.Length * 2;
                 progress.Progress = fAllKeys.Result.Length;
