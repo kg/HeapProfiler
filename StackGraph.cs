@@ -12,10 +12,15 @@ namespace HeapProfiler {
         public readonly string FunctionName;
         public readonly string SourceFile;
 
+        private readonly int HashCode;
+
         public FunctionKey (string module, string function, string sourceFile) {
             ModuleName = module;
             FunctionName = function;
             SourceFile = sourceFile;
+
+            HashCode = ModuleName.GetHashCode() ^
+                FunctionName.GetHashCode();
         }
 
         public bool Equals (FunctionKey rhs) {
@@ -31,8 +36,7 @@ namespace HeapProfiler {
         }
 
         public override int GetHashCode () {
-            return ModuleName.GetHashCode() ^ 
-                FunctionName.GetHashCode();
+            return HashCode;
         }
 
         public override string ToString () {
