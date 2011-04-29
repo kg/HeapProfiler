@@ -931,10 +931,11 @@ namespace HeapProfiler {
                     g.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceOver;
                     g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
                     g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias;
-                    g.CompositingQuality = System.Drawing.Drawing2D.CompositingQuality.HighQuality;
+                    g.CompositingQuality = System.Drawing.Drawing2D.CompositingQuality.GammaCorrected;
 
                     using (var brush = new SolidBrush(textColor))
-                    using (var pen = new Pen(outlineColor, 2.5f))
+                    using (var innerPen = new Pen(Color.FromArgb(160, textColor), 0.5f))
+                    using (var pen = new Pen(outlineColor, 3f))
                     using (var path = new GraphicsPath()) {
                         float emSize = g.DpiY * font.Size / 72f;
 
@@ -944,8 +945,14 @@ namespace HeapProfiler {
                             new RectangleF(0f, 0f, size.Width, size.Height), stringFormat
                         );
 
-                        pen.LineJoin = LineJoin.Round;
+                        innerPen.LineJoin = pen.LineJoin = LineJoin.Round;
+
                         g.DrawPath(pen, path);
+
+                        // Compensate for inadequate gamma correction in GDI+
+                        if (textColor.GetBrightness() < outlineColor.GetBrightness())
+                            g.DrawPath(innerPen, path);
+
                         g.FillPath(brush, path);
                     }
                 }
