@@ -36,8 +36,6 @@ namespace HeapProfiler {
 
                 foreach (var key in value.OrderBy((s) => s))
                     List.Items.Add(key);
-                for (int i = 0; i < List.Items.Count; i++)
-                    List.SetItemChecked(i, true);
 
                 _Updating = false;
                 List.EndUpdate();

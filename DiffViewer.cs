@@ -241,6 +241,8 @@ namespace HeapProfiler {
                 var deltas = Deltas;
                 var functionFilter = FunctionFilter;
 
+                bool useModuleFilter = moduleList.SelectedItems.Count > 0;
+
                 yield return Future.RunInThread(() => {
                     int max = -int.MaxValue;
                     int totalBytes = 0, totalAllocs = 0;
@@ -260,12 +262,15 @@ namespace HeapProfiler {
                                 continue;
                         }
 
-                        bool filteredOut = (delta.Traceback.Modules.Count > 0);
-                        foreach (var module in delta.Traceback.Modules) {
-                            filteredOut &= !moduleList.SelectedItems.Contains(module);
+                        bool filteredOut = false;
+                        if (useModuleFilter) {
+                            filteredOut = true;
+                            foreach (var module in delta.Traceback.Modules) {
+                                filteredOut &= !moduleList.SelectedItems.Contains(module);
 
-                            if (!filteredOut)
-                                break;
+                                if (!filteredOut)
+                                    break;
+                            }
                         }
 
                         if (!filteredOut) {
