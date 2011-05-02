@@ -11,6 +11,7 @@ namespace HeapProfiler {
     public enum GraphKeyType {
         None = 0,
         Function,
+        Namespace,
         Module,
         SourceFile,
         SourceFolder
@@ -20,6 +21,7 @@ namespace HeapProfiler {
         public readonly GraphKeyType KeyType;
 
         public readonly string ModuleName;
+        public readonly string Namespace;
         public readonly string FunctionName;
         public readonly string SourceFile;
         public readonly string SourceFolder;
@@ -30,6 +32,13 @@ namespace HeapProfiler {
             KeyType = keyType;
             ModuleName = module;
             FunctionName = function;
+
+            var lastIndex = FunctionName.LastIndexOf("::");
+            if (lastIndex > 0)
+                Namespace = FunctionName.Substring(0, lastIndex);
+            else
+                Namespace = null;
+
             SourceFile = sourceFile;
             SourceFolder = Path.GetDirectoryName(sourceFile);
 
@@ -41,6 +50,11 @@ namespace HeapProfiler {
                 case GraphKeyType.Module:
                     FunctionName = null;
                     HashCode = ModuleName.GetHashCode();
+                break;
+                case GraphKeyType.Namespace:
+                    ModuleName = null;
+                    FunctionName = null;
+                    HashCode = (Namespace ?? "").GetHashCode();
                 break;
                 case GraphKeyType.SourceFile:
                     FunctionName = null;
@@ -65,6 +79,8 @@ namespace HeapProfiler {
                         FunctionName.Equals(rhs.FunctionName);
                 case GraphKeyType.Module:
                     return ModuleName.Equals(rhs.ModuleName);
+                case GraphKeyType.Namespace:
+                    return String.Equals(Namespace, rhs.Namespace);
                 case GraphKeyType.SourceFile:
                     return String.Equals(SourceFile, rhs.SourceFile);
                 case GraphKeyType.SourceFolder:
@@ -91,6 +107,11 @@ namespace HeapProfiler {
                     return String.Format("{0}!{1}", ModuleName, FunctionName);
                 case GraphKeyType.Module:
                     return ModuleName;
+                case GraphKeyType.Namespace:
+                    if (String.IsNullOrWhiteSpace(Namespace))
+                        return "<global namespace>";
+                    else
+                        return Namespace;
                 case GraphKeyType.SourceFile:
                     return SourceFile ?? "<no symbols>";
                 case GraphKeyType.SourceFolder:
@@ -196,16 +217,19 @@ namespace HeapProfiler {
         }
 
         public override string ToString () {
-            return String.Format(
-                "{0}\r\n{1}{2} allocation(s), {3}{4}\r\nCalls {5} different function(s)\r\nCalled by {6} different function(s)", 
+            var result = String.Format(
+                "{0}\r\n{1}{2} allocation(s), {3}{4}", 
                 Key, 
                 (Allocations > 0) ? "+" : "-",
                 Math.Abs(Allocations), 
                 (BytesRequested > 0) ? "+" : "-",
-                FileSize.Format(Math.Abs(BytesRequested)),
-                Children.Count,
-                Parents.Count
+                FileSize.Format(Math.Abs(BytesRequested))
             );
+
+            if (Children.Count > 0)
+                result += String.Format("\r\nHas {0} children", Children.Count);
+
+            return result;
         }
 
         public override bool Equals (object obj) {

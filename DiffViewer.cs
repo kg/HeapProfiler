@@ -68,13 +68,13 @@ namespace HeapProfiler {
                 Instance.TracebacksFiltered += Instance_TracebacksFiltered;
                 ViewHistogramByModuleMenu.Enabled = ViewHistogramByFunctionMenu.Enabled = true;
                 ViewHistogramBySourceFolderMenu.Enabled = ViewHistogramBySourceFileMenu.Enabled = true;
-                ViewTreemapMenu.Enabled = true;
+                ViewHistogramByNamespaceMenu.Enabled = ViewTreemapMenu.Enabled = true;
             } else {
                 Timeline.Visible = false;
                 MainSplit.Height += Timeline.Bottom - MainSplit.Bottom;
                 ViewHistogramByModuleMenu.Enabled = ViewHistogramByFunctionMenu.Enabled = false;
                 ViewHistogramBySourceFolderMenu.Enabled = ViewHistogramBySourceFileMenu.Enabled = false;
-                ViewTreemapMenu.Enabled = false;
+                ViewHistogramByNamespaceMenu.Enabled = ViewTreemapMenu.Enabled = false;
             }
         }
 
@@ -318,7 +318,7 @@ namespace HeapProfiler {
                 DeltaList.Invalidate();
                 DeltaHistogram.Invalidate();
 
-                if ((Instance != null) && ((GraphTreemap.Visible) || (GraphHistogram.Visible)))
+                if ((Instance != null) && ((GraphTreemap.Visible) || (GraphHistogram.Visible)) && (StackGraphKeyType != GraphKeyType.None))
                     yield return GenerateNewGraph(newListItems, StackGraphKeyType);
             } finally {
                 SetBusy(false);
@@ -401,6 +401,7 @@ namespace HeapProfiler {
         protected void SetGraphHistogramVisible (bool visible) {
             GraphHistogram.Visible = visible;
             ViewHistogramByFunctionMenu.Checked = (visible) && (StackGraphKeyType == GraphKeyType.Function);
+            ViewHistogramByNamespaceMenu.Checked = (visible) && (StackGraphKeyType == GraphKeyType.Namespace);
             ViewHistogramByModuleMenu.Checked = (visible) && (StackGraphKeyType == GraphKeyType.Module);
             ViewHistogramBySourceFileMenu.Checked = (visible) && (StackGraphKeyType == GraphKeyType.SourceFile);
             ViewHistogramBySourceFolderMenu.Checked = (visible) && (StackGraphKeyType == GraphKeyType.SourceFolder);
@@ -409,6 +410,7 @@ namespace HeapProfiler {
         protected void SetGraphTreemapVisible (bool visible) {
             GraphTreemap.Visible = visible;
             ViewTreemapByFunctionMenu.Checked = (visible) && (StackGraphKeyType == GraphKeyType.Function);
+            ViewTreemapByNamespaceMenu.Checked = (visible) && (StackGraphKeyType == GraphKeyType.Namespace);
             ViewTreemapByModuleMenu.Checked = (visible) && (StackGraphKeyType == GraphKeyType.Module);
             ViewTreemapBySourceFileMenu.Checked = (visible) && (StackGraphKeyType == GraphKeyType.SourceFile);
             ViewTreemapBySourceFolderMenu.Checked = (visible) && (StackGraphKeyType == GraphKeyType.SourceFolder);
@@ -485,6 +487,10 @@ namespace HeapProfiler {
             ShowGraphHistogram(GraphKeyType.Function);
         }
 
+        private void ViewHistogramByNamespaceMenu_Click (object sender, EventArgs e) {
+            ShowGraphHistogram(GraphKeyType.Namespace);
+        }
+
         private void ViewHistogramByModuleMenu_Click (object sender, EventArgs e) {
             ShowGraphHistogram(GraphKeyType.Module);
         }
@@ -499,6 +505,10 @@ namespace HeapProfiler {
 
         private void ViewTreemapByFunctionMenu_Click (object sender, EventArgs e) {
             ShowGraphTreemap(GraphKeyType.Function);
+        }
+
+        private void ViewTreemapByNamespaceMenu_Click (object sender, EventArgs e) {
+            ShowGraphTreemap(GraphKeyType.Namespace);
         }
 
         private void ViewTreemapByModuleMenu_Click (object sender, EventArgs e) {

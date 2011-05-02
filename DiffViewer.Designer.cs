@@ -28,13 +28,7 @@
             this.LoadingPanel = new System.Windows.Forms.GroupBox();
             this.LoadingProgress = new System.Windows.Forms.ProgressBar();
             this.MainSplit = new System.Windows.Forms.SplitContainer();
-            this.ModuleList = new HeapProfiler.ModuleSelector();
             this.ViewSplit = new System.Windows.Forms.SplitContainer();
-            this.TracebackFilter = new HeapProfiler.FilterControl();
-            this.GraphTreemap = new HeapProfiler.GraphTreemap();
-            this.DeltaHistogram = new HeapProfiler.DeltaHistogram();
-            this.DeltaList = new HeapProfiler.DeltaList();
-            this.GraphHistogram = new HeapProfiler.GraphHistogram();
             this.MainMenu = new System.Windows.Forms.MenuStrip();
             this.fileToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.SaveDiffMenu = new System.Windows.Forms.ToolStripMenuItem();
@@ -57,7 +51,15 @@
             this.StatusBar = new System.Windows.Forms.StatusStrip();
             this.StatusLabel = new System.Windows.Forms.ToolStripStatusLabel();
             this.AllocationTotals = new System.Windows.Forms.ToolStripStatusLabel();
+            this.ViewHistogramByNamespaceMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.Timeline = new HeapProfiler.SnapshotTimeline();
+            this.ModuleList = new HeapProfiler.ModuleSelector();
+            this.TracebackFilter = new HeapProfiler.FilterControl();
+            this.GraphTreemap = new HeapProfiler.GraphTreemap();
+            this.DeltaHistogram = new HeapProfiler.DeltaHistogram();
+            this.DeltaList = new HeapProfiler.DeltaList();
+            this.GraphHistogram = new HeapProfiler.GraphHistogram();
+            this.ViewTreemapByNamespaceMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.LoadingPanel.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.MainSplit)).BeginInit();
             this.MainSplit.Panel1.SuspendLayout();
@@ -120,16 +122,6 @@
             this.MainSplit.TabIndex = 1;
             this.MainSplit.Visible = false;
             // 
-            // ModuleList
-            // 
-            this.ModuleList.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.ModuleList.Location = new System.Drawing.Point(0, 0);
-            this.ModuleList.Margin = new System.Windows.Forms.Padding(2);
-            this.ModuleList.Name = "ModuleList";
-            this.ModuleList.Size = new System.Drawing.Size(120, 328);
-            this.ModuleList.TabIndex = 0;
-            this.ModuleList.FilterChanged += new System.EventHandler(this.ModuleList_FilterChanged);
-            // 
             // ViewSplit
             // 
             this.ViewSplit.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -154,70 +146,6 @@
             this.ViewSplit.SplitterDistance = 30;
             this.ViewSplit.SplitterWidth = 1;
             this.ViewSplit.TabIndex = 2;
-            // 
-            // TracebackFilter
-            // 
-            this.TracebackFilter.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.TracebackFilter.Font = new System.Drawing.Font("Consolas", 11.25F);
-            this.TracebackFilter.Location = new System.Drawing.Point(0, 0);
-            this.TracebackFilter.Margin = new System.Windows.Forms.Padding(2);
-            this.TracebackFilter.MaximumSize = new System.Drawing.Size(999999, 25);
-            this.TracebackFilter.MinimumSize = new System.Drawing.Size(0, 25);
-            this.TracebackFilter.Name = "TracebackFilter";
-            this.TracebackFilter.Size = new System.Drawing.Size(459, 25);
-            this.TracebackFilter.TabIndex = 0;
-            this.TracebackFilter.FilterChanging += new HeapProfiler.FilterChangingEventHandler(this.TracebackFilter_FilterChanging);
-            this.TracebackFilter.FilterChanged += new System.EventHandler(this.TracebackFilter_FilterChanged);
-            // 
-            // GraphTreemap
-            // 
-            this.GraphTreemap.BackColor = System.Drawing.SystemColors.Window;
-            this.GraphTreemap.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.GraphTreemap.Font = new System.Drawing.Font("Consolas", 10F);
-            this.GraphTreemap.ForeColor = System.Drawing.SystemColors.WindowText;
-            this.GraphTreemap.Location = new System.Drawing.Point(0, 0);
-            this.GraphTreemap.Name = "GraphTreemap";
-            this.GraphTreemap.Size = new System.Drawing.Size(459, 297);
-            this.GraphTreemap.TabIndex = 5;
-            this.GraphTreemap.Visible = false;
-            // 
-            // DeltaHistogram
-            // 
-            this.DeltaHistogram.BackColor = System.Drawing.SystemColors.Window;
-            this.DeltaHistogram.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.DeltaHistogram.Font = new System.Drawing.Font("Consolas", 11.25F);
-            this.DeltaHistogram.ForeColor = System.Drawing.SystemColors.WindowText;
-            this.DeltaHistogram.Location = new System.Drawing.Point(0, 0);
-            this.DeltaHistogram.Margin = new System.Windows.Forms.Padding(4);
-            this.DeltaHistogram.Name = "DeltaHistogram";
-            this.DeltaHistogram.Size = new System.Drawing.Size(459, 297);
-            this.DeltaHistogram.TabIndex = 4;
-            this.DeltaHistogram.Visible = false;
-            // 
-            // DeltaList
-            // 
-            this.DeltaList.BackColor = System.Drawing.SystemColors.Window;
-            this.DeltaList.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.DeltaList.Font = new System.Drawing.Font("Consolas", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.DeltaList.ForeColor = System.Drawing.SystemColors.WindowText;
-            this.DeltaList.Location = new System.Drawing.Point(0, 0);
-            this.DeltaList.Margin = new System.Windows.Forms.Padding(4);
-            this.DeltaList.Name = "DeltaList";
-            this.DeltaList.Size = new System.Drawing.Size(459, 297);
-            this.DeltaList.TabIndex = 3;
-            // 
-            // GraphHistogram
-            // 
-            this.GraphHistogram.BackColor = System.Drawing.SystemColors.Window;
-            this.GraphHistogram.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.GraphHistogram.Font = new System.Drawing.Font("Consolas", 11.25F);
-            this.GraphHistogram.ForeColor = System.Drawing.SystemColors.WindowText;
-            this.GraphHistogram.Location = new System.Drawing.Point(0, 0);
-            this.GraphHistogram.Margin = new System.Windows.Forms.Padding(5);
-            this.GraphHistogram.Name = "GraphHistogram";
-            this.GraphHistogram.Size = new System.Drawing.Size(459, 297);
-            this.GraphHistogram.TabIndex = 4;
-            this.GraphHistogram.Visible = false;
             // 
             // MainMenu
             // 
@@ -284,6 +212,7 @@
             this.ViewHistogramMenu.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.ViewHistogramByTracebackMenu,
             this.ViewHistogramByFunctionMenu,
+            this.ViewHistogramByNamespaceMenu,
             this.ViewHistogramByModuleMenu,
             this.ViewHistogramBySourceFileMenu,
             this.ViewHistogramBySourceFolderMenu});
@@ -334,6 +263,7 @@
             // 
             this.ViewTreemapMenu.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.ViewTreemapByFunctionMenu,
+            this.ViewTreemapByNamespaceMenu,
             this.ViewTreemapByModuleMenu,
             this.ViewTreemapBySourceFileMenu,
             this.ViewTreemapBySourceFolderMenu});
@@ -399,6 +329,14 @@
             this.AllocationTotals.Spring = true;
             this.AllocationTotals.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
             // 
+            // ViewHistogramByNamespaceMenu
+            // 
+            this.ViewHistogramByNamespaceMenu.Enabled = false;
+            this.ViewHistogramByNamespaceMenu.Name = "ViewHistogramByNamespaceMenu";
+            this.ViewHistogramByNamespaceMenu.Size = new System.Drawing.Size(162, 22);
+            this.ViewHistogramByNamespaceMenu.Text = "By &Namespace";
+            this.ViewHistogramByNamespaceMenu.Click += new System.EventHandler(this.ViewHistogramByNamespaceMenu_Click);
+            // 
             // Timeline
             // 
             this.Timeline.AllowMultiselect = true;
@@ -415,6 +353,87 @@
             this.Timeline.Size = new System.Drawing.Size(584, 32);
             this.Timeline.TabIndex = 4;
             this.Timeline.SelectionChanged += new System.EventHandler(this.Timeline_RangeChanged);
+            // 
+            // ModuleList
+            // 
+            this.ModuleList.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.ModuleList.Location = new System.Drawing.Point(0, 0);
+            this.ModuleList.Margin = new System.Windows.Forms.Padding(2);
+            this.ModuleList.Name = "ModuleList";
+            this.ModuleList.Size = new System.Drawing.Size(120, 328);
+            this.ModuleList.TabIndex = 0;
+            this.ModuleList.FilterChanged += new System.EventHandler(this.ModuleList_FilterChanged);
+            // 
+            // TracebackFilter
+            // 
+            this.TracebackFilter.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.TracebackFilter.Font = new System.Drawing.Font("Consolas", 11.25F);
+            this.TracebackFilter.Location = new System.Drawing.Point(0, 0);
+            this.TracebackFilter.Margin = new System.Windows.Forms.Padding(2);
+            this.TracebackFilter.MaximumSize = new System.Drawing.Size(999999, 25);
+            this.TracebackFilter.MinimumSize = new System.Drawing.Size(0, 25);
+            this.TracebackFilter.Name = "TracebackFilter";
+            this.TracebackFilter.Size = new System.Drawing.Size(459, 25);
+            this.TracebackFilter.TabIndex = 0;
+            this.TracebackFilter.FilterChanging += new HeapProfiler.FilterChangingEventHandler(this.TracebackFilter_FilterChanging);
+            this.TracebackFilter.FilterChanged += new System.EventHandler(this.TracebackFilter_FilterChanged);
+            // 
+            // GraphTreemap
+            // 
+            this.GraphTreemap.BackColor = System.Drawing.SystemColors.Window;
+            this.GraphTreemap.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.GraphTreemap.Font = new System.Drawing.Font("Consolas", 10F);
+            this.GraphTreemap.ForeColor = System.Drawing.SystemColors.WindowText;
+            this.GraphTreemap.Location = new System.Drawing.Point(0, 0);
+            this.GraphTreemap.Name = "GraphTreemap";
+            this.GraphTreemap.Size = new System.Drawing.Size(459, 297);
+            this.GraphTreemap.TabIndex = 5;
+            this.GraphTreemap.Visible = false;
+            // 
+            // DeltaHistogram
+            // 
+            this.DeltaHistogram.BackColor = System.Drawing.SystemColors.Window;
+            this.DeltaHistogram.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.DeltaHistogram.Font = new System.Drawing.Font("Consolas", 11.25F);
+            this.DeltaHistogram.ForeColor = System.Drawing.SystemColors.WindowText;
+            this.DeltaHistogram.Location = new System.Drawing.Point(0, 0);
+            this.DeltaHistogram.Margin = new System.Windows.Forms.Padding(4);
+            this.DeltaHistogram.Name = "DeltaHistogram";
+            this.DeltaHistogram.Size = new System.Drawing.Size(459, 297);
+            this.DeltaHistogram.TabIndex = 4;
+            this.DeltaHistogram.Visible = false;
+            // 
+            // DeltaList
+            // 
+            this.DeltaList.BackColor = System.Drawing.SystemColors.Window;
+            this.DeltaList.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.DeltaList.Font = new System.Drawing.Font("Consolas", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.DeltaList.ForeColor = System.Drawing.SystemColors.WindowText;
+            this.DeltaList.Location = new System.Drawing.Point(0, 0);
+            this.DeltaList.Margin = new System.Windows.Forms.Padding(4);
+            this.DeltaList.Name = "DeltaList";
+            this.DeltaList.Size = new System.Drawing.Size(459, 297);
+            this.DeltaList.TabIndex = 3;
+            // 
+            // GraphHistogram
+            // 
+            this.GraphHistogram.BackColor = System.Drawing.SystemColors.Window;
+            this.GraphHistogram.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.GraphHistogram.Font = new System.Drawing.Font("Consolas", 11.25F);
+            this.GraphHistogram.ForeColor = System.Drawing.SystemColors.WindowText;
+            this.GraphHistogram.Location = new System.Drawing.Point(0, 0);
+            this.GraphHistogram.Margin = new System.Windows.Forms.Padding(5);
+            this.GraphHistogram.Name = "GraphHistogram";
+            this.GraphHistogram.Size = new System.Drawing.Size(459, 297);
+            this.GraphHistogram.TabIndex = 4;
+            this.GraphHistogram.Visible = false;
+            // 
+            // ViewTreemapByNamespaceMenu
+            // 
+            this.ViewTreemapByNamespaceMenu.Name = "ViewTreemapByNamespaceMenu";
+            this.ViewTreemapByNamespaceMenu.Size = new System.Drawing.Size(162, 22);
+            this.ViewTreemapByNamespaceMenu.Text = "By &Namespace";
+            this.ViewTreemapByNamespaceMenu.Click += new System.EventHandler(this.ViewTreemapByNamespaceMenu_Click);
             // 
             // DiffViewer
             // 
@@ -487,5 +506,7 @@
         private System.Windows.Forms.ToolStripMenuItem ViewTreemapByModuleMenu;
         private System.Windows.Forms.ToolStripMenuItem ViewTreemapBySourceFileMenu;
         private System.Windows.Forms.ToolStripMenuItem ViewTreemapBySourceFolderMenu;
+        private System.Windows.Forms.ToolStripMenuItem ViewHistogramByNamespaceMenu;
+        private System.Windows.Forms.ToolStripMenuItem ViewTreemapByNamespaceMenu;
     }
 }
