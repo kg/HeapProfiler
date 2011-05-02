@@ -168,6 +168,8 @@ namespace HeapProfiler {
             Modules = diff.Modules;
             FunctionNames = diff.FunctionNames;
             Deltas = diff.Deltas;
+            FilteredDeltas = null;
+            StackGraph = null;
 
             TracebackFilter.AutoCompleteItems = FunctionNames;
 

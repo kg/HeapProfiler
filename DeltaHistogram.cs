@@ -643,6 +643,7 @@ namespace HeapProfiler {
     public class DeltaHistogram : GenericHistogram<DeltaInfo> {
         public DeltaHistogram () {
             base.GetItemValue = (di) => di.BytesDelta;
+            base.GetItemText = (di) => di.Traceback.Frames.Array[di.Traceback.Frames.Offset].Function;
             base.GetItemTooltip = (di) => {
                 var sf = CustomTooltip.GetDefaultStringFormat();
 
