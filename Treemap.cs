@@ -388,11 +388,35 @@ namespace HeapProfiler {
             }
         }
 
-        protected void ComputeLayout () {
-            var items = Items;
-            if (DrilldownStack.Count > 0) {
-                items = new TItem[] { DrilldownStack.Peek() };
+        protected IEnumerable<TItem> GetItemAndChildren (TItem item) {
+            yield return item;
+
+            var ie = item as IEnumerable<TItem>;
+            if (ie != null)
+                foreach (var child in ie)
+                    yield return child;
+        }
+
+        public IEnumerable<TItem> AllDisplayedItems {
+            get {
+                foreach (var item in DisplayedItems) {
+                    foreach (var child in GetItemAndChildren(item))
+                        yield return child;
+                }
             }
+        }
+
+        public IList<TItem> DisplayedItems {
+            get {
+                if (DrilldownStack.Count > 0)
+                    return new TItem[] { DrilldownStack.Peek() };
+                else
+                    return Items;
+            }
+        }
+
+        protected void ComputeLayout () {
+            var items = DisplayedItems;
 
             float totalArea = 0;
             foreach (var item in items)
