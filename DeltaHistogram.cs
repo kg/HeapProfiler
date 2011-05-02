@@ -43,7 +43,7 @@ namespace HeapProfiler {
             }
         }
 
-        public const int ItemWidth = 32;
+        public const int ItemHeight = 32;
 
         public Func<TItem, long> GetItemValue;
         public Func<TItem, string> GetItemText;
@@ -80,7 +80,7 @@ namespace HeapProfiler {
             BackColor = SystemColors.Window;
             ForeColor = SystemColors.WindowText;
 
-            ScrollBar = new HScrollBar {
+            ScrollBar = new VScrollBar {
                 SmallChange = 1,
                 LargeChange = 8,
                 TabStop = false
@@ -113,7 +113,7 @@ namespace HeapProfiler {
 
         protected override void OnResize (EventArgs e) {
             var preferredSize = ScrollBar.GetPreferredSize(ClientSize);
-            ScrollBar.SetBounds(0, ClientSize.Height - preferredSize.Height, ClientSize.Width, preferredSize.Height);
+            ScrollBar.SetBounds(ClientSize.Width - preferredSize.Width, 0, preferredSize.Width, ClientSize.Height);
 
             HideTooltip();
 
@@ -141,20 +141,20 @@ namespace HeapProfiler {
             return (float)result;
         }
 
-        protected RectangleF ComputeBarRectangle (long bytesDelta, float x, float centerY, float height, float max) {
-            float y1, y2;
+        protected RectangleF ComputeBarRectangle (long bytesDelta, float centerX, float y, float width, float max) {
+            float x1, x2;
 
             var value = GraphLog(bytesDelta);
             if (value >= 0) {
-                y2 = centerY;
-                y1 = y2 - (value / (float)max) * ((height / 2.0f) - 1);
+                x1 = centerX;
+                x2 = x1 + (value / (float)max) * ((width / 2.0f) - 1);
             } else {
-                y1 = centerY;
-                y2 = y1 + (-value / (float)max) * ((height / 2.0f) - 1);
+                x2 = centerX;
+                x1 = x2 - (-value / (float)max) * ((width / 2.0f) - 1);
             }
 
             return new RectangleF(
-                x + 2.5f, y1 + 0.5f, ItemWidth - 6f, (y2 - y1) - 1f
+                x1 + 0.5f, y + 2.5f, (x2 - x1) - 1f, ItemHeight - 6f
             );
         }
 
@@ -162,8 +162,8 @@ namespace HeapProfiler {
             bool retrying = false, selectedItemVisible = false;
             int minVisibleIndex = int.MaxValue,  maxVisibleIndex = -int.MaxValue;
 
-            int height = ClientSize.Height - ScrollBar.Height;
-            float centerY = height / 2.0f;
+            int width = ClientSize.Width - ScrollBar.Width;
+            float centerX = width / 2.0f;
 
             float max = GraphLog(Maximum);
 
@@ -196,16 +196,16 @@ namespace HeapProfiler {
             using (var highlightBrush = new SolidBrush(SystemColors.Highlight)) {
                 blackOutlinePen.LineJoin = whiteOutlinePen.LineJoin = LineJoin.Round;
 
-                int marginWidth = 0;
+                int marginHeight = 0;
                 for (int i = Maximum; i >= Math.Min(Maximum, 16); i /= 4) {
-                    marginWidth = Math.Max(marginWidth,
+                    marginHeight = Math.Max(marginHeight,
                         (int)Math.Ceiling(e.Graphics.MeasureString(
-                            "+" + FormatSize(i), gridLineFont, ClientSize.Width, sf
+                            "+" + FormatSize(i), gridLineFont, ClientSize.Height, sf
                         ).Width) + 1
                     );
                 }
 
-                var rgn = new Rectangle(0, 0, marginWidth, height);
+                var rgn = new Rectangle(0, 0, width, marginHeight);
 
                 if (rgn.IntersectsWith(e.ClipRectangle))
                 using (var scratch = Scratch.Get(e.Graphics, rgn)) {
@@ -213,31 +213,35 @@ namespace HeapProfiler {
                     g.Clear(BackColor);
 
                     g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
-                    g.DrawLine(gridPen, 0, centerY, marginWidth, centerY);
+                    g.DrawLine(gridPen, centerX, 0, centerX, marginHeight);
 
                     for (int i = Maximum; i >= Math.Min(Maximum, 16); i /= 4) {
-                        float y = (GraphLog(i) / max) * (height / 2.0f);
+                        float x = (GraphLog(i) / max) * (width / 2.0f);
 
                         var formatted = FormatSize(i);
 
-                        g.DrawLine(gridPen, 0, centerY - y, marginWidth, centerY - y);
+                        g.DrawLine(gridPen, centerX + x, 0, centerX + x, marginHeight);
                         var text = String.Format("+{0}", formatted);
-                        g.DrawString(text, gridLineFont, textBrush, new PointF(0, centerY - y));
+                        textToFlush.Remove(text);
+                        var bitmap = TextCache.Get(g, text, gridLineFont, RotateFlipType.Rotate90FlipNone, ForeColor, BackColor, sf, new SizeF(marginHeight, 999));
+                        g.DrawImageUnscaled(bitmap, (int)(centerX + x), 0);
 
-                        g.DrawLine(gridPen, 0, centerY + y, marginWidth, centerY + y);
+                        g.DrawLine(gridPen, centerX - x, 0, centerX - x, marginHeight);
                         text = String.Format("-{0}", formatted);
-                        var sz = g.MeasureString(text, gridLineFont, marginWidth, sf);
-                        g.DrawString(text, gridLineFont, textBrush, new PointF(0, centerY + y - sz.Height));
+                        textToFlush.Remove(text);
+                        bitmap = TextCache.Get(g, text, gridLineFont, RotateFlipType.Rotate90FlipNone, ForeColor, BackColor, sf, new SizeF(marginHeight, 999));
+                        g.DrawImageUnscaled(bitmap, (int)(centerX - x - bitmap.Width), 0);
                     }
                 }
 
-                int x = marginWidth;
+                int y = marginHeight;
 
-                rgn = new Rectangle(x, 0, ItemWidth, height);
+                rgn = new Rectangle(0, y, width, ItemHeight);
+
                 if ((TotalDelta.GetValueOrDefault(0) != 0) && rgn.IntersectsWith(e.ClipRectangle))
                 using (var scratch = Scratch.Get(e.Graphics, rgn)) {
                     var barRectangle = ComputeBarRectangle(
-                        TotalDelta.Value, rgn.X, centerY, height, max
+                        TotalDelta.Value, centerX, rgn.Y, width, max
                     );
 
                     var g = scratch.Graphics;
@@ -247,43 +251,36 @@ namespace HeapProfiler {
 
                     g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
 
-                    g.DrawLine(gridPen, rgn.X, centerY, rgn.Right, centerY);
+                    g.DrawLine(gridPen, centerX, rgn.Y, centerX, rgn.Bottom);
 
                     g.DrawRectangle(
                         outlinePen, barRectangle.X, barRectangle.Y, barRectangle.Width, barRectangle.Height
                     );
 
-                    var oldTransform = g.Transform;
-                    var oldAlignment = sf.LineAlignment;
                     var oldRenderingHint = g.TextRenderingHint;
 
                     try {
-                        g.ResetTransform();
-                        g.RotateTransform(90);
                         g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias;
-                        sf.LineAlignment = StringAlignment.Far;
-                        g.DrawString("Delta bytes", Font, textBrush, Math.Min(barRectangle.Y, barRectangle.Bottom), 0f, sf);
+                        g.DrawString("Delta bytes", Font, textBrush, barRectangle.X, barRectangle.Y, sf);
                     } finally {
-                        sf.LineAlignment = oldAlignment;
-                        g.Transform = oldTransform;
                         g.TextRenderingHint = oldRenderingHint;
                     }
                 }
 
                 if ((TotalDelta.GetValueOrDefault(0) != 0))
-                    x += ItemWidth;
+                    y += ItemHeight;
 
-                for (int i = _ScrollOffset; (i < Items.Count) && (x < ClientSize.Width); i++) {
+                for (int i = _ScrollOffset; (i < Items.Count) && (y < ClientSize.Height); i++) {
                     var selected = (i == SelectedIndex);
 
                     var item = Items[i];
                     GetItemData(i, out data);
 
-                    rgn = new Rectangle(x, 0, ItemWidth, height);
+                    rgn = new Rectangle(0, y, width, ItemHeight);
                     var bytesDelta = GetItemValue(item);
 
                     var barRectangle = ComputeBarRectangle(
-                        bytesDelta, rgn.X, centerY, height, max
+                        bytesDelta, centerX, rgn.Y, width, max
                     );
 
                     var itemColor = SelectItemColor(item);
@@ -298,7 +295,7 @@ namespace HeapProfiler {
 
                         g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
 
-                        g.DrawLine(gridPen, rgn.X, centerY, rgn.Right, centerY); 
+                        g.DrawLine(gridPen, centerX, rgn.Y, centerX, rgn.Bottom);
 
                         g.FillRectangle(
                             (_HoverIndex == i) ? highlightBrush : itemBrush, 
@@ -318,10 +315,10 @@ namespace HeapProfiler {
 
                             textToFlush.Remove(itemText);
                             var bitmap = TextCache.Get(
-                                g, itemText, Font, RotateFlipType.Rotate90FlipNone,
+                                g, itemText, Font, RotateFlipType.RotateNoneFlipNone,
                                 white ? Color.White : Color.Black,
                                 white ? Color.Black : Color.LightGray, sf,
-                                new SizeF(barRectangle.Height, barRectangle.Width)
+                                new SizeF(barRectangle.Width, barRectangle.Height)
                             );
 
                             g.DrawImageUnscaled(
@@ -342,7 +339,7 @@ namespace HeapProfiler {
                         Index = i
                     });
 
-                    x += ItemWidth;
+                    y += ItemHeight;
 
                     if ((rgn.X >= 0) && (rgn.Right < ClientSize.Width)) {
                         minVisibleIndex = Math.Min(minVisibleIndex, i);
@@ -351,11 +348,11 @@ namespace HeapProfiler {
                     }
                 }
 
-                if (x < ClientSize.Width) {
-                    e.Graphics.FillRectangle(backgroundBrush, new Rectangle(x, 0, ClientSize.Width - x, ClientSize.Height));
+                if (y < ClientSize.Height) {
+                    e.Graphics.FillRectangle(backgroundBrush, new Rectangle(0, y, ClientSize.Width, ClientSize.Height - y));
 
                     e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
-                    e.Graphics.DrawLine(gridPen, x, centerY, ClientSize.Width, centerY);
+                    e.Graphics.DrawLine(gridPen, centerX, y, centerX, ClientSize.Height);
                 }
             }
 
@@ -374,7 +371,7 @@ namespace HeapProfiler {
                 goto retryFromHere;
             }
 
-            int largeChange = Math.Max(4, ClientSize.Width / ItemWidth);
+            int largeChange = Math.Max(4, ClientSize.Width / ItemHeight);
             if (ScrollBar.LargeChange != largeChange)
                 ScrollBar.LargeChange = largeChange;
 
