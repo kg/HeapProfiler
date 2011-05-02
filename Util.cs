@@ -910,6 +910,11 @@ namespace HeapProfiler {
         ) {
             CacheEntry ce = null;
 
+            if (size.Width < 1)
+                size.Width = 1;
+            if (size.Height < 1)
+                size.Height = 1;
+
             bool needNewBitmap = true;
 
             if (TryGetValue(text, out ce)) {

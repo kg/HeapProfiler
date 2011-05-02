@@ -1,36 +1,82 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Squared.Task;
 
 namespace HeapProfiler {
-    public struct FunctionKey {
+    public enum GraphKeyType {
+        None = 0,
+        Function,
+        Module,
+        SourceFile,
+        SourceFolder
+    }
+
+    public struct StackGraphKey {
+        public readonly GraphKeyType KeyType;
+
         public readonly string ModuleName;
         public readonly string FunctionName;
         public readonly string SourceFile;
+        public readonly string SourceFolder;
 
         private readonly int HashCode;
 
-        public FunctionKey (string module, string function, string sourceFile) {
+        public StackGraphKey (GraphKeyType keyType, string module, string function, string sourceFile) {
+            KeyType = keyType;
             ModuleName = module;
             FunctionName = function;
             SourceFile = sourceFile;
+            SourceFolder = Path.GetDirectoryName(sourceFile);
 
-            HashCode = ModuleName.GetHashCode() ^
-                FunctionName.GetHashCode();
+            switch (keyType) {
+                case GraphKeyType.Function:
+                    HashCode = ModuleName.GetHashCode() ^
+                        FunctionName.GetHashCode();
+                break;
+                case GraphKeyType.Module:
+                    FunctionName = null;
+                    HashCode = ModuleName.GetHashCode();
+                break;
+                case GraphKeyType.SourceFile:
+                    FunctionName = null;
+                    ModuleName = null;
+                    HashCode = (SourceFile ?? "").GetHashCode();
+                break;
+                case GraphKeyType.SourceFolder:
+                    FunctionName = null;
+                    ModuleName = null;
+                    SourceFile = null;
+                    HashCode = (SourceFolder ?? "").GetHashCode();
+                break;
+                default:
+                    throw new InvalidDataException();
+            }
         }
 
-        public bool Equals (FunctionKey rhs) {
-            return ModuleName.Equals(rhs.ModuleName) &&
-                FunctionName.Equals(rhs.FunctionName);
+        public bool Equals (StackGraphKey rhs) {
+            switch (KeyType) {
+                case GraphKeyType.Function:
+                    return ModuleName.Equals(rhs.ModuleName) &&
+                        FunctionName.Equals(rhs.FunctionName);
+                case GraphKeyType.Module:
+                    return ModuleName.Equals(rhs.ModuleName);
+                case GraphKeyType.SourceFile:
+                    return String.Equals(SourceFile, rhs.SourceFile);
+                case GraphKeyType.SourceFolder:
+                    return String.Equals(SourceFolder, rhs.SourceFolder);
+                default:
+                    throw new InvalidDataException();
+            }
         }
 
         public override bool Equals (object obj) {
-            if (obj is FunctionKey)
-                return Equals((FunctionKey)obj);
+            if (obj is StackGraphKey)
+                return Equals((StackGraphKey)obj);
             else
                 return base.Equals(obj);
         }
@@ -40,26 +86,35 @@ namespace HeapProfiler {
         }
 
         public override string ToString () {
-            if (SourceFile != null)
-                return String.Format("{0}!{1} ({2})", ModuleName, FunctionName, SourceFile);
-            else
-                return String.Format("{0}!{1}", ModuleName, FunctionName);
+            switch (KeyType) {
+                case GraphKeyType.Function:
+                    return String.Format("{0}!{1}", ModuleName, FunctionName);
+                case GraphKeyType.Module:
+                    return ModuleName;
+                case GraphKeyType.SourceFile:
+                    return SourceFile ?? "<no symbols>";
+                case GraphKeyType.SourceFolder:
+                    return SourceFolder ?? "<no symbols>";
+                default:
+                    throw new InvalidDataException();
+            }
         }
     }
 
     public class StackGraphNode : IEnumerable<StackGraphNode> {
-        public readonly FunctionKey Key;
+        public readonly StackGraphKey Key;
 
         public readonly HashSet<UInt32> VisitedTracebacks = new HashSet<UInt32>();
         public readonly HashSet<StackGraphNode> Parents = new HashSet<StackGraphNode>();
-        public readonly StackGraphNodeCollection Children = new StackGraphNodeCollection();
+        public readonly StackGraphNodeCollection Children;
 
         public int CulledFrames = 0;
         public int Allocations = 0;
         public int BytesRequested = 0;
 
-        public StackGraphNode (FunctionKey key) {
+        public StackGraphNode (StackGraphKey key) {
             Key = key;
+            Children = new StackGraphNodeCollection(key.KeyType);
         }
 
         public void Visit (DeltaInfo delta) {
@@ -143,7 +198,7 @@ namespace HeapProfiler {
         public override string ToString () {
             return String.Format(
                 "{0}\r\n{1}{2} allocation(s), {3}{4}\r\nCalls {5} different function(s)\r\nCalled by {6} different function(s)", 
-                Key.ToString(), 
+                Key, 
                 (Allocations > 0) ? "+" : "-",
                 Math.Abs(Allocations), 
                 (BytesRequested > 0) ? "+" : "-",
@@ -178,10 +233,15 @@ namespace HeapProfiler {
         }
     }
 
-    public class StackGraphNodeCollection : KeyedCollection2<FunctionKey, StackGraphNode> {
+    public class StackGraphNodeCollection : KeyedCollection2<StackGraphKey, StackGraphNode> {
+        public readonly GraphKeyType KeyType;
         protected readonly object Lock = new object();
 
-        protected override FunctionKey GetKeyForItem (StackGraphNode item) {
+        public StackGraphNodeCollection (GraphKeyType keyType) {
+            KeyType = keyType;
+        }
+
+        protected override StackGraphKey GetKeyForItem (StackGraphNode item) {
             return item.Key;
         }
 
@@ -198,7 +258,7 @@ namespace HeapProfiler {
                 return null;
             }
 
-            var key = new FunctionKey(frameInfo.Module, frameInfo.Function, frameInfo.SourceFile);
+            var key = new StackGraphKey(KeyType, frameInfo.Module, frameInfo.Function, frameInfo.SourceFile);
 
             lock (Lock) {
                 if (!this.TryGetValue(key, out result)) {
@@ -222,7 +282,13 @@ namespace HeapProfiler {
     }
 
     public class StackGraph : StackGraphNodeCollection {
-        public readonly StackGraphNodeCollection Functions = new StackGraphNodeCollection();
+        public readonly StackGraphNodeCollection Functions;
+
+        public StackGraph (GraphKeyType keyType) 
+            : base (keyType) {
+
+            Functions = new StackGraphNodeCollection(KeyType);
+        }
 
         protected IEnumerator<object> FinalizeBuild () {
             yield return Future.RunInThread(() => {

@@ -605,7 +605,7 @@ namespace HeapProfiler {
         public GraphTreemap () {
             base.GetItemValue = (sgn) => Math.Abs(sgn.BytesRequested);
             base.GetItemText = (sgn) => {
-                return String.Format("{0}!{1}", sgn.Key.ModuleName, sgn.Key.FunctionName);
+                return sgn.Key.ToString();
             };
             base.GetItemTooltip = (sgn) => {
                 var sf = CustomTooltip.GetDefaultStringFormat();

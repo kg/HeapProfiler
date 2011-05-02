@@ -43,8 +43,16 @@
             this.viewToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.ViewListMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.ViewHistogramMenu = new System.Windows.Forms.ToolStripMenuItem();
-            this.ViewFunctionHistogramMenu = new System.Windows.Forms.ToolStripMenuItem();
-            this.ViewFunctionTreemapMenu = new System.Windows.Forms.ToolStripMenuItem();
+            this.ViewHistogramByTracebackMenu = new System.Windows.Forms.ToolStripMenuItem();
+            this.ViewHistogramByFunctionMenu = new System.Windows.Forms.ToolStripMenuItem();
+            this.ViewHistogramByModuleMenu = new System.Windows.Forms.ToolStripMenuItem();
+            this.ViewHistogramBySourceFileMenu = new System.Windows.Forms.ToolStripMenuItem();
+            this.ViewHistogramBySourceFolderMenu = new System.Windows.Forms.ToolStripMenuItem();
+            this.ViewTreemapMenu = new System.Windows.Forms.ToolStripMenuItem();
+            this.ViewTreemapByFunctionMenu = new System.Windows.Forms.ToolStripMenuItem();
+            this.ViewTreemapByModuleMenu = new System.Windows.Forms.ToolStripMenuItem();
+            this.ViewTreemapBySourceFileMenu = new System.Windows.Forms.ToolStripMenuItem();
+            this.ViewTreemapBySourceFolderMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.ToolTips = new System.Windows.Forms.ToolTip(this.components);
             this.StatusBar = new System.Windows.Forms.StatusStrip();
             this.StatusLabel = new System.Windows.Forms.ToolStripStatusLabel();
@@ -150,10 +158,13 @@
             // TracebackFilter
             // 
             this.TracebackFilter.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.TracebackFilter.Font = new System.Drawing.Font("Consolas", 11.25F);
             this.TracebackFilter.Location = new System.Drawing.Point(0, 0);
-            this.TracebackFilter.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.TracebackFilter.Margin = new System.Windows.Forms.Padding(2);
+            this.TracebackFilter.MaximumSize = new System.Drawing.Size(999999, 25);
+            this.TracebackFilter.MinimumSize = new System.Drawing.Size(0, 25);
             this.TracebackFilter.Name = "TracebackFilter";
-            this.TracebackFilter.Size = new System.Drawing.Size(459, 30);
+            this.TracebackFilter.Size = new System.Drawing.Size(459, 25);
             this.TracebackFilter.TabIndex = 0;
             this.TracebackFilter.FilterChanging += new HeapProfiler.FilterChangingEventHandler(this.TracebackFilter_FilterChanging);
             this.TracebackFilter.FilterChanged += new System.EventHandler(this.TracebackFilter_FilterChanged);
@@ -162,7 +173,7 @@
             // 
             this.GraphTreemap.BackColor = System.Drawing.SystemColors.Window;
             this.GraphTreemap.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.GraphTreemap.Font = new System.Drawing.Font("Consolas", 10f);
+            this.GraphTreemap.Font = new System.Drawing.Font("Consolas", 10F);
             this.GraphTreemap.ForeColor = System.Drawing.SystemColors.WindowText;
             this.GraphTreemap.Location = new System.Drawing.Point(0, 0);
             this.GraphTreemap.Name = "GraphTreemap";
@@ -254,8 +265,7 @@
             this.viewToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.ViewListMenu,
             this.ViewHistogramMenu,
-            this.ViewFunctionHistogramMenu,
-            this.ViewFunctionTreemapMenu});
+            this.ViewTreemapMenu});
             this.viewToolStripMenuItem.Name = "viewToolStripMenuItem";
             this.viewToolStripMenuItem.Size = new System.Drawing.Size(44, 20);
             this.viewToolStripMenuItem.Text = "&View";
@@ -265,32 +275,100 @@
             this.ViewListMenu.Checked = true;
             this.ViewListMenu.CheckState = System.Windows.Forms.CheckState.Checked;
             this.ViewListMenu.Name = "ViewListMenu";
-            this.ViewListMenu.Size = new System.Drawing.Size(180, 22);
+            this.ViewListMenu.Size = new System.Drawing.Size(152, 22);
             this.ViewListMenu.Text = "Traceback &List";
             this.ViewListMenu.Click += new System.EventHandler(this.ViewListMenu_Click);
             // 
             // ViewHistogramMenu
             // 
+            this.ViewHistogramMenu.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.ViewHistogramByTracebackMenu,
+            this.ViewHistogramByFunctionMenu,
+            this.ViewHistogramByModuleMenu,
+            this.ViewHistogramBySourceFileMenu,
+            this.ViewHistogramBySourceFolderMenu});
             this.ViewHistogramMenu.Name = "ViewHistogramMenu";
-            this.ViewHistogramMenu.Size = new System.Drawing.Size(180, 22);
-            this.ViewHistogramMenu.Text = "&Stack Histogram";
-            this.ViewHistogramMenu.Click += new System.EventHandler(this.ViewHistogramMenu_Click);
+            this.ViewHistogramMenu.Size = new System.Drawing.Size(152, 22);
+            this.ViewHistogramMenu.Text = "&Histogram";
             // 
-            // ViewFunctionHistogramMenu
+            // ViewHistogramByTracebackMenu
             // 
-            this.ViewFunctionHistogramMenu.Enabled = false;
-            this.ViewFunctionHistogramMenu.Name = "ViewFunctionHistogramMenu";
-            this.ViewFunctionHistogramMenu.Size = new System.Drawing.Size(180, 22);
-            this.ViewFunctionHistogramMenu.Text = "&Function Histogram";
-            this.ViewFunctionHistogramMenu.Click += new System.EventHandler(this.ViewFunctionHistogramMenu_Click);
+            this.ViewHistogramByTracebackMenu.Name = "ViewHistogramByTracebackMenu";
+            this.ViewHistogramByTracebackMenu.Size = new System.Drawing.Size(162, 22);
+            this.ViewHistogramByTracebackMenu.Text = "By &Traceback";
+            this.ViewHistogramByTracebackMenu.Click += new System.EventHandler(this.ViewHistogramByTracebackMenu_Click);
             // 
-            // ViewFunctionTreemapMenu
+            // ViewHistogramByFunctionMenu
             // 
-            this.ViewFunctionTreemapMenu.Enabled = false;
-            this.ViewFunctionTreemapMenu.Name = "ViewFunctionTreemapMenu";
-            this.ViewFunctionTreemapMenu.Size = new System.Drawing.Size(180, 22);
-            this.ViewFunctionTreemapMenu.Text = "Function &Treemap";
-            this.ViewFunctionTreemapMenu.Click += new System.EventHandler(this.ViewFunctionTreemapMenu_Click);
+            this.ViewHistogramByFunctionMenu.Enabled = false;
+            this.ViewHistogramByFunctionMenu.Name = "ViewHistogramByFunctionMenu";
+            this.ViewHistogramByFunctionMenu.Size = new System.Drawing.Size(162, 22);
+            this.ViewHistogramByFunctionMenu.Text = "By &Function";
+            this.ViewHistogramByFunctionMenu.Click += new System.EventHandler(this.ViewHistogramByFunctionMenu_Click);
+            // 
+            // ViewHistogramByModuleMenu
+            // 
+            this.ViewHistogramByModuleMenu.Enabled = false;
+            this.ViewHistogramByModuleMenu.Name = "ViewHistogramByModuleMenu";
+            this.ViewHistogramByModuleMenu.Size = new System.Drawing.Size(162, 22);
+            this.ViewHistogramByModuleMenu.Text = "By &Module";
+            this.ViewHistogramByModuleMenu.Click += new System.EventHandler(this.ViewHistogramByModuleMenu_Click);
+            // 
+            // ViewHistogramBySourceFileMenu
+            // 
+            this.ViewHistogramBySourceFileMenu.Enabled = false;
+            this.ViewHistogramBySourceFileMenu.Name = "ViewHistogramBySourceFileMenu";
+            this.ViewHistogramBySourceFileMenu.Size = new System.Drawing.Size(162, 22);
+            this.ViewHistogramBySourceFileMenu.Text = "By Source &File";
+            this.ViewHistogramBySourceFileMenu.Click += new System.EventHandler(this.ViewHistogramBySourceFileMenu_Click);
+            // 
+            // ViewHistogramBySourceFolderMenu
+            // 
+            this.ViewHistogramBySourceFolderMenu.Enabled = false;
+            this.ViewHistogramBySourceFolderMenu.Name = "ViewHistogramBySourceFolderMenu";
+            this.ViewHistogramBySourceFolderMenu.Size = new System.Drawing.Size(162, 22);
+            this.ViewHistogramBySourceFolderMenu.Text = "By Source Fol&der";
+            this.ViewHistogramBySourceFolderMenu.Click += new System.EventHandler(this.ViewHistogramBySourceFolderMenu_Click);
+            // 
+            // ViewTreemapMenu
+            // 
+            this.ViewTreemapMenu.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.ViewTreemapByFunctionMenu,
+            this.ViewTreemapByModuleMenu,
+            this.ViewTreemapBySourceFileMenu,
+            this.ViewTreemapBySourceFolderMenu});
+            this.ViewTreemapMenu.Enabled = false;
+            this.ViewTreemapMenu.Name = "ViewTreemapMenu";
+            this.ViewTreemapMenu.Size = new System.Drawing.Size(152, 22);
+            this.ViewTreemapMenu.Text = "&Treemap";
+            // 
+            // ViewTreemapByFunctionMenu
+            // 
+            this.ViewTreemapByFunctionMenu.Name = "ViewTreemapByFunctionMenu";
+            this.ViewTreemapByFunctionMenu.Size = new System.Drawing.Size(162, 22);
+            this.ViewTreemapByFunctionMenu.Text = "By &Function";
+            this.ViewTreemapByFunctionMenu.Click += new System.EventHandler(this.ViewTreemapByFunctionMenu_Click);
+            // 
+            // ViewTreemapByModuleMenu
+            // 
+            this.ViewTreemapByModuleMenu.Name = "ViewTreemapByModuleMenu";
+            this.ViewTreemapByModuleMenu.Size = new System.Drawing.Size(162, 22);
+            this.ViewTreemapByModuleMenu.Text = "By &Module";
+            this.ViewTreemapByModuleMenu.Click += new System.EventHandler(this.ViewTreemapByModuleMenu_Click);
+            // 
+            // ViewTreemapBySourceFileMenu
+            // 
+            this.ViewTreemapBySourceFileMenu.Name = "ViewTreemapBySourceFileMenu";
+            this.ViewTreemapBySourceFileMenu.Size = new System.Drawing.Size(162, 22);
+            this.ViewTreemapBySourceFileMenu.Text = "By Source &File";
+            this.ViewTreemapBySourceFileMenu.Click += new System.EventHandler(this.ViewTreemapBySourceFileMenu_Click);
+            // 
+            // ViewTreemapBySourceFolderMenu
+            // 
+            this.ViewTreemapBySourceFolderMenu.Name = "ViewTreemapBySourceFolderMenu";
+            this.ViewTreemapBySourceFolderMenu.Size = new System.Drawing.Size(162, 22);
+            this.ViewTreemapBySourceFolderMenu.Text = "By Source Fol&der";
+            this.ViewTreemapBySourceFolderMenu.Click += new System.EventHandler(this.ViewTreemapBySourceFolderMenu_Click);
             // 
             // StatusBar
             // 
@@ -398,8 +476,16 @@
         private DeltaHistogram DeltaHistogram;
         private DeltaList DeltaList;
         private FilterControl TracebackFilter;
-        private System.Windows.Forms.ToolStripMenuItem ViewFunctionHistogramMenu;
         private GraphTreemap GraphTreemap;
-        private System.Windows.Forms.ToolStripMenuItem ViewFunctionTreemapMenu;
+        private System.Windows.Forms.ToolStripMenuItem ViewTreemapMenu;
+        private System.Windows.Forms.ToolStripMenuItem ViewHistogramByTracebackMenu;
+        private System.Windows.Forms.ToolStripMenuItem ViewHistogramByFunctionMenu;
+        private System.Windows.Forms.ToolStripMenuItem ViewHistogramByModuleMenu;
+        private System.Windows.Forms.ToolStripMenuItem ViewHistogramBySourceFileMenu;
+        private System.Windows.Forms.ToolStripMenuItem ViewHistogramBySourceFolderMenu;
+        private System.Windows.Forms.ToolStripMenuItem ViewTreemapByFunctionMenu;
+        private System.Windows.Forms.ToolStripMenuItem ViewTreemapByModuleMenu;
+        private System.Windows.Forms.ToolStripMenuItem ViewTreemapBySourceFileMenu;
+        private System.Windows.Forms.ToolStripMenuItem ViewTreemapBySourceFolderMenu;
     }
 }

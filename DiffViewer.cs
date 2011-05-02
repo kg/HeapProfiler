@@ -32,7 +32,9 @@ namespace HeapProfiler {
         public NameTable Modules = new NameTable();
         public NameTable FunctionNames = new NameTable();
         public List<DeltaInfo> Deltas = new List<DeltaInfo>();
+        public List<DeltaInfo> FilteredDeltas = null;
         public StackGraph StackGraph = null;
+        public GraphKeyType StackGraphKeyType = GraphKeyType.None;
 
         public List<DeltaInfo> ListItems = new List<DeltaInfo>();
 
@@ -64,13 +66,15 @@ namespace HeapProfiler {
             if (Instance != null) {
                 Timeline.Items = Instance.Snapshots;
                 Instance.TracebacksFiltered += Instance_TracebacksFiltered;
-                ViewFunctionHistogramMenu.Enabled = true;
-                ViewFunctionTreemapMenu.Enabled = true;
+                ViewHistogramByModuleMenu.Enabled = ViewHistogramByFunctionMenu.Enabled = true;
+                ViewHistogramBySourceFolderMenu.Enabled = ViewHistogramBySourceFileMenu.Enabled = true;
+                ViewTreemapMenu.Enabled = true;
             } else {
                 Timeline.Visible = false;
                 MainSplit.Height += Timeline.Bottom - MainSplit.Bottom;
-                ViewFunctionHistogramMenu.Enabled = false;
-                ViewFunctionTreemapMenu.Enabled = false;
+                ViewHistogramByModuleMenu.Enabled = ViewHistogramByFunctionMenu.Enabled = false;
+                ViewHistogramBySourceFolderMenu.Enabled = ViewHistogramBySourceFileMenu.Enabled = false;
+                ViewTreemapMenu.Enabled = false;
             }
         }
 
@@ -226,6 +230,19 @@ namespace HeapProfiler {
             SetBusy(false);
         }
 
+        public IEnumerator<object> RefreshGraph () {
+            try {
+                if (Updating)
+                    yield break;
+
+                SetBusy(true);
+
+                yield return GenerateNewGraph(FilteredDeltas, StackGraphKeyType);
+            } finally {
+                SetBusy(false);
+            }
+        }
+
         public IEnumerator<object> RefreshDeltas () {
             try {
                 if (Updating)
@@ -290,21 +307,7 @@ namespace HeapProfiler {
                 StatusLabel.Text = String.Format("Showing {0} out of {1} item(s)", newListItems.Count, deltas.Count);
                 AllocationTotals.Text = String.Format("Delta bytes: {0} Delta allocations: {1}", FileSize.Format(fTotalBytes.Result), fTotalAllocs.Result);
 
-                if (Instance != null) {
-                    StackGraph = new StackGraph();
-                    yield return StackGraph.Build(Instance, newListItems);
-                } else
-                    StackGraph = null;
-
-                if (StackGraph != null) {
-                    GraphHistogram.Items = StackGraph.Functions.OrderedItems.ToArray();
-                    GraphTreemap.Items = StackGraph.OrderedItems.ToArray();
-                } else {
-                    GraphHistogram.Items = null;
-                    GraphTreemap.Items = null;
-                }
-
-                DeltaHistogram.Items = DeltaList.Items = newListItems;
+                DeltaHistogram.Items = DeltaList.Items = FilteredDeltas = newListItems;
                 if (newListItems.Count > 0)
                     GraphHistogram.Maximum = DeltaHistogram.Maximum = fMax.Result;
                 else
@@ -314,11 +317,24 @@ namespace HeapProfiler {
 
                 DeltaList.Invalidate();
                 DeltaHistogram.Invalidate();
-                GraphHistogram.Invalidate();
-                GraphTreemap.Refresh();
+
+                if ((Instance != null) && ((GraphTreemap.Visible) || (GraphHistogram.Visible)))
+                    yield return GenerateNewGraph(newListItems, StackGraphKeyType);
             } finally {
                 SetBusy(false);
             }
+        }
+
+        protected IEnumerator<object> GenerateNewGraph (List<DeltaInfo> newListItems, GraphKeyType keyType) {
+            var newGraph = new StackGraph(keyType);
+            yield return newGraph.Build(Instance, newListItems);
+
+            StackGraph = newGraph;
+            GraphHistogram.Items = StackGraph.Functions.OrderedItems.ToArray();
+            GraphTreemap.Items = StackGraph.OrderedItems.ToArray();
+
+            GraphHistogram.Invalidate();
+            GraphTreemap.Refresh();
         }
 
         private void DiffViewer_Shown (object sender, EventArgs e) {
@@ -382,18 +398,57 @@ namespace HeapProfiler {
             PendingRefresh = Start(RefreshDeltas());
         }
 
-        private void ViewListMenu_Click (object sender, EventArgs e) {
-            DeltaHistogram.Visible = ViewHistogramMenu.Checked = false;
-            DeltaList.Visible = ViewListMenu.Checked = true;
-            GraphHistogram.Visible = ViewFunctionHistogramMenu.Checked = false;
-            GraphTreemap.Visible = ViewFunctionTreemapMenu.Checked = false;
+        protected void SetGraphHistogramVisible (bool visible) {
+            GraphHistogram.Visible = visible;
+            ViewHistogramByFunctionMenu.Checked = (visible) && (StackGraphKeyType == GraphKeyType.Function);
+            ViewHistogramByModuleMenu.Checked = (visible) && (StackGraphKeyType == GraphKeyType.Module);
+            ViewHistogramBySourceFileMenu.Checked = (visible) && (StackGraphKeyType == GraphKeyType.SourceFile);
+            ViewHistogramBySourceFolderMenu.Checked = (visible) && (StackGraphKeyType == GraphKeyType.SourceFolder);
         }
 
-        private void ViewHistogramMenu_Click (object sender, EventArgs e) {
+        protected void SetGraphTreemapVisible (bool visible) {
+            GraphTreemap.Visible = visible;
+            ViewTreemapByFunctionMenu.Checked = (visible) && (StackGraphKeyType == GraphKeyType.Function);
+            ViewTreemapByModuleMenu.Checked = (visible) && (StackGraphKeyType == GraphKeyType.Module);
+            ViewTreemapBySourceFileMenu.Checked = (visible) && (StackGraphKeyType == GraphKeyType.SourceFile);
+            ViewTreemapBySourceFolderMenu.Checked = (visible) && (StackGraphKeyType == GraphKeyType.SourceFolder);
+        }
+
+        protected void SetGraphKeyType (GraphKeyType keyType) {
+            if (keyType != StackGraphKeyType) {
+                StackGraphKeyType = keyType;
+
+                GraphHistogram.Items = GraphTreemap.Items = new StackGraphNode[0];
+                GraphHistogram.Invalidate();
+                GraphTreemap.Invalidate();
+
+                if (PendingRefresh != null)
+                    PendingRefresh.Dispose();
+                PendingRefresh = Start(RefreshGraph());
+            }
+        }
+
+        protected void ShowGraphHistogram (GraphKeyType keyType) {
+            DeltaHistogram.Visible = ViewHistogramByTracebackMenu.Checked = false;
             DeltaList.Visible = ViewListMenu.Checked = false;
-            DeltaHistogram.Visible = ViewHistogramMenu.Checked = true;
-            GraphHistogram.Visible = ViewFunctionHistogramMenu.Checked = false;
-            GraphTreemap.Visible = ViewFunctionTreemapMenu.Checked = false;
+            SetGraphKeyType(keyType);
+            SetGraphHistogramVisible(true);
+            SetGraphTreemapVisible(false);
+        }
+
+        protected void ShowGraphTreemap (GraphKeyType keyType) {
+            DeltaHistogram.Visible = ViewHistogramByTracebackMenu.Checked = false;
+            DeltaList.Visible = ViewListMenu.Checked = false;
+            SetGraphKeyType(keyType);
+            SetGraphHistogramVisible(false);
+            SetGraphTreemapVisible(true);
+        }
+
+        private void ViewListMenu_Click (object sender, EventArgs e) {
+            DeltaHistogram.Visible = ViewHistogramByTracebackMenu.Checked = false;
+            DeltaList.Visible = ViewListMenu.Checked = true;
+            SetGraphHistogramVisible(false);
+            SetGraphTreemapVisible(false);
         }
 
         private void Timeline_RangeChanged (object sender, EventArgs e) {
@@ -419,18 +474,43 @@ namespace HeapProfiler {
             PendingRefresh = Start(RefreshDeltas());
         }
 
-        private void ViewFunctionHistogramMenu_Click (object sender, EventArgs e) {
+        private void ViewHistogramByTracebackMenu_Click (object sender, EventArgs e) {
             DeltaList.Visible = ViewListMenu.Checked = false;
-            DeltaHistogram.Visible = ViewHistogramMenu.Checked = false;
-            GraphHistogram.Visible = ViewFunctionHistogramMenu.Checked = true;
-            GraphTreemap.Visible = ViewFunctionTreemapMenu.Checked = false;
+            DeltaHistogram.Visible = ViewHistogramByTracebackMenu.Checked = true;
+            SetGraphHistogramVisible(false);
+            SetGraphTreemapVisible(false);            
         }
 
-        private void ViewFunctionTreemapMenu_Click (object sender, EventArgs e) {
-            DeltaList.Visible = ViewListMenu.Checked = false;
-            DeltaHistogram.Visible = ViewHistogramMenu.Checked = false;
-            GraphHistogram.Visible = ViewFunctionHistogramMenu.Checked = false;
-            GraphTreemap.Visible = ViewFunctionTreemapMenu.Checked = true;
+        private void ViewHistogramByFunctionMenu_Click (object sender, EventArgs e) {
+            ShowGraphHistogram(GraphKeyType.Function);
+        }
+
+        private void ViewHistogramByModuleMenu_Click (object sender, EventArgs e) {
+            ShowGraphHistogram(GraphKeyType.Module);
+        }
+
+        private void ViewHistogramBySourceFileMenu_Click (object sender, EventArgs e) {
+            ShowGraphHistogram(GraphKeyType.SourceFile);
+        }
+
+        private void ViewHistogramBySourceFolderMenu_Click (object sender, EventArgs e) {
+            ShowGraphHistogram(GraphKeyType.SourceFolder);
+        }
+
+        private void ViewTreemapByFunctionMenu_Click (object sender, EventArgs e) {
+            ShowGraphTreemap(GraphKeyType.Function);
+        }
+
+        private void ViewTreemapByModuleMenu_Click (object sender, EventArgs e) {
+            ShowGraphTreemap(GraphKeyType.Module);
+        }
+
+        private void ViewTreemapBySourceFileMenu_Click (object sender, EventArgs e) {
+            ShowGraphTreemap(GraphKeyType.SourceFile);
+        }
+
+        private void ViewTreemapBySourceFolderMenu_Click (object sender, EventArgs e) {
+            ShowGraphTreemap(GraphKeyType.SourceFolder);
         }
     }
 }

@@ -672,7 +672,7 @@ namespace HeapProfiler {
     public class GraphHistogram : GenericHistogram<StackGraphNode> {
         public GraphHistogram () {
             base.GetItemValue = (sgn) => sgn.BytesRequested;
-            base.GetItemText = (sgn) => sgn.Key.FunctionName;
+            base.GetItemText = (sgn) => sgn.Key.ToString();
             base.GetItemTooltip = (sgn) => {
                 var sf = CustomTooltip.GetDefaultStringFormat();
 

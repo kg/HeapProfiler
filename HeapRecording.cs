@@ -832,7 +832,7 @@ namespace HeapProfiler {
                         frameIds, fSymbols.Result
                     );
 
-                    var graph = new StackGraph();
+                    var graph = new StackGraph(GraphKeyType.Function);
 
                     yield return graph.Build(snapshot, tracebacks, symbols);
 
@@ -1012,7 +1012,6 @@ namespace HeapProfiler {
             var functionNames = new NameTable();
             var deltas = new List<DeltaInfo>();
             var tracebacks = new Dictionary<UInt32, TracebackInfo>();
-            var stackGraph = new StackGraph();
 
             {
                 var fModulesFirst = Database.SnapshotModules.Get(first.Index);
