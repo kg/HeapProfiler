@@ -1080,7 +1080,7 @@ namespace HeapProfiler {
 
                             if ((range.First <= first.Index) &&
                                 (range.Last >= first.Index) &&
-                                (range.Last < last.Index)
+                                (range.Last <= last.Index)
                             ) {
                                 // deallocation
 
@@ -1099,7 +1099,7 @@ namespace HeapProfiler {
                                 tracebackIds.Add(range.TracebackID);
                             } else if (
                                 (range.First <= last.Index) &&
-                                (range.First > first.Index) &&
+                                (range.First >= first.Index) &&
                                 (range.Last >= last.Index)
                             ) {
                                 // allocation
