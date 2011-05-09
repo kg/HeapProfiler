@@ -35,7 +35,7 @@ namespace HeapProfiler {
         protected bool _Scrollable = true;
         protected Func<TItem, long> _ItemValueGetter;
         protected Func<long, string> _ItemValueFormatter;
-        protected int _ZoomRatio = 100;
+        protected int _ZoomRatio = 128;
         protected int _ContentWidth = 0; 
         protected int _ScrollOffset = 0;
         protected string _ToolTipText = null;
@@ -159,7 +159,7 @@ namespace HeapProfiler {
         protected override void OnPaint (PaintEventArgs e) {
             int height = ClientSize.Height;
 
-            int pixelsPerMinute = (PixelsPerMinute * (_Scrollable ? ZoomRatio : 100)) / 100;
+            int pixelsPerMinute = (PixelsPerMinute * (_Scrollable ? ZoomRatio : 128)) / 128;
             long maxValue = MaximumThreshold;
             long minTicks = 0, maxTicks = 0;
             int contentWidth;
@@ -180,8 +180,8 @@ namespace HeapProfiler {
                 ) + MarginWidth;
 
                 if (!_Scrollable && !rescaled) {
-                    _ZoomRatio = (int)Math.Floor(ClientSize.Width / (double)(contentWidth + 1) * 100.0);
-                    pixelsPerMinute = (PixelsPerMinute * _ZoomRatio) / 100;
+                    _ZoomRatio = (int)Math.Floor(ClientSize.Width / (double)(contentWidth + 1) * 128.0);
+                    pixelsPerMinute = (PixelsPerMinute * _ZoomRatio) / 128;
                     rescaled = true;
 
                     goto rescale;
@@ -373,7 +373,7 @@ namespace HeapProfiler {
                 return false;
             }
 
-            int pixelsPerMinute = PixelsPerMinute * ZoomRatio / 100;
+            int pixelsPerMinute = PixelsPerMinute * ZoomRatio / 128;
             long minTicks = 0;
             const long minuteInTicks = Squared.Util.Time.SecondInTicks * 60;
 
@@ -649,10 +649,10 @@ namespace HeapProfiler {
                 return _ZoomRatio;
             }
             set {
-                if (value > 800)
-                    value = 800;
-                if (value < 25)
-                    value = 25;
+                if (value > 2048)
+                    value = 2048;
+                if (value < 1)
+                    value = 1;
 
                 if (value != _ZoomRatio) {
                     _ZoomRatio = value;
