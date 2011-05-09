@@ -626,7 +626,6 @@ namespace HeapProfiler {
             }
 
             public AllocationRanges Update (UInt16 snapshotId, UInt32 tracebackId, UInt32 size, UInt32 overhead) {
-                var newRange = new Range(snapshotId, tracebackId, size, overhead);
                 ArraySegment<Range> result;
 
                 var a = Ranges.Array;
@@ -636,20 +635,17 @@ namespace HeapProfiler {
                     if ((range.TracebackID != tracebackId) || (range.Size != size) || (range.Overhead != overhead))
                         continue;
 
-                    if (range.First <= snapshotId && range.Last >= snapshotId)
-                        return this;
-
                     if (range.Last == snapshotId - 1) {
                         result = ImmutableArrayPool<Range>.Allocate(Ranges.Count);
                         Array.Copy(Ranges.Array, Ranges.Offset, result.Array, result.Offset, Ranges.Count);
-                        result.Array[result.Offset + i] = newRange;
+                        result.Array[result.Offset + i] = new Range(range.First, snapshotId, tracebackId, size, overhead);
                         return new AllocationRanges(result);
                     }
                 }
 
                 result = ImmutableArrayPool<Range>.Allocate(Ranges.Count + 1);
                 Array.Copy(Ranges.Array, Ranges.Offset, result.Array, result.Offset, Ranges.Count);
-                result.Array[result.Offset + result.Count - 1] = newRange;
+                result.Array[result.Offset + result.Count - 1] = new Range(snapshotId, tracebackId, size, overhead);
                 return new AllocationRanges(result);
             }
 

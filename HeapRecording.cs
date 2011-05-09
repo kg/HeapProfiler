@@ -1051,6 +1051,8 @@ namespace HeapProfiler {
                 var tracebackIds = new HashSet<UInt32>();
                 var oldCounts = new Dictionary<UInt32, int>();
                 var oldBytes = new Dictionary<UInt32, int>();
+                var newCounts = new Dictionary<UInt32, int>();
+                var newBytes = new Dictionary<UInt32, int>();
                 var deallocs = new Dictionary<UInt32, DeltaInfo>();
                 var allocs = new Dictionary<UInt32, DeltaInfo>();
 
@@ -1066,7 +1068,15 @@ namespace HeapProfiler {
                         for (int i = 0, c = item.Ranges.Count, o = item.Ranges.Offset; i < c; i++) {
                             var range = ranges[i + o];
 
-                            if ((range.First <= first.Index) && (range.Last >= first.Index)) {
+                            bool aliveAtStart = (range.First <= first.Index) && (range.Last > first.Index);
+                            bool aliveAtEnd = (range.First <= last.Index) && (range.Last > last.Index);
+                            bool allocatedInWindow = (range.First >= first.Index) && (range.First <= last.Index);
+                            bool deallocatedInWindow = (range.Last >= first.Index) && (range.Last <= last.Index);
+
+                            if (!aliveAtStart && !aliveAtEnd && !allocatedInWindow && !deallocatedInWindow)
+                                continue;
+
+                            if (aliveAtStart) {
                                 int value;
 
                                 if (!oldCounts.TryGetValue(range.TracebackID, out value))
@@ -1078,30 +1088,19 @@ namespace HeapProfiler {
                                 oldBytes[range.TracebackID] = (int)(value + range.Size);
                             }
 
-                            if ((range.First <= first.Index) &&
-                                (range.Last >= first.Index) &&
-                                (range.Last <= last.Index)
-                            ) {
-                                // deallocation
+                            if (aliveAtEnd) {
+                                int value;
 
-                                if (deallocs.TryGetValue(range.TracebackID, out delta)) {
-                                    delta.CountDelta -= 1;
-                                    delta.BytesDelta -= (int)(range.Size);
-                                } else {
-                                    deallocs.Add(range.TracebackID, new DeltaInfo {
-                                        BytesDelta = -(int)(range.Size),
-                                        CountDelta = -1,
-                                        TracebackID = range.TracebackID,
-                                        Traceback = null
-                                    });
-                                }
+                                if (!newCounts.TryGetValue(range.TracebackID, out value))
+                                    value = 0;
+                                newCounts[range.TracebackID] = value + 1;
 
-                                tracebackIds.Add(range.TracebackID);
-                            } else if (
-                                (range.First <= last.Index) &&
-                                (range.First >= first.Index) &&
-                                (range.Last >= last.Index)
-                            ) {
+                                if (!newBytes.TryGetValue(range.TracebackID, out value))
+                                    value = 0;
+                                newBytes[range.TracebackID] = (int)(value + range.Size);
+                            }
+
+                            if (allocatedInWindow) {
                                 // allocation
 
                                 if (allocs.TryGetValue(range.TracebackID, out delta)) {
@@ -1118,34 +1117,55 @@ namespace HeapProfiler {
 
                                 tracebackIds.Add(range.TracebackID);
                             }
+
+                            if (deallocatedInWindow) {
+                                // deallocation
+
+                                if (deallocs.TryGetValue(range.TracebackID, out delta)) {
+                                    delta.CountDelta -= 1;
+                                    delta.BytesDelta -= (int)(range.Size);
+                                } else {
+                                    deallocs.Add(range.TracebackID, new DeltaInfo {
+                                        BytesDelta = -(int)(range.Size),
+                                        CountDelta = -1,
+                                        TracebackID = range.TracebackID,
+                                        Traceback = null
+                                    });
+                                }
+
+                                tracebackIds.Add(range.TracebackID);
+                            }
                         }
                     }
 
                     foreach (var tracebackId in tracebackIds) {
-                        if (allocs.TryGetValue(tracebackId, out delta)) {
-                            DeltaInfo dealloc;
+                        DeltaInfo alloc = null, dealloc = null;
 
-                            if (deallocs.TryGetValue(tracebackId, out dealloc)) {
-                                delta.BytesDelta += dealloc.BytesDelta;
-                                delta.CountDelta += dealloc.CountDelta;
+                        if (allocs.TryGetValue(tracebackId, out alloc) | deallocs.TryGetValue(tracebackId, out dealloc)) {
+                            int currentOldBytes, currentOldCount;
+                            int currentNewBytes, currentNewCount;
+
+                            oldBytes.TryGetValue(tracebackId, out currentOldBytes);
+                            oldCounts.TryGetValue(tracebackId, out currentOldCount);
+                            newBytes.TryGetValue(tracebackId, out currentNewBytes);
+                            newCounts.TryGetValue(tracebackId, out currentNewCount);
+
+                            if (alloc != null) {
+                                alloc.OldBytes = currentOldBytes;
+                                alloc.OldCount = currentOldCount;
+                                alloc.NewBytes = currentNewBytes;
+                                alloc.NewCount = currentNewCount;
+                                deltas.Add(alloc);
                             }
-                        } else if (deallocs.TryGetValue(tracebackId, out delta)) {
-                        } else {
-                            continue;
+
+                            if (dealloc != null) {
+                                dealloc.OldBytes = currentOldBytes;
+                                dealloc.OldCount = currentOldCount;
+                                dealloc.NewBytes = currentNewBytes;
+                                dealloc.NewCount = currentNewCount;
+                                deltas.Add(dealloc);
+                            }
                         }
-
-                        int value;
-                        if (oldBytes.TryGetValue(delta.TracebackID, out value))
-                            delta.OldBytes = value;
-                        if (oldCounts.TryGetValue(delta.TracebackID, out value))
-                            delta.OldCount = value;
-
-                        delta.NewBytes = delta.OldBytes + delta.BytesDelta;
-                        delta.NewCount = delta.OldCount.GetValueOrDefault(0) +
-                            delta.CountDelta.GetValueOrDefault(0);
-
-                        if (delta.BytesDelta != 0)
-                            deltas.Add(delta);
                     }
                 });
 
