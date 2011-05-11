@@ -16,7 +16,7 @@ namespace HeapProfiler {
         public event EventHandler ItemValueGetterChanged;
 
         public const int VerticalMargin = 2;
-        public const int PixelsPerMinute = 120;
+        public const int PixelsPerHour = 2 * 60 * 60;
         public const int MarginWidth = 20;
         public const double GridLineRatio = 0.4;
         public const int MaxGridLines = 16;
@@ -159,12 +159,12 @@ namespace HeapProfiler {
         protected override void OnPaint (PaintEventArgs e) {
             int height = ClientSize.Height;
 
-            int pixelsPerMinute = (PixelsPerMinute * (_Scrollable ? ZoomRatio : 128)) / 128;
+            int pixelsPerHour = (PixelsPerHour * (_Scrollable ? ZoomRatio : 128)) / 128;
             long maxValue = MaximumThreshold;
             long minTicks = 0, maxTicks = 0;
             int contentWidth;
 
-            const long minuteInTicks = Squared.Util.Time.SecondInTicks * 60;
+            const long hourInTicks = Squared.Util.Time.SecondInTicks * 60 * 60;
 
             if (Items.Count > 0) {
                 maxValue = Math.Max(MaximumThreshold, (from s in Items select _ItemValueGetter(s)).Max());
@@ -176,12 +176,19 @@ namespace HeapProfiler {
             rescale:
                 _ContentWidth = contentWidth = (int)(
                     (maxTicks - minTicks)
-                    * pixelsPerMinute / minuteInTicks
+                    * pixelsPerHour / hourInTicks
                 ) + MarginWidth;
 
                 if (!_Scrollable && !rescaled) {
-                    _ZoomRatio = (int)Math.Floor(ClientSize.Width / (double)(contentWidth + 1) * 128.0);
-                    pixelsPerMinute = (PixelsPerMinute * _ZoomRatio) / 128;
+                    var ratio = (ClientSize.Width / (double)(contentWidth + 1)) * 128.0;
+                    _ZoomRatio = (int)Math.Floor(ratio);
+                    if (_ZoomRatio < 1)
+                        _ZoomRatio = 1;
+
+                    pixelsPerHour = (PixelsPerHour * _ZoomRatio) / 128;
+                    if (pixelsPerHour < 1)
+                        pixelsPerHour = 1;
+
                     rescaled = true;
 
                     goto rescale;
@@ -259,7 +266,7 @@ namespace HeapProfiler {
                 var itemXCoordinates = (from item in Items
                                         select
                                             (int)((item.Timestamp.Ticks - minTicks)
-                                            * pixelsPerMinute / minuteInTicks
+                                            * pixelsPerHour / hourInTicks
                                             ) - _ScrollOffset).ToArray();
                 var itemYCoordinates = (from item in Items
                                         select
@@ -338,7 +345,7 @@ namespace HeapProfiler {
                     using (var pen = new Pen(SystemColors.HighlightText)) {
                         pen.Width = 2.0f;
                         var item = Items[mouseIndex];
-                        var x = (int)((item.Timestamp.Ticks - minTicks) * pixelsPerMinute / minuteInTicks) - _ScrollOffset;
+                        var x = (int)((item.Timestamp.Ticks - minTicks) * pixelsPerHour / hourInTicks) - _ScrollOffset;
                         g.DrawLine(
                             pen, 
                             x, 0, x, height
@@ -373,15 +380,15 @@ namespace HeapProfiler {
                 return false;
             }
 
-            int pixelsPerMinute = PixelsPerMinute * ZoomRatio / 128;
+            int pixelsPerHour = PixelsPerHour * ZoomRatio / 128;
             long minTicks = 0;
-            const long minuteInTicks = Squared.Util.Time.SecondInTicks * 60;
+            const long hourInTicks = Squared.Util.Time.SecondInTicks * 60 * 60;
 
             if (Items.Count > 0)
                 minTicks = (from s in Items select s.Timestamp.Ticks).Min();
 
             time = new DateTime(
-                (absoluteX * minuteInTicks / pixelsPerMinute) + minTicks,
+                (absoluteX * hourInTicks / pixelsPerHour) + minTicks,
                 DateTimeKind.Local
             );
             return true;
