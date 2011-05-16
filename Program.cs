@@ -232,8 +232,13 @@ namespace HeapProfiler {
             );
         }
 
-        public static IEnumerator<object> RunProcess (ProcessStartInfo psi, ProcessPriorityClass? priority = null) {
-            var rtc = new RunToCompletion<RunProcessResult>(RunProcessWithResult(psi, priority));
+        public static IEnumerator<object> RunProcess (
+            ProcessStartInfo psi, ProcessPriorityClass? priority = null,
+            IEnumerable<KeyValuePair<string, string>> customEnvironment = null
+        ) {
+            var rtc = new RunToCompletion<RunProcessResult>(RunProcessWithResult(
+                psi, priority, customEnvironment
+            ));
             yield return rtc;
 
             if ((rtc.Result.StdOut ?? "").Trim().Length > 0)
@@ -245,12 +250,19 @@ namespace HeapProfiler {
                 throw new Exception(String.Format("Process exited with code {0}", rtc.Result.ExitCode));
         }
 
-        public static IEnumerator<object> RunProcessWithResult (ProcessStartInfo psi, ProcessPriorityClass? priority = null) {
+        public static IEnumerator<object> RunProcessWithResult (
+            ProcessStartInfo psi, ProcessPriorityClass? priority = null,
+            IEnumerable<KeyValuePair<string, string>> customEnvironment = null
+        ) {
             psi.UseShellExecute = false;
             psi.CreateNoWindow = true;
             psi.RedirectStandardOutput = true;
             psi.RedirectStandardError = true;
             psi.WindowStyle = ProcessWindowStyle.Hidden;
+
+            if (customEnvironment != null)
+                foreach (var kvp in customEnvironment)
+                    psi.EnvironmentVariables.Add(kvp.Key, kvp.Value);
 
             var fProcess = StartProcess(psi);
             yield return fProcess;

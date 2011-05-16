@@ -180,7 +180,7 @@ namespace HeapProfiler {
                 Tangles.Add(theTangle);
             }
 
-            yield return SymbolCache.CreateIndex(
+            yield return SymbolCache.CreateIndex<string>(
                 "ByFunction", 
                 IndexSymbolByFunction
             ).Bind(() => SymbolsByFunction);

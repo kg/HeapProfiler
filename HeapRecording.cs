@@ -31,6 +31,9 @@ using Squared.Task.IO;
 
 namespace HeapProfiler {
     public class HeapRecording : IDisposable {
+        public const string DefaultSymbolPath = @"%windir%\symbols";
+        public const string DefaultSymbolServers = @"http://msdl.microsoft.com/download/symbols";
+
         public const int SymbolResolveBatchSize = 1024;
 
         public static class SnapshotLoadState {
@@ -262,6 +265,9 @@ namespace HeapProfiler {
                         }
                     });
 
+                    IDictionary<string, string> environment = null;
+                    yield return GetEnvironment().Bind(() => environment);
+
                     var psi = new ProcessStartInfo(
                         Settings.UmdhPath, String.Format(
                             "\"{0}\" -f:\"{1}\"", infile, outfile
@@ -269,7 +275,9 @@ namespace HeapProfiler {
                     );
 
                     using (var rp = Scheduler.Start(
-                        Program.RunProcess(psi, ProcessPriorityClass.Idle), 
+                        Program.RunProcess(
+                            psi, ProcessPriorityClass.Idle, environment
+                        ), 
                         TaskExecutionPolicy.RunAsBackgroundTask
                     ))
                         yield return rp;
@@ -947,6 +955,33 @@ namespace HeapProfiler {
             return f;
         }
 
+        protected IEnumerator<object> GetEnvironment () {
+            object[] prefs = null;
+            yield return Program.Preferences.Select(
+                new[] { "SymbolPath", "SymbolServers" }
+            ).Bind(() => prefs);
+
+            var symbolPath = (prefs[0] as string) ?? "";
+            var symbolServers = (prefs[1] as string) ?? "";
+
+            if (String.IsNullOrWhiteSpace(symbolPath))
+                symbolPath = DefaultSymbolPath;
+            if (String.IsNullOrWhiteSpace(symbolServers))
+                symbolServers = DefaultSymbolServers;
+
+            var symbolSrv = String.Format(
+                "SRV*{0}*{1}",
+                Environment.ExpandEnvironmentVariables(symbolPath),
+                Environment.ExpandEnvironmentVariables(symbolServers)
+            );
+
+            var environment = new Dictionary<string, string> {
+                { "_NT_SYMBOL_PATH", symbolSrv }
+            };
+
+            yield return new Result(environment);
+        }
+
         protected IEnumerator<object> CaptureSnapshotTask (string targetFilename) {
             var now = DateTime.Now;
 
@@ -958,10 +993,13 @@ namespace HeapProfiler {
                 )
             );
 
+            IDictionary<string, string> environment = null;
+            yield return GetEnvironment().Bind(() => environment);
+
             TemporaryFiles.Add(targetFilename);
 
             using (Activities.AddItem("Capturing heap snapshot"))
-                yield return Program.RunProcess(psi);
+                yield return Program.RunProcess(psi, customEnvironment: environment);
 
             yield return Future.RunInThread(
                 () => File.AppendAllText(targetFilename, mem.GetFileText())
@@ -987,13 +1025,18 @@ namespace HeapProfiler {
             } else {
                 filename = Path.GetTempFileName();
 
+                IDictionary<string, string> environment = null;
+                yield return GetEnvironment().Bind(() => environment);
+
                 var psi = new ProcessStartInfo(
                     Settings.UmdhPath, String.Format(
                         "\"{0}\" \"{1}\" -f:\"{2}\"", file1, file2, filename
                     )
                 );
 
-                var rp = Scheduler.Start(Program.RunProcess(psi), TaskExecutionPolicy.RunAsBackgroundTask);
+                var rp = Scheduler.Start(Program.RunProcess(
+                    psi, customEnvironment: environment
+                ), TaskExecutionPolicy.RunAsBackgroundTask);
 
                 using (Activities.AddItem("Generating heap diff"))
                 using (rp)
