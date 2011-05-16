@@ -36,6 +36,8 @@ namespace HeapProfiler {
         public const int LayoutNestingLimit = 2;
         public const int MinimumTextWidth = 70;
         public const int MinimumTextHeight = 14;
+        public const float NestedBlockMargin = 8;
+        public const float BlockOutlineThickness = 2;
 
         public Func<TItem, long> GetItemValue;
         public Func<TItem, string> GetItemText;
@@ -307,8 +309,8 @@ namespace HeapProfiler {
                 return;
 
             Invalidate(new Rectangle(
-                (int)Math.Floor(rectangle.X - 1f), (int)Math.Floor(rectangle.Y - 1f),
-                (int)Math.Ceiling(rectangle.Width + 2f), (int)Math.Ceiling(rectangle.Height + 2f)
+                (int)Math.Floor(rectangle.X - BlockOutlineThickness), (int)Math.Floor(rectangle.Y - BlockOutlineThickness),
+                (int)Math.Ceiling(rectangle.Width + (BlockOutlineThickness * 2)), (int)Math.Ceiling(rectangle.Height + (BlockOutlineThickness * 2))
             ), false);
         }
 
@@ -348,12 +350,12 @@ namespace HeapProfiler {
                 RectangleF resultChildRect;
                 var childRect = item.Rectangle;
 
-                childRect.Inflate(-4f, -4f);
+                childRect.Inflate(-NestedBlockMargin, -NestedBlockMargin);
 
                 if ((item.Rectangle.Width > MinimumTextWidth) && (item.Rectangle.Height > MinimumTextHeight))
                     childRect.Height -= 19;
 
-                if ((childRect.Height <= 4f) || (childRect.Width <= 4f))
+                if ((childRect.Height <= NestedBlockMargin) || (childRect.Width <= NestedBlockMargin))
                     continue;
 
                 double childScaleRatio = (childRect.Width * childRect.Height) / GetItemValue(item.Item);
@@ -536,7 +538,7 @@ namespace HeapProfiler {
                         ))
                             g.FillRectangle(brush, item.Rectangle);
 
-                        using (var outlinePen = new Pen(outlineColor))
+                        using (var outlinePen = new Pen(outlineColor, BlockOutlineThickness))
                             g.DrawRectangle(
                                 outlinePen, 
                                 item.Rectangle.X, item.Rectangle.Y,
