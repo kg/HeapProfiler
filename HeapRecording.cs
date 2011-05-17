@@ -925,8 +925,11 @@ namespace HeapProfiler {
             var databasePath = Database.Storage.Folder;
             Database.Dispose();
 
-            if (DatabaseIsTemporary) 
-                Directory.Delete(databasePath, true);
+            if (DatabaseIsTemporary)
+                try {
+                    Directory.Delete(databasePath, true);
+                } catch {
+                }
 
             foreach (var fn in TemporaryFiles) {
                 try {

@@ -54,6 +54,12 @@
     <Compile Include="ActivityIndicator.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="ErrorListDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="ErrorListDialog.Designer.cs">
+      <DependentUpon>ErrorListDialog.cs</DependentUpon>
+    </Compile>
     <Compile Include="StackFiltersDialog.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -132,6 +138,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="DiffViewer.resx">
       <DependentUpon>DiffViewer.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="ErrorListDialog.resx">
+      <DependentUpon>ErrorListDialog.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="FilterControl.resx">
       <DependentUpon>FilterControl.cs</DependentUpon>

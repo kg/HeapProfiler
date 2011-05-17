@@ -514,7 +514,7 @@ namespace HeapProfiler {
 
                     if (tracebacks.ContainsKey(traceId)) {
                         info.Traceback = tracebacks[traceId];
-                        Console.WriteLine("Duplicate traceback for id {0}!", traceId);
+                        Program.ErrorList.ReportError("Duplicate traceback for id {0}!", traceId);
                     } else {
                         var frameArray = ImmutableArrayPool<TracebackFrame>.Allocate(frames.Count);
                         frames.CopyTo(frameArray.Array, frameArray.Offset);
@@ -538,7 +538,7 @@ namespace HeapProfiler {
                 } else if (line.StartsWith("         ") && (line.EndsWith(".pdb"))) {
                     // Symbol path for a module, ignore it
                 } else {
-                    Console.WriteLine("Unrecognized diff content: {0}", line.ToString());
+                    Program.ErrorList.ReportError("Unrecognized diff content: {0}", line.ToString());
                 }
             }
 

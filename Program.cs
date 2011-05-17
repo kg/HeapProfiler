@@ -31,6 +31,7 @@ namespace HeapProfiler {
     static class Program {
         public static TaskScheduler Scheduler;
         public static Tangle<object> Preferences;
+        public static ErrorListDialog ErrorList;
 
         /// <summary>
         /// The main entry point for the application.
@@ -40,7 +41,8 @@ namespace HeapProfiler {
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
 
-            using (Scheduler = new TaskScheduler(JobQueue.WindowsMessageBased)) {
+            using (Scheduler = new TaskScheduler(JobQueue.WindowsMessageBased))
+            using (ErrorList = new ErrorListDialog()) {
                 Scheduler.ErrorHandler = OnTaskError;
 
                 Preferences = new Tangle<object>(
@@ -242,9 +244,9 @@ namespace HeapProfiler {
             yield return rtc;
 
             if ((rtc.Result.StdOut ?? "").Trim().Length > 0)
-                Console.WriteLine("{0} stdout:\n{1}", Path.GetFileNameWithoutExtension(psi.FileName), rtc.Result.StdOut);
+                ErrorList.ReportError(rtc.Result.StdOut);
             if ((rtc.Result.StdErr ?? "").Trim().Length > 0)
-                Console.WriteLine("{0} stderr:\n{1}", Path.GetFileNameWithoutExtension(psi.FileName), rtc.Result.StdErr);
+                ErrorList.ReportError(rtc.Result.StdErr);
 
             if (rtc.Result.ExitCode != 0)
                 throw new Exception(String.Format("Process exited with code {0}", rtc.Result.ExitCode));

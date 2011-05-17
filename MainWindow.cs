@@ -60,6 +60,13 @@ namespace HeapProfiler {
             SnapshotTimeline.ItemValueFormatter = FormatSizeBytes;
 
             LoadPersistedValues();
+
+            Program.ErrorList.ErrorReported += UpdateErrorCount;
+            Program.ErrorList.ListCleared += UpdateErrorCount;
+        }
+
+        protected void UpdateErrorCount (object sender, EventArgs e) {
+            ErrorDialogMenu.Text = String.Format("&Errors ({0})", Program.ErrorList.Count);
         }
 
         protected string ChooseName (IBoundMember bm) {
@@ -938,6 +945,11 @@ namespace HeapProfiler {
 
                 }
             }
+        }
+
+        private void ErrorDialogMenu_Click (object sender, EventArgs e) {
+            if (!Program.ErrorList.Visible)
+                Program.ErrorList.Show(this);
         }
     }
 }
