@@ -964,19 +964,27 @@ namespace HeapProfiler {
                 new[] { "SymbolPath", "SymbolServers" }
             ).Bind(() => prefs);
 
+            string symbolSrv = null;
             var symbolPath = (prefs[0] as string) ?? "";
             var symbolServers = (prefs[1] as string) ?? "";
 
-            if (String.IsNullOrWhiteSpace(symbolPath))
-                symbolPath = DefaultSymbolPath;
-            if (String.IsNullOrWhiteSpace(symbolServers))
-                symbolServers = DefaultSymbolServers;
+            // If the user has not specified a symbol path or servers in preferences, and the _NT_SYMBOL_PATH environment
+            //  variable is already set, let's use it.
+            if (String.IsNullOrWhiteSpace(symbolPath) && String.IsNullOrWhiteSpace(symbolServers))
+                symbolSrv = Environment.GetEnvironmentVariable("_NT_SYMBOL_PATH") ?? "";
 
-            var symbolSrv = String.Format(
-                "SRV*{0}*{1}",
-                Environment.ExpandEnvironmentVariables(symbolPath),
-                Environment.ExpandEnvironmentVariables(symbolServers)
-            );
+            if (String.IsNullOrWhiteSpace(symbolSrv)) {
+                if (String.IsNullOrWhiteSpace(symbolPath))
+                    symbolPath = DefaultSymbolPath;
+                if (String.IsNullOrWhiteSpace(symbolServers))
+                    symbolServers = DefaultSymbolServers;
+
+                symbolSrv = String.Format(
+                    "SRV*{0}*{1}",
+                    Environment.ExpandEnvironmentVariables(symbolPath),
+                    Environment.ExpandEnvironmentVariables(symbolServers)
+                );
+            }
 
             var environment = new Dictionary<string, string> {
                 { "_NT_SYMBOL_PATH", symbolSrv }

@@ -264,7 +264,7 @@ namespace HeapProfiler {
 
             if (customEnvironment != null)
                 foreach (var kvp in customEnvironment)
-                    psi.EnvironmentVariables.Add(kvp.Key, kvp.Value);
+                    psi.EnvironmentVariables[kvp.Key] = kvp.Value;
 
             var fProcess = StartProcess(psi);
             yield return fProcess;
