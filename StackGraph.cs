@@ -17,6 +17,16 @@ namespace HeapProfiler {
         SourceFolder
     }
 
+    public struct StackGraphFilter {
+        public readonly GraphKeyType KeyType;
+
+        public readonly string Filter;
+
+        public bool Match (ref StackGraphKey key) {
+            return false;
+        }
+    }
+
     public struct StackGraphKey {
         public readonly GraphKeyType KeyType;
 

@@ -128,8 +128,6 @@ namespace HeapProfiler {
 
             PendingFilter = CurrentFilter = null;
             CurrentFilterData = null;
-
-            HeapFilter.Filter = null;
         }
 
         private void LaunchProcess_Click (object sender, EventArgs e) {
@@ -389,11 +387,6 @@ namespace HeapProfiler {
         protected void SubscribeToEvents (HeapRecording instance) {
             Instance.StatusChanged += (s, _) => RefreshStatus();
             Instance.SnapshotsChanged += (s, _) => RefreshSnapshots();
-            Instance.SymbolsChanged += (s, _) => {
-                Scheduler.Start(
-                    RefreshFunctionNames(Instance), TaskExecutionPolicy.RunAsBackgroundTask
-                );
-            };
         }
 
         public void OpenRecording (string filename) {
@@ -411,10 +404,6 @@ namespace HeapProfiler {
 
             RefreshStatus();
             RefreshSnapshots();
-
-            Scheduler.Start(
-                RefreshFunctionNames(Instance), TaskExecutionPolicy.RunAsBackgroundTask
-            );
         }
 
         public void OpenSnapshots (IEnumerable<string> filenames) {
@@ -758,29 +747,6 @@ namespace HeapProfiler {
                 e.Effect = DragDropEffects.Copy;
         }
 
-        protected IEnumerator<object> RefreshFunctionNames (HeapRecording instance) {
-            var sleep = new Sleep(0.05);
-            // This sucks :(
-            while (instance.Database.SymbolsByFunction == null)
-                yield return sleep;
-
-            var result = new HashSet<string>();
-
-            var keys = instance.Database.SymbolsByFunction.GetAllKeys();
-            using (keys)
-                yield return keys;
-
-            foreach (var key in keys.Result) {
-                var text = key.Value as string;
-
-                if (text != null)
-                    result.Add(text);
-            }
-
-            KnownFunctionNames = result;
-            HeapFilter.AutoCompleteItems = result;
-        }
-
         protected IEnumerator<object> FilterHeapData (HeapRecording instance, string filter) {
             var result = new Dictionary<HeapSnapshotInfo, FilteredHeapSnapshotInfo>();
 
@@ -898,30 +864,6 @@ namespace HeapProfiler {
             }
 
             args.SetValid(false);
-        }
-
-        private void HeapFilter_FilterChanged (object sender, EventArgs e) {
-            if (HeapFilter.Filter != CurrentFilter) {
-                if (PendingFilterFuture != null) {
-                    if (HeapFilter.Filter == PendingFilter)
-                        return;
-                    else
-                        PendingFilterFuture.Dispose();
-                }
-
-                PendingFilter = HeapFilter.Filter;
-                PendingFilterFuture = Scheduler.Start(
-                    FilterHeapData(Instance, HeapFilter.Filter), 
-                    TaskExecutionPolicy.RunAsBackgroundTask
-                );
-            } else {
-                PendingFilter = null;
-
-                if (PendingFilterFuture != null) {
-                    PendingFilterFuture.Dispose();
-                    PendingFilterFuture = null;
-                }
-            }
         }
 
         protected IEnumerator<object> UpdateStats () {

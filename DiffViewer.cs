@@ -71,7 +71,7 @@ namespace HeapProfiler {
                 ViewHistogramByNamespaceMenu.Enabled = ViewTreemapMenu.Enabled = true;
             } else {
                 Timeline.Visible = false;
-                MainSplit.Height += Timeline.Bottom - MainSplit.Bottom;
+                ViewPanel.Height += Timeline.Bottom - ViewPanel.Bottom;
                 ViewHistogramByModuleMenu.Enabled = ViewHistogramByFunctionMenu.Enabled = false;
                 ViewHistogramBySourceFolderMenu.Enabled = ViewHistogramBySourceFileMenu.Enabled = false;
                 ViewHistogramByNamespaceMenu.Enabled = ViewTreemapMenu.Enabled = false;
@@ -137,7 +137,7 @@ namespace HeapProfiler {
 
             MainMenuStrip.Enabled = false;
             LoadingPanel.Visible = true;
-            MainSplit.Visible = false;
+            ViewPanel.Visible = false;
             UseWaitCursor = true;
 
             var s1 = Instance.Snapshots[range.First];
@@ -171,12 +171,10 @@ namespace HeapProfiler {
             FilteredDeltas = null;
             StackGraph = null;
 
-            TracebackFilter.AutoCompleteItems = FunctionNames;
+            TracebackFilter.AutoCompleteItems = FunctionNames.Concat(Modules);
 
             Text = "Diff Viewer - " + filename;
             Filename = filename;
-
-            RefreshModules();
 
             if (PendingRefresh != null)
                 PendingRefresh.Dispose();
@@ -184,7 +182,7 @@ namespace HeapProfiler {
 
             MainMenuStrip.Enabled = true;
             LoadingPanel.Visible = false;
-            MainSplit.Visible = true;
+            ViewPanel.Visible = true;
             Timeline.Enabled = true;
             UseWaitCursor = false;
         }
@@ -221,17 +219,6 @@ namespace HeapProfiler {
             DiffLoaded(rtc.Result, filename);
         }
 
-        public void RefreshModules () {
-            if (Updating)
-                return;
-
-            SetBusy(true);
-
-            ModuleList.Items = Modules.Keys;
-
-            SetBusy(false);
-        }
-
         public IEnumerator<object> RefreshGraph () {
             try {
                 if (Updating)
@@ -256,11 +243,8 @@ namespace HeapProfiler {
                     fTotalAllocs = new Future<int>(),
                     fMax = new Future<int>();
                 var newListItems = new List<DeltaInfo>();
-                var moduleList = ModuleList;
                 var deltas = Deltas;
                 var functionFilter = FunctionFilter;
-
-                bool useModuleFilter = moduleList.SelectedItems.Count > 0;
 
                 yield return Future.RunInThread(() => {
                     int max = -int.MaxValue;
@@ -277,27 +261,21 @@ namespace HeapProfiler {
                                 }
                             }
 
+                            foreach (var moduleName in delta.Traceback.Modules) {
+                                if (functionFilter.IsMatch(moduleName)) {
+                                    matched = true;
+                                    break;
+                                }
+                            }
+
                             if (!matched)
                                 continue;
                         }
 
-                        bool filteredOut = false;
-                        if (useModuleFilter) {
-                            filteredOut = true;
-                            foreach (var module in delta.Traceback.Modules) {
-                                filteredOut &= !moduleList.SelectedItems.Contains(module);
-
-                                if (!filteredOut)
-                                    break;
-                            }
-                        }
-
-                        if (!filteredOut) {
-                            newListItems.Add(delta);
-                            totalBytes += delta.BytesDelta;
-                            totalAllocs += delta.CountDelta.GetValueOrDefault(0);
-                            max = Math.Max(max, delta.BytesDelta);
-                        }
+                        newListItems.Add(delta);
+                        totalBytes += delta.BytesDelta;
+                        totalAllocs += delta.CountDelta.GetValueOrDefault(0);
+                        max = Math.Max(max, delta.BytesDelta);
                     }
 
                     max = Math.Max(max, Math.Abs(totalBytes));
@@ -380,14 +358,9 @@ namespace HeapProfiler {
                 return;
             }
 
-            foreach (var name in FunctionNames) {
-                if (regex.IsMatch(name)) {
-                    e.SetValid(true);
-                    return;
-                }
-            }
-
-            e.SetValid(false);
+            e.SetValid(
+                FunctionNames.Any(regex.IsMatch) || Modules.Any(regex.IsMatch)
+            );
         }
 
         private void TracebackFilter_FilterChanged (object sender, EventArgs e) {
