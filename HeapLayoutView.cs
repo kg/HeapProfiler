@@ -32,7 +32,6 @@ namespace HeapProfiler {
         public HeapRecording Instance = null;
         public HeapSnapshot Snapshot = null;
 
-        protected const int BytesPerPixel = 1;
         protected const int RowHeight = 12;
 
         protected HeapSnapshot.Heap TooltipHeap;
@@ -41,7 +40,7 @@ namespace HeapProfiler {
         protected CustomTooltip Tooltip = null;
         protected ScratchBuffer Scratch = new ScratchBuffer();
         protected ScrollBar ScrollBar = null;
-        protected Button NextAllocationButton = null;
+        protected HeapLayoutViewSettings SettingsPanel = null;
 
         protected int _ScrollOffset = 0;
 
@@ -53,6 +52,7 @@ namespace HeapProfiler {
                 true
             );
 
+            AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
             BackColor = SystemColors.Window;
             ForeColor = SystemColors.WindowText;
 
@@ -61,23 +61,34 @@ namespace HeapProfiler {
                 LargeChange = 8,
                 TabStop = false
             };
-
-            NextAllocationButton = new Button {
-                Text = ">",
-                TabStop = false,
-                UseVisualStyleBackColor = true
-            };
-            NextAllocationButton.Click += NextAllocationButton_Click;
-
             ScrollBar.Scroll += ScrollBar_Scroll;
+
+            SettingsPanel = new HeapLayoutViewSettings {
+                TabStop = false
+            };
+
+            SettingsPanel.FindNextAllocation += FindNextAllocation;
+            SettingsPanel.BytesPerPixelChanged += new EventHandler(SettingsPanel_BytesPerPixelChanged);
+
             OnResize(EventArgs.Empty);
 
             Controls.Add(ScrollBar);
-            Controls.Add(NextAllocationButton);
+            Controls.Add(SettingsPanel);
+        }
+
+        void SettingsPanel_BytesPerPixelChanged (object sender, EventArgs e) {
+            Invalidate();
+        }
+
+        protected override void OnLoad (EventArgs e) {
+            base.OnLoad(e);
+
+            OnResize(EventArgs.Empty);
         }
 
         protected override void Dispose (bool disposing) {
             Scratch.Dispose();
+            SettingsPanel.Dispose();
 
             base.Dispose(disposing);
         }
@@ -86,12 +97,12 @@ namespace HeapProfiler {
             ScrollOffset = e.NewValue;
         }
 
-        void NextAllocationButton_Click (object sender, EventArgs e) {
+        void FindNextAllocation (object sender, EventArgs e) {
             var current = (_ScrollOffset * RowHeight);
             var targetRow = _ScrollOffset + (ClientSize.Height / RowHeight);
             var target = (_ScrollOffset * RowHeight) + ClientSize.Height;
 
-            var width = ClientSize.Width - ScrollBar.Width;
+            var width = ViewWidth;
             var bytesPerRow = BytesPerRow;
 
             foreach (var vh in WalkHeaps(Snapshot, 0, bytesPerRow, width)) {
@@ -118,7 +129,7 @@ namespace HeapProfiler {
                 return false;
             }
 
-            var width = ClientSize.Width - ScrollBar.Width;
+            var width = ViewWidth;
             var bytesPerRow = BytesPerRow;
 
             foreach (var vh in WalkHeaps(Snapshot, _ScrollOffset, bytesPerRow, width)) {
@@ -145,14 +156,17 @@ namespace HeapProfiler {
         }
 
         protected override void OnResize (EventArgs e) {
-            var preferredSize = ScrollBar.GetPreferredSize(ClientSize);
+            var panelSize = new Size(150, ClientSize.Height);
+
+            var scrollbarSize = ScrollBar.GetPreferredSize(ClientSize);
             ScrollBar.SetBounds(
-                ClientSize.Width - preferredSize.Width, 0, 
-                preferredSize.Width, ClientSize.Height - preferredSize.Width
+                ClientSize.Width - scrollbarSize.Width - panelSize.Width, 0, 
+                scrollbarSize.Width, ClientSize.Height
             );
 
-            NextAllocationButton.SetBounds(
-                ScrollBar.Left, ScrollBar.Height, ScrollBar.Width, ScrollBar.Width
+            SettingsPanel.SetBounds(
+                ClientSize.Width - panelSize.Width, 0,
+                panelSize.Width, ClientSize.Height
             );
 
             base.OnResize(e);
@@ -226,10 +240,12 @@ namespace HeapProfiler {
             }
         }
 
-        protected static IEnumerable<VisibleHeapAllocation> WalkHeapAllocations (
+        protected IEnumerable<VisibleHeapAllocation> WalkHeapAllocations (
             HeapSnapshot.Heap heap, int bytesPerRow, 
             int rowY, int contentWidth
         ) {
+            var bpp = SettingsPanel.BytesPerPixel;
+
             for (int i = 0, c = heap.Allocations.Count; i < c; i++) {
                 var allocation = heap.Allocations[i];
 
@@ -238,8 +254,8 @@ namespace HeapProfiler {
 
                 int y1 = (rowY + (pos / bytesPerRow)),
                     y2 = (rowY + (nextPos / bytesPerRow));
-                float x1 = (pos % bytesPerRow) / (float)BytesPerPixel,
-                    x2 = (nextPos % bytesPerRow) / (float)BytesPerPixel;
+                float x1 = (pos % bytesPerRow) / (float)bpp,
+                    x2 = (nextPos % bytesPerRow) / (float)bpp;
 
                 for (var barY = y1; barY <= y2; barY += 1) {
                     var barX = (barY == y1) ? x1 : 0;
@@ -257,13 +273,19 @@ namespace HeapProfiler {
             }
         }
 
+        protected int ViewWidth {
+            get {
+                return ClientSize.Width - (ScrollBar.Width + SettingsPanel.Width);
+            }
+        }
+
         protected override void OnPaint (PaintEventArgs e) {
             if (Snapshot == null) {
                 e.Graphics.Clear(BackColor);
                 return;
             }
 
-            var width = ClientSize.Width - ScrollBar.Width;
+            var width = ViewWidth;
             var bytesPerRow = BytesPerRow;
 
             var contentHeight = ContentHeight;
@@ -319,7 +341,7 @@ namespace HeapProfiler {
                     e.Graphics.FillRectangle(
                         backgroundBrush, new Rectangle(
                             0, lastContentY, 
-                            ClientSize.Width, ClientSize.Height - lastContentY
+                            ViewWidth, ClientSize.Height - lastContentY
                         )
                     );
             }
@@ -532,7 +554,7 @@ namespace HeapProfiler {
         [Browsable(false)]
         public int BytesPerRow {
             get {
-                return (ClientSize.Width - ScrollBar.Width) * BytesPerPixel;
+                return ViewWidth * SettingsPanel.BytesPerPixel;
             }
         }
 
@@ -546,7 +568,7 @@ namespace HeapProfiler {
                     bytes += heap.Info.EstimatedSize;
                 }
 
-                return (int)((bytes / BytesPerRow) + Snapshot.Heaps.Count);
+                return (int)((bytes / BytesPerRow) + Snapshot.Heaps.Count + 1);
             }
         }
 

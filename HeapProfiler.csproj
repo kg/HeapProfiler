@@ -60,6 +60,12 @@
     <Compile Include="ErrorListDialog.Designer.cs">
       <DependentUpon>ErrorListDialog.cs</DependentUpon>
     </Compile>
+    <Compile Include="HeapLayoutViewSettings.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="HeapLayoutViewSettings.Designer.cs">
+      <DependentUpon>HeapLayoutViewSettings.cs</DependentUpon>
+    </Compile>
     <Compile Include="StackFiltersDialog.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -138,6 +144,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="FilterControl.resx">
       <DependentUpon>FilterControl.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="HeapLayoutViewSettings.resx">
+      <DependentUpon>HeapLayoutViewSettings.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="HeapViewer.resx">
       <DependentUpon>HeapViewer.cs</DependentUpon>
