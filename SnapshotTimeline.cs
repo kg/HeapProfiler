@@ -480,6 +480,9 @@ namespace HeapProfiler {
         }
 
         protected void SetToolTip (int index) {
+            if (index >= Items.Count)
+                return;
+
             var item = Items[index];
             var value = _ItemValueGetter(item);
             var formattedValue = _ItemValueFormatter(value);
