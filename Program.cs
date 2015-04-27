@@ -13,7 +13,7 @@ The Original Code is Windows Heap Profiler Frontend.
 
 The Initial Developer of the Original Code is Mozilla Corporation.
 
-Original Author: Kevin Gadd (kevin.gadd@gmail.com)
+Original Author: K. Gadd (kg@luminance.org)
 */
 
 using System;
@@ -77,6 +77,8 @@ namespace HeapProfiler {
 
         public static IEnumerator<object> MainTask () {
             while (!Settings.DebuggingToolsInstalled) {
+                // TODO: Add support for using the x64 debugging tools
+
                 var defaultPath = Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
                     @"Microsoft SDKs\Windows\v7.1"
@@ -112,7 +114,7 @@ namespace HeapProfiler {
                 } else {
                     var result = MessageBox.Show("Windows SDK 7.1 is not installed. Would you like to download the SDK?", "Error", MessageBoxButtons.YesNo);
                     if (result == DialogResult.Yes)
-                        Process.Start("http://www.microsoft.com/downloads/en/details.aspx?FamilyID=6b6c21d2-2006-4afa-9702-529fa782d63b&displaylang=en");
+                        Process.Start("https://www.microsoft.com/en-us/download/details.aspx?id=8279");
 
                     Application.Exit();
                     yield break;

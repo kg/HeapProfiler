@@ -11,9 +11,9 @@ under the License.
 
 The Original Code is Fury².
 
-The Initial Developer of the Original Code is Kevin Gadd.
+The Initial Developer of the Original Code is K. Gadd.
 
-Original Author: Kevin Gadd (kevin.gadd@gmail.com)
+Original Author: K. Gadd (kg@luminance.org)
 */
 
 using System;

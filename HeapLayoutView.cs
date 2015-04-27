@@ -13,7 +13,7 @@ The Original Code is Windows Heap Profiler Frontend.
 
 The Initial Developer of the Original Code is Mozilla Corporation.
 
-Original Author: Kevin Gadd (kevin.gadd@gmail.com)
+Original Author: K. Gadd (kg@luminance.org)
 */
 
 using System;
